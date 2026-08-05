@@ -1,2 +1,21 @@
-#body 
-1f1f1f
+html{
+    background-color:#1f1f1f ;   
+    color: white;
+}
+body {
+    background-color: #1f1f1f;
+    margin: 0;
+}
+
+.navbar {
+    display: flex ;
+    position: sticky;
+    align-items: center;
+    justify-content: space-between;
+    
+    background-color: black;
+}
+.nav-icons {
+    display: flex ;
+    gap: 20px;
+}
