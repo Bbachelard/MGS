@@ -1,8 +1,58 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Home</title>
-  </head>
-  <body>
-  </body>
-</html>
+    <html lang="fr">
+        <HEAD>  
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>My gamers stats</title>
+            <link rel="stylesheet" href="../css/stylesheet.css">
+            <link rel="stylesheet" href="../css/styleAceuil.css">
+        </HEAD>
+        <body>
+
+            <header class="navbar">
+                <div class="logo">logo</div>
+                <nav class="nav-icons">
+                    <div class="nav-box"><img src="../image/Steam_icon.webp" width="50"><img src="../image/point-vert.avif" width="50"></div>
+                    <div class="nav-box"><img src="../image/riot-icon.png" width="50"></div>
+                    <div class="nav-box"><img src="../image/Epic_icon.webp" width="50"></div>
+                    
+                </nav>
+                <div class="login">se connecter</div>
+            </header>
+            
+            <main>
+                
+                <div class="titre">
+                    <h1>Bienvenue dur My Gamers Stats</h1>
+                </div>
+                <form action="" method="get" class="form-example">
+                        
+                        <div class="platform-card">
+                        <div class="platform-select" id="platformSelect">
+                            <div class="platform-toggle" id="platformToggle">
+                                <span class="label"></span>
+                                <span class="value" id="platformValue"><span class="arrow">▾</span></span>
+                            </div>
+                            <ul class="platform-menu" id="platformMenu">
+                                <li data-value="Steam">Steam</li>
+                                <li data-value="Riot">Riot</li>
+                                <li data-value="Epic Games">Epic Games</li>
+                            </ul>
+                        </div>
+
+                        <div class="divider"></div>
+                       
+                        <div class="pseudo">
+                            <span class="label"></span>
+                            <input type="text" id="pseudoField" class="pseudo-field" placeholder="Entrez votre pseudo (ID)">
+                        </div>
+                        
+                </form>
+            </main>
+
+            
+
+            <script src="../js/acceuil.js"></script>
+        </body>
+
+    </html>
