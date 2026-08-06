@@ -24,21 +24,30 @@ body {
 .logo{
     display: flex;
     margin-top: 4px;
-    margin-left: 10px;
+    margin-left: 20px;
 }
 
-.login a:link,
-.login a:visited {
+.login a {
+    margin-right: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 120px;
+    height: 42px;
+
     color: white;
+    background: #1f1f1f;
+    border: 1px solid #555;
+    border-radius: 8px;
+
     text-decoration: none;
+    font-weight: bold;
+
+    transition: 0.2s;
 }
 
-.login {
-    height: 50px;
-    width: 100px;
-    align-content: center;
-    text-align: center;
-    background-color: #1f1f1f;
-    margin-right: 10px;
-    border-radius: 5px;
+.login a:hover {
+    background: #2c2c2c;
+    border-color: white;
 }
