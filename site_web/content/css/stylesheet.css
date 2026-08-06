@@ -20,3 +20,25 @@ body {
     margin-top: 4px;
     gap: 20px;
 }
+
+.logo{
+    display: flex;
+    margin-top: 4px;
+    margin-left: 10px;
+}
+
+.login a:link,
+.login a:visited {
+    color: white;
+    text-decoration: none;
+}
+
+.login {
+    height: 50px;
+    width: 100px;
+    align-content: center;
+    text-align: center;
+    background-color: #1f1f1f;
+    margin-right: 10px;
+    border-radius: 5px;
+}
