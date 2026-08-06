@@ -37,7 +37,6 @@ switch ($platform) {
 
 function getSteamStats(string $pseudo): array
 {
-    echo __DIR__ . '/../../config.php';
     $config = require '/home/louisDadmin/apache/config.php';
     $apiKey = $config['STEAM_API_KEY'];
  
@@ -85,7 +84,6 @@ function getSteamStats(string $pseudo): array
         return ['error' => 'Profil introuvable ou privé.'];
     }
     
-    echo("fin reussi");
     return [
         'platform'   => 'Steam',
         'pseudo'     => $player['personaname'] ?? $pseudo,
@@ -93,6 +91,10 @@ function getSteamStats(string $pseudo): array
         'profileUrl' => $player['profileurl'] ?? '',
         'statut'     => ($player['personastate'] ?? 0) > 0 ? 'En ligne' : 'Hors ligne',
         'steamid'    => $steamId,
+       /* 'lastco' => $player['lastlogoff'] ?? '',
+       'datecree' => $player['timecreated'] ?? '',
+
+       */
     ];
 }
  
