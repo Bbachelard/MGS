@@ -13,36 +13,21 @@
 }
  
 .stats-result {
-    margin-top: 30px;
-    margin-left: 30%;
-    max-width: 580px;
+    margin-top: 30px auto 0;
+    max-width: 700px;
+    text-align: center;
 }
  
 .stats-card {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 16px;
+    text-align: center;
+    gap: 12px;
     background-color: #2a2a33;
     border-radius: 10px;
-    padding: 16px 20px;
+    padding: 20px;
     color: #fff;
-}
- 
-.stats-card img {
-    border-radius: 8px;
-}
- 
-.stats-card a {
-    color: #4b9fff;
-}
- 
-.stats-error {
-    color: #ff6b6b;
-    margin-left: 30%;
-}
- 
-.stats-loading {
-    color: #999;
-    margin-left: 30%;
+    margin: 0 auto;
 }
  
