@@ -17,5 +17,6 @@ body {
 }
 .nav-icons {
     display: flex ;
+    margin-top: 4px;
     gap: 20px;
 }
