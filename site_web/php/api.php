@@ -83,18 +83,67 @@ function getSteamStats(string $pseudo): array
         http_response_code(404);
         return ['error' => 'Profil introuvable ou privé.'];
     }
+
+    // Jeux possédés
+    $ownedGamesUrl = 'https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/'
+        . '?key=' . urlencode($apiKey)
+        . '&steamid=' . urlencode($steamId)
+        . '&include_appinfo=1'
+        . '&include_played_free_games=1';
+    $ownedGamesData = json_decode(@file_get_contents($ownedGamesUrl), true);
+    $ownedGames = $ownedGamesData['response']['games'] ?? [];
+
+    // Jeux joués récemment
+    $recentUrl = 'https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1/'
+        . '?key=' . urlencode($apiKey)
+        . '&steamid=' . urlencode($steamId);
+    $recentData = json_decode(@file_get_contents($recentUrl), true);
+    $recentGames = $recentData['response']['games'] ?? [];
+
+    // Niveau Steam
+    $levelUrl = 'https://api.steampowered.com/IPlayerService/GetSteamLevel/v1/'
+        . '?key=' . urlencode($apiKey)
+        . '&steamid=' . urlencode($steamId);
+    $levelData = json_decode(@file_get_contents($levelUrl), true);
+    $steamLevel = $levelData['response']['player_level'] ?? null;
+
+    // Badges
+    $badgesUrl = 'https://api.steampowered.com/IPlayerService/GetBadges/v1/'
+        . '?key=' . urlencode($apiKey)
+        . '&steamid=' . urlencode($steamId);
+    $badgesData = json_decode(@file_get_contents($badgesUrl), true);
+    $badges = $badgesData['response']['badges'] ?? [];
+    $xp = $badgesData['response']['player_xp'] ?? null;
+
+    // Traduction personastate en texte lisible
+    $etats = [
+        0 => 'Hors ligne', 1 => 'En ligne', 2 => 'Occupé',
+        3 => 'Absent', 4 => 'Endormi', 5 => 'Cherche à échanger', 6 => 'Cherche à jouer'
+    ];
     
     return [
-        'platform'   => 'Steam',
-        'pseudo'     => $player['personaname'] ?? $pseudo,
-        'avatar'     => $player['avatarfull'] ?? '',
-        'profileUrl' => $player['profileurl'] ?? '',
-        'statut'     => ($player['personastate'] ?? 0) > 0 ? 'En ligne' : 'Hors ligne',
-        'steamid'    => $steamId,
-       /* 'lastco' => $player['lastlogoff'] ?? '',
-       'datecree' => $player['timecreated'] ?? '',
-
-       */
+        'platform'                 => 'Steam',
+        'pseudo'                   => $player['personaname'] ?? $pseudo,
+        'avatar'                   => $player['avatarfull'] ?? '',
+        'avatarmedium'             => $player['avatarmedium'] ?? '',
+        'profileUrl'               => $player['profileurl'] ?? '',
+        'statut'                   => $etats[$player['personastate'] ?? 0] ?? 'Inconnu',
+        'communityvisibilitystate' => ($player['communityvisibilitystate'] ?? 1) === 3 ? 'Public' : 'Privé',
+        'lastlogoff'               => $player['lastlogoff'] ?? null,
+        'timecreated'              => $player['timecreated'] ?? null,
+        'realname'                 => $player['realname'] ?? '',
+        'loccountrycode'           => $player['loccountrycode'] ?? '',
+        'locstatecode'             => $player['locstatecode'] ?? '',
+        'gameextrainfo'            => $player['gameextrainfo'] ?? null,
+        'gameid'                   => $player['gameid'] ?? null,
+        'primaryclanid'            => $player['primaryclanid'] ?? '',
+        'steamid'                  => $steamId,
+        'steamLevel'               => $steamLevel,
+        'xp'                       => $xp,
+        'badges'                   => $badges,
+        'ownedGamesCount'          => count($ownedGames),
+        'ownedGames'               => $ownedGames,
+        'recentGames'              => $recentGames,
     ];
 }
  

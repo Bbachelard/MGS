@@ -62,13 +62,29 @@ document.addEventListener("DOMContentLoaded", () => {
     });
  
     function afficherResultat(data) {
+        const dateCreation = data.timecreated ? new Date(data.timecreated * 1000).toLocaleDateString('fr-FR') : 'Inconnue';
+        const derniereConnexion = data.lastlogoff ? new Date(data.lastlogoff * 1000).toLocaleString('fr-FR') : 'Inconnue';
+        const enJeu = data.gameextrainfo ? `<p>🎮 En train de jouer à : <strong>${data.gameextrainfo}</strong></p>` : '';
+
+        const jeuxRecents = (data.recentGames || []).slice(0, 5).map(g =>
+            `<li>${g.name} — ${(g.playtime_2weeks / 60).toFixed(1)}h (2 sem.)</li>`
+        ).join('');
+
         resultBox.innerHTML = `
             <div class="stats-card">
                 <img src="${data.avatar}" alt="avatar" width="64">
                 <div>
-                    <h3>${data.pseudo}</h3>
+                    <h3>${data.pseudo} ${data.realname ? `(${data.realname})` : ''}</h3>
                     <p>Plateforme : ${data.platform}</p>
                     <p>Statut : ${data.statut}</p>
+                    ${enJeu}
+                    <p>Profil : ${data.communityvisibilitystate}</p>
+                    <p>Niveau Steam : ${data.steamLevel ?? '-'} | XP : ${data.xp ?? '-'}</p>
+                    <p>Pays : ${data.loccountrycode || '-'}</p>
+                    <p>Membre depuis : ${dateCreation}</p>
+                    <p>Dernière connexion : ${derniereConnexion}</p>
+                    <p>Jeux possédés : ${data.ownedGamesCount ?? 0}</p>
+                    ${jeuxRecents ? `<p>Récemment joués :</p><ul>${jeuxRecents}</ul>` : ''}
                     <a href="${data.profileUrl}" target="_blank">Voir le profil</a>
                 </div>
             </div>
