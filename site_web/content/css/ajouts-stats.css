@@ -28,6 +28,7 @@
  
 .stats-card {
     display: inline-flex;
+    align-self: stretch;
     flex-direction: column;
     align-items: center;
     text-align: center;
