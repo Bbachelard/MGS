@@ -15,17 +15,18 @@
 .stats-result {
     margin-top: 30px;
     margin-left: 30%;
-    max-width: 580px;
+    max-width: 700px;
 }
  
 .stats-card {
     display: flex;
-    align-items: center;
     gap: 16px;
     background-color: #2a2a33;
     border-radius: 10px;
     padding: 16px 20px;
     color: #fff;
+    align-items: flex-start;
+    flex-wrap: wrap;
 }
  
 .stats-card img {
@@ -46,3 +47,35 @@
     margin-left: 30%;
 }
  
+.stats-card h3 {
+    margin: 0 0 8px 0;
+}
+
+.stats-card p {
+    margin: 4px 0;
+    font-size: 14px;
+    color: #ccc;
+}
+
+.stats-card p strong {
+    color: #fff;
+}
+
+.stats-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.stats-card ul li {
+    font-size: 13px;
+    color: #bbb;
+    padding: 4px 0;
+    border-bottom: 1px solid #3a3a44;
+}
+
+.stats-card ul li:last-child {
+    border-bottom: none;
+}
