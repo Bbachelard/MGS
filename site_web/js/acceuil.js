@@ -89,5 +89,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             </div>
         `;
+        resultBox.scrollIntoView({ behavior: "smooth", block: "center" });
     }
 });
