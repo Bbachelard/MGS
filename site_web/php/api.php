@@ -37,7 +37,7 @@ switch ($platform) {
 
 function getSteamStats(string $pseudo): array
 {
-    $config = require __DIR__ . '/../config.php';
+    $config = require __DIR__ . '/../../config.php';
     $apiKey = $config['STEAM_API_KEY'];
  
     if (empty($apiKey)) {
@@ -83,7 +83,8 @@ function getSteamStats(string $pseudo): array
         http_response_code(404);
         return ['error' => 'Profil introuvable ou privé.'];
     }
- 
+    
+    echo("fin reussi");
     return [
         'platform'   => 'Steam',
         'pseudo'     => $player['personaname'] ?? $pseudo,
