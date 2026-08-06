@@ -19,7 +19,6 @@
 }
  
 .stats-card {
-    display: flex;
     align-items: center;
     gap: 16px;
     background-color: #2a2a33;
@@ -30,19 +29,5 @@
  
 .stats-card img {
     border-radius: 8px;
-}
- 
-.stats-card a {
-    color: #4b9fff;
-}
- 
-.stats-error {
-    color: #ff6b6b;
-    margin-left: 30%;
-}
- 
-.stats-loading {
-    color: #999;
-    margin-left: 30%;
 }
  
