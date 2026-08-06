@@ -13,12 +13,14 @@
 }
  
 .stats-result {
+    display: center;
     margin-top: 30px;
     margin-left: 30%;
     max-width: 580px;
 }
  
 .stats-card {
+    display: flex;
     align-items: center;
     gap: 16px;
     background-color: #2a2a33;
