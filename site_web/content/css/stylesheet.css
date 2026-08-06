@@ -8,27 +8,42 @@ body {
 }
 
 .navbar {
-    display: flex ;
+    padding-left: 30px;
+    padding-right: 30px;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 10px;
+    grid-auto-rows: 100px;
+
     position: sticky;
     align-items: center;
-    justify-content: space-between;
-    
+
     background-color: black;
 }
-.nav-icons {
-    display: flex ;
-    margin-top: 4px;
-    gap: 20px;
+
+
+.logo {
+    grid-column: 1 / 2;
 }
 
-.logo{
-    display: flex;
-    margin-top: 4px;
-    margin-left: 20px;
+.nav-box1 {
+    grid-column: 4 / 5;
+}
+
+.nav-box2 {
+    grid-column: 5 / 6;
+}
+
+.nav-box3 {
+    grid-column: 6 / 7;
+}
+
+.login {
+    grid-column: 8 / 9;
+    justify-self: end;
 }
 
 .login a {
-    margin-right: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
