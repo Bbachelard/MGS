@@ -1,29 +1,45 @@
-html{
-    background-color:#1f1f1f ;   
+html {
+    background-color: #1f1f1f;
     color: white;
 }
+
 body {
     background-color: #1f1f1f;
     margin: 0;
 }
 
 .navbar {
-    padding-left: 30px;
-    padding-right: 30px;
+    padding: 0 30px;
     display: grid;
     grid-template-columns: repeat(8, 1fr);
     gap: 10px;
     grid-auto-rows: 100px;
-
-    position: sticky;
     align-items: center;
 
-    background-color: black;
-}
+    position: sticky;
+    top: 0;
+    z-index: 100;
 
+    background-color: black;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
 
 .logo {
     grid-column: 1 / 2;
+    display: flex;
+    align-items: center;
+    transition: transform 0.2s ease;
+}
+
+.logo:hover {
+    transform: scale(1.05);
+}
+
+.nav-box1,
+.nav-box2,
+.nav-box3 {
+    display: flex;
+    justify-content: center;
 }
 
 .nav-box1 {
@@ -36,6 +52,21 @@ body {
 
 .nav-box3 {
     grid-column: 6 / 7;
+}
+
+.nav-box1 img,
+.nav-box2 img,
+.nav-box3 img {
+    border-radius: 50%;
+    padding: 6px;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.nav-box1 img:hover,
+.nav-box2 img:hover,
+.nav-box3 img:hover {
+    background: #2c2c2c;
+    transform: translateY(-2px);
 }
 
 .login {
@@ -63,6 +94,7 @@ body {
 }
 
 .login a:hover {
-    background: #2c2c2c;
-    border-color: white;
+    background: #7c5cff;
+    border-color: #7c5cff;
+    color: #fff;
 }

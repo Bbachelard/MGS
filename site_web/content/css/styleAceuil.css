@@ -1,29 +1,35 @@
-
-.titre{
-    background-color:#1f1f1f ;  
-    align-items: center;
+:root {
+    --accent: #7c5cff;
+    --bg-dark: #1f1f1f;
+    --card-bg: #2a2a33;
 }
 
+.titre {
+    background-color: var(--bg-dark);
+    display: flex;
+    justify-content: center;
+    padding: 40px 0 10px;
+}
 
 .platform-card {
     display: flex;
     align-items: stretch;
-    background-color: #2a2a33;
-    border-radius: 10px;
-    padding: 10px 20px;
+    background: linear-gradient(145deg, #2f2f38, #262630);
+    border: 1px solid #3a3a45;
+    border-radius: 12px;
+    padding: 12px 24px;
     width: 100%;
     max-width: 580px;
-    margin-top: 80px;
-    margin-left: 30%;
+    margin: 80px auto 0;
     gap: 15px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
-
 
 .platform-select {
     position: relative;
     flex: 1;
 }
- 
+
 .platform-toggle {
     display: flex;
     flex-direction: column;
@@ -32,24 +38,30 @@
     user-select: none;
     padding: 5px 0;
 }
- 
+
 .platform-toggle .value {
     color: #999;
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 14px;
+    transition: color 0.2s ease;
 }
- 
+
+.platform-select:hover .platform-toggle .value {
+    color: #fff;
+}
+
 .platform-toggle .arrow {
     font-size: 10px;
+    color: var(--accent);
     transition: transform 0.2s ease;
 }
- 
+
 .platform-select.open .platform-toggle .arrow {
     transform: rotate(180deg);
 }
- 
+
 .platform-menu {
     display: none;
     position: absolute;
@@ -62,30 +74,39 @@
     list-style: none;
     overflow: hidden;
     z-index: 10;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
 }
- 
+
 .platform-select.open .platform-menu {
     display: block;
 }
- 
+
 .platform-menu li {
     padding: 12px 16px;
     color: #ddd;
     font-size: 14px;
     cursor: pointer;
+    transition: background 0.15s ease;
 }
- 
+
 .platform-menu li:hover {
-    background-color: #3a3a45;
+    background-color: var(--accent);
+    color: #fff;
 }
- 
+
+.divider {
+    width: 1px;
+    background-color: #444;
+    margin: 4px 0;
+}
+
 .pseudo-input {
     display: flex;
     flex-direction: column;
     justify-content: center;
     flex: 1;
 }
- 
+
 .pseudo-field {
     background: transparent;
     border: none;
@@ -94,7 +115,24 @@
     outline: none;
     padding: 5px 0;
 }
- 
+
 .pseudo-field::placeholder {
     color: #999;
+}
+
+.search-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0 22px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.search-btn:hover {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
 }
