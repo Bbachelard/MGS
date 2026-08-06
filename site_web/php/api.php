@@ -36,7 +36,7 @@ switch ($platform) {
 
 function getSteamStats(string $pseudo): array
 {
-    $config = require __DIR__ . '.../config.php';
+    $config = require __DIR__ . './config.php';
     $apiKey = $config['STEAM_API_KEY'];
  
     if (empty($apiKey)) {
