@@ -1,6 +1,6 @@
 <?php
 
 return [
-    'STEAM_API_KEY' => '1',
+    'STEAM_API_KEY' => '2',
 ];
  
