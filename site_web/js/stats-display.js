@@ -15,7 +15,7 @@ function afficherResultat(data, resultBox) {
         <div class="player-card">
             <div class="player-header">
                 <div class="avatar-frame">
-                    <img src="${data.avatar}" alt="avatar">
+                    <img src="${data.avatar}" alt="avatar" onclick="openImageModal(this.src)" style="cursor: pointer;">
                 </div>
                 <div class="player-identity">
                     <h3>${data.pseudo}</h3>
@@ -71,3 +71,30 @@ function afficherResultat(data, resultBox) {
 
     resultBox.scrollIntoView({ behavior: "smooth", block: "center" });
 }
+
+
+
+function openImageModal(src) {
+    const modal = document.getElementById('imageModal');
+    const modalImg = document.getElementById('imageModalContent');
+    modal.style.display = 'flex';
+    modalImg.src = src;
+}
+
+function closeImageModal() {
+    document.getElementById('imageModal').style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelector('.image-modal-close').addEventListener('click', closeImageModal);
+
+    // Fermer en cliquant en dehors de l'image
+    document.getElementById('imageModal').addEventListener('click', function (e) {
+        if (e.target === this) closeImageModal();
+    });
+
+    // Fermer avec la touche Echap
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeImageModal();
+    });
+});
