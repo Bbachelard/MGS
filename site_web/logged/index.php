@@ -16,7 +16,7 @@ if (!isset($_SESSION["logged"]) || $_SESSION["logged"] !== true) {
   </head>
   <body>
     <header class="navbar">
-        <div class="logo"><a href=""><img src="../content/image/mgs_letters.png" width="100"></a></div>
+        <div class="logo"><a href="./index.html"><img src="../content/image/mgs_letters.png" width="100"></a></div>
         <div class="nav-box1"><a href=""><img src="../content/image/Steam_icon.webp" width="50"></a></div>
         <div class="nav-box2"><a href=""><img src="../content/image/riot-icon.png" width="50"></a></div>
         <div class="nav-box3"><a href=""><img src="../content/image/Epic_icon.webp" width="50"></a></div>
