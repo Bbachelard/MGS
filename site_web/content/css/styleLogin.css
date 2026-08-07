@@ -64,48 +64,61 @@
     background-color: rgba(124, 92, 255, 0.08);
 }
 
-.button{
+.form-actions{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.button,
+.button-2{
     width: 100%;
     box-sizing: border-box;
-    margin-top: 8px;
-    margin-bottom: 0;
-    background-color: rgb(124, 92, 255);
+    display: block;
+    text-align: center;
+    text-decoration: none;
     border-radius: 8px;
-    border: none;
-    color: #fff;
     font-size: 14px;
     font-weight: 600;
-    outline: none;
     padding: 11px 0;
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
+.button{
+    margin: 0;
+    background-color: rgb(124, 92, 255);
+    border: none;
+    color: #fff;
+    outline: none;
+}
+
 .button-2{
-    width: 100%;
-    box-sizing: border-box;
-    margin-top: 8px;
-    margin-bottom: 0;
+    margin: 0;
     background-color: rgb(255, 255, 255);
-    border-radius: 8px;
     border: none;
     color: black;
-    font-size: 14px;
-    font-weight: 600;
     outline: none;
-    padding: 11px 0;
-    cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
 .button:hover{
     background-color: rgb(140, 110, 255);
 }
-
 .button:active{
     transform: scale(0.98);
 }
-
 .button:focus-visible{
     box-shadow: 0 0 0 2px rgba(42, 42, 51, 1), 0 0 0 4px rgb(124, 92, 255);
 }
+
+.button-2:hover{
+    background-color: rgb(230, 230, 230);
+}
+.button-2:active{
+    transform: scale(0.98);
+}
+.button-2:focus-visible{
+    box-shadow: 0 0 0 2px rgba(42, 42, 51, 1), 0 0 0 4px rgba(255, 255, 255, 0.6);
+}
+

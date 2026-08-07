@@ -57,8 +57,10 @@
             </div>
 
             <div class="form-group">
-                <input class="button" type="submit" value="Se connecter">
-                <a href="https://my-gamers-stats.com/signup/" class="button-2">S'inscrire</a>
+                <div class="form-actions">
+                    <input class="button" type="submit" value="Se connecter">
+                    <a href="https://my-gamers-stats.com/signup/" class="button-2">S'inscrire</a>
+                </div>
             </div>
             
         </form>
