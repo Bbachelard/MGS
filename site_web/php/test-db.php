@@ -7,6 +7,6 @@ $stmt->execute();
 $result = $stmt->get_result();
 $row = $result->fetch_assoc();
 
-$hash = $row['hash'];
+$hash = $row['password_hash'];
 
 echo($hash);
