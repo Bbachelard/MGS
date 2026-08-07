@@ -1,7 +1,7 @@
 <?php
 
 session_start();
-require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/../vendor/autoload.php';
 $config = require __DIR__ . '/../config.php';
 
 use xPaw\Steam\SteamOpenID;
