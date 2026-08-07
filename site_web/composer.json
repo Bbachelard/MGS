@@ -1,0 +1,6 @@
+
+{
+    "require": {
+        "xpaw/steam-openid": "^4.0"
+    }
+}
