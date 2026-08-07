@@ -16,10 +16,7 @@
 
     $result = $stmt->get_result();
     $row = $result->fetch_assoc();
-    if (!$row || !password_verify($password, $row['password_hash'])) {
-        header("Location: ../connexion/index.php?error=invalid");
-        exit;
-    }
+
 
     $hash = $row['password_hash'];
 
@@ -33,6 +30,12 @@
             $_SESSION["username"] = $username;
             header("Location: ../logged/index.php"); 
         }
+    else
+        {
+            header("Location: ../connexion/index.php?error=invalid_credentials");
+            exit();
+        }
     exit();
+    
 
 ?>
