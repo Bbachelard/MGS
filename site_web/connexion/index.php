@@ -59,7 +59,7 @@
             <div class="form-group">
                 <input class="button" type="submit" value="Se connecter">
             </div>
-            <a href="../signup/index.php">S'inscrire</a>
+            <a href="https://my-gamers-stats.com/signup/" class="button-2">S'inscrire</a>
         </form>
     </div>
     </div>
