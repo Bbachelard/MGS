@@ -1,6 +1,6 @@
 <?php
-require __DIR__ . '/../site/vendor/autoload.php';
+require __DIR__ . '/../vendor/autoload.php';
 
-use xPaw\SteamOpenID\SteamOpenID;
+use xPaw\Steam\SteamOpenID;
 
 var_dump(class_exists(SteamOpenID::class));
