@@ -25,6 +25,7 @@
     if($isPasswordCorrect == true)
         {
             $_SESSION["logged"] = true;
+            $_SESSION["user_id"]  = $row['id'];
             $_SESSION["username"] = $username;
             header("Location: ../logged/index.php"); 
         }
