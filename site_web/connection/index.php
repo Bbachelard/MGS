@@ -1,3 +1,13 @@
+<?php 
+  session_start();
+
+  if(isset($_SESSION["logged"]) && $_SESSION["logged"] == true)
+  {
+      header("Location: ../logged/index.php");
+      exit;
+  }
+?>
+
 <!DOCTYPE html>
 <html>
   <head>
@@ -49,6 +59,7 @@
             <div class="form-group">
                 <input class="button" type="submit" value="Se connecter">
             </div>
+            <a href="../signup/index.php">S'inscrire</a>
         </form>
     </div>
     </div>
