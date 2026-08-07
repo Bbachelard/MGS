@@ -2,8 +2,7 @@
 
  require __DIR__ . '/../config.php';
 
-$stmt = $conn->prepare("SELECT hash FROM users WHERE username = ?");
-$stmt->bind_param("s", $username);
+$stmt = $conn->prepare("SELECT * FROM users");
 $stmt->execute();
 $result = $stmt->get_result();
 $row = $result->fetch_assoc();
