@@ -1,30 +1,34 @@
 <?php
 
-
 session_start();
 require __DIR__ . '/vendor/autoload.php';
-$config = require __DIR__ . '/../config.php'; 
+$config = require __DIR__ . '/../config.php';
 
 use xPaw\Steam\SteamOpenID;
-use xPaw\Steam\SteamOpenIDException;
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
     exit('Session expirée, reconnecte-toi.');
 }
 
-$steam = new SteamOpenID($config['SITE_URL'] . '/php/steam-link-callback.php');
+$steam = new SteamOpenID($config['SITE_URL'] . '/php/steam-link.php');
+
+
+if (!$steam->ShouldValidate()) {
+    header('Location: ' . $steam->GetAuthUrl());
+    exit;
+}
 
 try {
     $steamId = $steam->Validate();
-} catch (SteamOpenIDException $e) {
+} catch (Exception $e) {
     http_response_code(400);
     exit('Authentification Steam invalide.');
 }
 
 $userId = $_SESSION['user_id'];
 
-
+// Ce Steam ID est-il déjà lié à un AUTRE compte MGS ?
 $stmt = $conn->prepare('SELECT user_id FROM steam_links WHERE steam_id = ?');
 $stmt->bind_param("s", $steamId);
 $stmt->execute();

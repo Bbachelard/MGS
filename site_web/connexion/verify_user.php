@@ -10,12 +10,16 @@
 
     //preparation d'une requete sql propre (je ferais plus l'erreur xD)
 
-    $stmt = $conn->prepare("SELECT password_hash FROM users WHERE username = ?");
+    $stmt = $conn->prepare("SELECT id, password_hash FROM users WHERE username = ?");
     $stmt->bind_param("s", $username);
     $stmt->execute();
 
     $result = $stmt->get_result();
     $row = $result->fetch_assoc();
+    if (!$row || !password_verify($password, $row['password_hash'])) {
+        header("Location: ../connexion/index.php?error=invalid");
+        exit;
+    }
 
     $hash = $row['password_hash'];
 
