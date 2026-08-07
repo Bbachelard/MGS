@@ -30,11 +30,6 @@
             $_SESSION["username"] = $username;
             header("Location: ../logged/index.php"); 
         }
-    else
-        {
-            header("Location: ../connexion/index.php?error=invalid_credentials");
-            exit();
-        }
     exit();
     
 
