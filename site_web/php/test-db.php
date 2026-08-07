@@ -1,15 +1,8 @@
 <?php
 
-$configPath = __DIR__ . '/../config.php';
-var_dump($configPath);
-var_dump(file_exists($configPath));
-echo file_get_contents($configPath);
-exit;
 
-/*
 require __DIR__ . '/../config.php';
 
-$username = 'testuser'; 
 
 $stmt = $conn->prepare("SELECT * FROM users WHERE username = ?");
 $stmt->bind_param("s", $username);
