@@ -17,21 +17,22 @@ $result = $stmt->get_result();
 $row = $result->fetch_assoc();
 
 if ($row === null) {
-    die("Utilisateur introuvable");
+    // L'utilisateur n'existe pas
+    header("Location: index.php?error=invalid");
+    exit();
 }
 
-if (!password_verify($password, $row['password_hash'])) {
-    die("Mot de passe refusé");
+if (password_verify($password, $row['password_hash'])) {
+
+    session_regenerate_id(true);
+
+    $_SESSION["logged"] = true;
+    $_SESSION["user_id"] = $row['id'];
+    $_SESSION["username"] = $username;
+
+    header("Location: ../logged/index.php");
+    exit();
 }
 
-session_regenerate_id(true);
-
-$_SESSION["logged"] = true;
-$_SESSION["user_id"] = $row['id'];
-$_SESSION["username"] = $username;
-
-echo "<pre>";
-echo "CONNEXION OK\n";
-echo "Session ID : " . session_id() . "\n";
-var_dump($_SESSION);
+header("Location: index.php?error=invalid");
 exit();
