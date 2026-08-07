@@ -2,6 +2,6 @@
 
 session_start();
 
-$_SESSION["logged"] = true;
+$_SESSION["logged"] = false;
 $_SESSION["username"] = "";
 header("Location: ../index.html"); 
