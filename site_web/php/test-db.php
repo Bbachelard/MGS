@@ -1,7 +1,7 @@
 <?php
 
 require __DIR__ . '/../config.php';
-
+/*
 $stmt = $conn->prepare("INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)");
 $username = 'testuser';
 $email = 'test@example.com';
@@ -12,7 +12,7 @@ $stmt->execute();
 
 if ($stmt->error) {
     echo "Erreur lors de l'insertion : " . $stmt->error . "\n";
-}
+}*/
 
 $stmt = $conn->prepare("SELECT * FROM users WHERE username = ?");
 $stmt->bind_param("s", $username);
