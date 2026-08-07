@@ -6,7 +6,7 @@
 }
 
 .search-btn {
-    background-color: #4b9fff;
+    background-color: #1f1f1f;
     color: #fff;
     border: none;
     border-radius: 6px;
@@ -21,7 +21,7 @@
 }
 
 .search-btn:hover {
-    background-color: #3a86e0;
+    background-color: #7c5cff;
 }
 
 .stats-result {
@@ -64,11 +64,17 @@
 }
 
 .avatar-frame {
-    padding: 4px;
-    border: 3px solid #4b9fff;
-    border-radius: 12px;
+    padding: 6px;
+    border: 3px solid #7c5cff;
+    border-radius: 50%;
     background: linear-gradient(145deg, #3a3a44, #1f1f26);
     box-shadow: 0 0 12px rgba(75, 159, 255, 0.4);
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.avatar-frame:hover {
+    background: #2c2c2c;
+    transform: translateY(-2px);
 }
 
 .avatar-frame img {
@@ -189,3 +195,7 @@
 .profile-link:hover {
     text-decoration: underline;
 }
+
+
+
+
