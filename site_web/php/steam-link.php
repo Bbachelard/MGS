@@ -1,10 +1,12 @@
 <?php
+
+
 session_start();
 require __DIR__ . '/vendor/autoload.php';
 $config = require __DIR__ . '/../config.php'; 
 
-use xPaw\SteamOpenID\SteamOpenID;
-use xPaw\SteamOpenID\SteamOpenIDException;
+use xPaw\Steam\SteamOpenID;
+use xPaw\Steam\SteamOpenIDException;
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
