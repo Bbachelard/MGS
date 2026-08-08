@@ -10,69 +10,82 @@ body {
 }
 
 .navbar {
-    padding: 0 30px;
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: 10px;
-    grid-auto-rows: 100px;
+    display: flex;
     align-items: center;
+    padding: 14px 32px;
+    height: 68px;
+    box-sizing: border-box;
 
     position: sticky;
     top: 0;
     z-index: 100;
 
-    background-color: black;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    background: rgba(18, 18, 24, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(124, 92, 255, 0.16);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 .logo {
-    grid-column: 1 / 2;
     display: flex;
     align-items: center;
-    transition: transform 0.2s ease;
+    margin-right: auto;
+    transition: transform 0.2s ease, filter 0.2s ease;
 }
 
 .logo:hover {
     transform: scale(1.05);
 }
 
+.logo img {
+    display: block;
+}
+
 .nav-box1,
 .nav-box2,
 .nav-box3 {
     display: flex;
+    align-items: center;
     justify-content: center;
 }
 
 .nav-box1 {
-    grid-column: 4 / 5;
+    margin-left: auto;
 }
 
-.nav-box2 {
-    grid-column: 5 / 6;
-}
-
+.nav-box2,
 .nav-box3 {
-    grid-column: 6 / 7;
+    margin-left: 6px;
 }
 
 .nav-box1 img,
 .nav-box2 img,
 .nav-box3 img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
     border-radius: 50%;
-    padding: 6px;
-    transition: background 0.2s ease, transform 0.2s ease;
+    padding: 8px;
+    opacity: 0.8;
+    background: transparent;
+    transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
 }
 
 .nav-box1 img:hover,
 .nav-box2 img:hover,
 .nav-box3 img:hover {
-    background: #2c2c2c;
+    background: rgba(124, 92, 255, 0.14);
+    opacity: 1;
     transform: translateY(-2px);
 }
 
+.create {
+    margin-left: 20px;
+}
+
 .login {
-    grid-column: 8 / 9;
-    justify-self: end;
+    margin-left: 28px;
 }
 
 .login a {
@@ -80,22 +93,30 @@ body {
     align-items: center;
     justify-content: center;
 
-    width: 120px;
-    height: 42px;
+    min-width: 116px;
+    height: 40px;
+    padding: 0 18px;
 
-    color: white;
-    background: #1f1f1f;
-    border: 1px solid #555;
-    border-radius: 8px;
+    color: #fff;
+    background: linear-gradient(135deg, #7c5cff, #6247e0);
+    border: 1px solid rgba(124, 92, 255, 0.5);
+    border-radius: 20px;
 
     text-decoration: none;
-    font-weight: bold;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.2px;
 
-    transition: 0.2s;
+    box-shadow: 0 4px 14px rgba(124, 92, 255, 0.25);
+    transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
 .login a:hover {
-    background: #7c5cff;
-    border-color: #7c5cff;
-    color: #fff;
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(124, 92, 255, 0.4);
+}
+
+.login a:active {
+    transform: translateY(0) scale(0.98);
 }

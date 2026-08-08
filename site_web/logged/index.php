@@ -21,10 +21,8 @@ if (!isset($_SESSION["logged"]) || $_SESSION["logged"] !== true) {
         <div class="nav-box1"><a href=""><img src="../content/image/Steam_icon.webp" width="50"></a></div>
         <div class="nav-box2"><a href=""><img src="../content/image/riot-icon.png" width="50"></a></div>
         <div class="nav-box3"><a href=""><img src="../content/image/Epic_icon.webp" width="50"></a></div>
-         <div class="login"><a href="./disconnect.php">Déconnexion</a></div>
+         <div class="steam-link"><a href="../php/steam-link.php">Lier mon compte Steam</a></div>
+        <div class="login"><a href="./disconnect.php">Déconnexion</a></div>
     </header>
-
-    <div class="steam-link"><a href="../php/steam-link.php">Lier mon compte Steam</a></div>
-        
   </body>
 </html>
