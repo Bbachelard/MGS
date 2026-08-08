@@ -1,4 +1,18 @@
 document.addEventListener("DOMContentLoaded", () => {
+    // Logo principal : petit effet "bouton arcade" au clic
+    const logoImg = document.querySelector(".titre img");
+    if (logoImg) {
+        logoImg.addEventListener("click", () => {
+            logoImg.classList.remove("is-pressed");
+            // force le navigateur à repartir de zéro pour pouvoir rejouer l'animation
+            void logoImg.offsetWidth;
+            logoImg.classList.add("is-pressed");
+        });
+        logoImg.addEventListener("animationend", () => {
+            logoImg.classList.remove("is-pressed");
+        });
+    }
+
     const platformSelect = document.getElementById("platformSelect");
     const platformToggle = document.getElementById("platformToggle");
     const platformValue = document.getElementById("platformValue");
