@@ -233,7 +233,7 @@ $stmt->close();
 
     <div class="login">
 
-        <a href="./profile.php">
+        <a href="./index.php">
             Mon profil
         </a>
 
