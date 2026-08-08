@@ -59,6 +59,12 @@ if ($linked !== null) {
                 <?php endif; ?>
             </div>
         <?php endforeach; ?>
+
+        <div class="friends-actions">
+            <a href="./inbox.php" class="nav-link-btn" title="Voir mes amis">Amis</a>
+            <a href="./add_friend.php" class="nav-link-btn" title="Ajouter un ami">Ajouter un ami</a>
+        </div>
+
         <div class="login"><a href="./disconnect.php">Déconnexion</a></div>
     </header>
 
