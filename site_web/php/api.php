@@ -46,26 +46,33 @@ function getSteamStats(string $pseudo = '', string $steamId = ''): array
 
     // Si on n'a pas déjà un steamId (compte lié), on résout le pseudo
     if ($steamId === '') {
-        $resolveUrl = 'https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/'
-            . '?key=' . urlencode($apiKey)
-            . '&vanityurl=' . urlencode($pseudo);
 
-        $resolveResponse = @file_get_contents($resolveUrl);
-        if ($resolveResponse === false) {
-            http_response_code(502);
-            return ['error' => "Impossible de contacter l'API Steam."];
+        if (preg_match('/^\d{17}$/', $pseudo)) {
+            $steamId = $pseudo;
+
+        } elseif (preg_match('#steamcommunity\.com/profiles/(\d{17})#i', $pseudo, $m)) {
+            $steamId = $m[1];
+
+        } elseif (preg_match('#steamcommunity\.com/id/([^/]+)#i', $pseudo, $m)) {
+            $pseudo = $m[1]; 
+
         }
+        if ($steamId === '') {
+            $resolveUrl = 'https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/'
+                . '?key=' . urlencode($apiKey)
+                . '&vanityurl=' . urlencode($pseudo);
 
-        $resolveData = json_decode($resolveResponse, true);
+            $resolveResponse = @file_get_contents($resolveUrl);
+            $resolveData = json_decode($resolveResponse, true);
 
-        if (($resolveData['response']['success'] ?? null) !== 1) {
-            http_response_code(404);
-            return ['error' => "Aucun profil Steam trouvé pour ce pseudo."];
+            if (($resolveData['response']['success'] ?? null) !== 1) {
+                http_response_code(404);
+                return ['error' => "Aucun profil Steam trouvé pour ce pseudo. Essaie plutôt avec le SteamID64 ou l'URL complète du profil."];
+            }
+
+            $steamId = $resolveData['response']['steamid'];
         }
-
-        $steamId = $resolveData['response']['steamid'];
     }
-
     // SteamID -> profil public
     $summaryUrl = 'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/'
         . '?key=' . urlencode($apiKey)
