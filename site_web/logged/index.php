@@ -12,6 +12,7 @@ if (!isset($_SESSION["logged"]) || $_SESSION["logged"] !== true) {
   <head>
     <link rel="stylesheet" href="../content/css/stylesheet.css">
     <link rel="stylesheet" href="../content/css/styleLogin.css">
+    <link rel="stylesheet" href="../content/css/ajouts-stats.css">
     <title>Connexion</title>
   </head>
   <body>
