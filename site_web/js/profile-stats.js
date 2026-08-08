@@ -1,4 +1,8 @@
+const PROFILE = window.PROFILE_TARGET || { userId: null, isOwnProfile: true };
+const PROFILE_QS = PROFILE.userId ? `?userId=${encodeURIComponent(PROFILE.userId)}` : "";
+
 let etatPlateformes = [];
+let lectureSeule = false;
 
 document.addEventListener("DOMContentLoaded", () => {
     chargerProfil();
@@ -8,34 +12,41 @@ async function chargerProfil() {
     const container = document.getElementById("platform-hub");
     if (!container) return;
 
-    container.innerHTML = `<p class="stats-loading">Chargement de tes stats...</p>`;
+   container.innerHTML = `<p class="stats-loading">Chargement des stats...</p>`;
 
-    let status;
-    try {
-        const response = await fetch("/php/session-status.php", { credentials: "include" });
-        status = await response.json();
-    } catch (err) {
-        console.error("session-status:", err);
-        container.innerHTML = `<p class="stats-error">Impossible de charger ton profil.</p>`;
-        return;
-    }
+let status;
+try {
+    const response = await fetch(`/php/session-status.php${PROFILE_QS}`, { credentials: "include" });
+    status = await response.json();
+} catch (err) {
+    console.error("session-status:", err);
+    container.innerHTML = `<p class="stats-error">Impossible de charger le profil.</p>`;
+    return;
+}
 
-    if (!status.connected) {
-        window.location.href = "/connexion/index.php";
-        return;
-    }
+if (!status.connected) {
+    window.location.href = "/connexion/index.php";
+    return;
+}
 
-   const steam = status.platforms.find(p => p.slug === "steam" && p.linked);
-    if (steam) {
-        chargerBibliotheque("steam");
-    }
+if (status.error) {
+    container.innerHTML = `<p class="stats-error">${escapeHtml(status.error)}</p>`;
+    return;
+}
 
-    etatPlateformes = await Promise.all(
-        status.platforms.map(plateforme => chargerPlateforme(plateforme))
-    );
+lectureSeule = status.isOwnProfile === false;
 
-    dessinerHub(container);
-    majAvatarNavbar();
+const steam = status.platforms.find(p => p.slug === "steam" && p.linked);
+if (steam) {
+    chargerBibliotheque("steam", { userId: PROFILE.userId, lectureSeule });
+}
+
+etatPlateformes = await Promise.all(
+    status.platforms.map(plateforme => chargerPlateforme(plateforme))
+);
+
+dessinerHub(container);
+majAvatarNavbar();
 
 }
 
@@ -63,8 +74,9 @@ async function chargerPlateforme(platform) {
 function dessinerHub(container) {
     container.innerHTML = "";
 
-    container.appendChild(construireBandeauComptes(etatPlateformes, delierPlateforme));
-
+    container.appendChild(
+    construireBandeauComptes(etatPlateformes, delierPlateforme, { lectureSeule })
+);
     const resume = construireResume(etatPlateformes);
     if (resume) container.appendChild(resume);
 
@@ -74,13 +86,15 @@ function dessinerHub(container) {
     } else {
         const vide = document.createElement("p");
         vide.className = "stats-info";
-        vide.textContent = "Lie un compte pour voir apparaître tes statistiques ici.";
-        container.appendChild(vide);
+        vide.textContent = lectureSeule
+    ? "Cet utilisateur n'a lié aucun compte."
+    : "Lie un compte pour voir apparaître tes statistiques ici.";
     }
 }
 
 /** Prend l'avatar du premier compte lié pour la navbar. */
 function majAvatarNavbar() {
+    if (lectureSeule) return;
     const img = document.getElementById("navAvatar");
     if (!img) return;
 

@@ -189,7 +189,9 @@ function construireResume(resultats) {
 }
 
 /** Bandeau des comptes : une pastille par plateforme. */
-function construireBandeauComptes(resultats, onDelier) {
+function construireBandeauComptes(resultats, onDelier, options = {}) {
+    const lectureSeule = options.lectureSeule === true;
+
     const bloc = document.createElement('div');
     bloc.className = 'hub-accounts';
 
@@ -200,54 +202,29 @@ function construireBandeauComptes(resultats, onDelier) {
 
         if (!r.platform.linked) {
             chip.classList.add('account-chip--empty');
-            const action = (r.platform.enabled && r.platform.linkable)
-                ? `<a class="link-btn link-btn--sm" href="/php/link.php?platform=${encodeURIComponent(r.platform.slug)}">Lier</a>`
-                : `<span class="chip-soon">Bientôt</span>`;
 
-            chip.innerHTML = `
-                <img class="chip-icon" src="${escapeHtml(r.platform.icon)}" alt="">
-                <div class="chip-body">
-                    <span class="chip-name">${escapeHtml(r.platform.label)}</span>
-                    <span class="chip-sub">Non lié</span>
-                </div>
-                ${action}
-            `;
+            // Pas de bouton "Lier" sur le profil de quelqu'un d'autre
+            const action = lectureSeule
+                ? ''
+                : (r.platform.enabled && r.platform.linkable)
+                    ? `<a class="link-btn link-btn--sm" href="/php/link.php?platform=${encodeURIComponent(r.platform.slug)}">Lier</a>`
+                    : `<span class="chip-soon">Bientôt</span>`;
+            /* ...le reste du innerHTML est inchangé... */
             bloc.appendChild(chip);
             return;
         }
 
-        if (r.error) {
-            chip.classList.add('account-chip--error');
-            chip.innerHTML = `
-                <img class="chip-icon" src="${escapeHtml(r.platform.icon)}" alt="">
-                <div class="chip-body">
-                    <span class="chip-name">${escapeHtml(r.platform.label)}</span>
-                    <span class="chip-sub chip-sub--error">${escapeHtml(r.error)}</span>
-                </div>
-            `;
-        } else {
-            const d = r.data;
-            const avatar = safeUrl(d.avatar);
-            const online = d.status?.online ? 'online' : '';
+        /* ...blocs error / data inchangés... */
 
-            chip.innerHTML = `
-                ${avatar
-                    ? `<img class="chip-avatar ${online}" src="${avatar}" alt="" onclick="openImageModal(this.src)">`
-                    : `<div class="chip-avatar"></div>`}
-                <div class="chip-body">
-                    <span class="chip-name">${escapeHtml(d.displayName)}</span>
-                    <span class="chip-sub">${escapeHtml(d.platformLabel)} · ${escapeHtml(d.status?.label || '')}</span>
-                    ${d.activity ? `<span class="chip-game">🎮 ${escapeHtml(d.activity)}</span>` : ''}
-                </div>
-            `;
+        // Le bouton "délier" n'existe que sur son propre profil
+        if (!lectureSeule) {
+            const btn = document.createElement('button');
+            btn.className = 'chip-unlink';
+            btn.title = `Délier ${r.platform.label}`;
+            btn.textContent = '✕';
+            btn.addEventListener('click', () => onDelier(r.platform, btn));
+            chip.appendChild(btn);
         }
-
-        const btn = document.createElement('button');
-        btn.className = 'chip-unlink';
-        btn.title = `Délier ${r.platform.label}`;
-        btn.textContent = '✕';
-        btn.addEventListener('click', () => onDelier(r.platform, btn));
-        chip.appendChild(btn);
 
         bloc.appendChild(chip);
     });

@@ -15,14 +15,19 @@ const GAMES_COLONNES = [
     { cle: "lastPlayed",  label: "Dernière fois", triable: true,  type: "nombre" },
 ];
 
-async function chargerBibliotheque(slug) {
+async function chargerBibliotheque(slug, options = {}) {
     const zone = document.getElementById("games-table");
     if (!zone) return;
 
-    zone.innerHTML = `<p class="stats-loading">Chargement de ta bibliothèque...</p>`;
+    gamesState.lectureSeule = options.lectureSeule === true;
+
+    zone.innerHTML = `<p class="stats-loading">Chargement de la bibliothèque...</p>`;
+
+    const params = new URLSearchParams({ platform: slug });
+    if (options.userId) params.set("userId", String(options.userId));
 
     try {
-        const response = await fetch(`/php/games.php?platform=${encodeURIComponent(slug)}`, {
+        const response = await fetch(`/php/games.php?${params.toString()}`, {
             credentials: "include"
         });
         const data = await response.json();
@@ -101,6 +106,7 @@ function dessinerTableau() {
     }).join("");
 
     const lignes = visibles.map(jeu => `
+        <h2 class="games-title">${gamesState.lectureSeule ? "Sa bibliothèque" : "Ma bibliothèque"}</h2>
         <tr>
             <td class="col-img">
                 <img src="${escapeHtml(jeu.image)}" alt="" loading="lazy"

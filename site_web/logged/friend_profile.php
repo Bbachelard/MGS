@@ -9,6 +9,14 @@ if (!isset($_SESSION['logged']) || $_SESSION['logged'] !== true) {
 }
 
 require __DIR__ . '/../config.php';
+require_once __DIR__ . '/../php/friends-model.php';
+require_once __DIR__ . '/../php/platforms.php';
+
+if (!mgs_are_friends($conn, $myId, $friendId)) {
+    http_response_code(403);
+    // ...ta page "Accès refusé" existante, inchangée...
+    exit;
+}
 
 $myId = (int) ($_SESSION['user_id'] ?? 0);
 $friendId = (int) ($_GET['id'] ?? 0);
@@ -149,9 +157,6 @@ $friendUsername = htmlspecialchars((string) $friend['username'], ENT_QUOTES, 'UT
 
     <div id="games-table" class="games-section"></div>
 
-    <div class="compte">
-        <div id="stats-result" class="stats-result"></div>
-    </div>
 
     <div id="imageModal" class="image-modal">
         <span class="image-modal-close">&times;</span>
@@ -165,8 +170,8 @@ $friendUsername = htmlspecialchars((string) $friend['username'], ENT_QUOTES, 'UT
         isOwnProfile: false
     };
 </script>
-<script src="../js/stats-display.js?v=4"></script>
-<script src="../js/games-table.js?v=1"></script>
-<script src="./profile-stats.js?v=8"></script>
+<script src="../js/stats-display.js?v=5"></script>
+<script src="../js/games-table.js?v=2"></script>
+<script src="../js/profile-stats.js?v=5"></script>
 </body>
 </html>
