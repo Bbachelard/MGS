@@ -569,3 +569,37 @@
 
 
 
+.friends-actions {
+    grid-column: 6 / 8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.nav-link-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    height: 42px;
+    padding: 0 16px;
+
+    color: white;
+    background: #1f1f1f;
+    border: 1px solid #555;
+    border-radius: 8px;
+
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 14px;
+    white-space: nowrap;
+
+    transition: 0.2s;
+}
+
+.nav-link-btn:hover {
+    background: #7c5cff;
+    border-color: #7c5cff;
+    color: #fff;
+}
