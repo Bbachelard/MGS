@@ -40,7 +40,6 @@ $stmt->close();
 
 $links = mgs_get_user_links($conn, $targetId);
 
-$links     = mgs_get_user_links($conn, $userId);
 $platforms = [];
 
 foreach (mgs_platforms() as $slug => $platform) {

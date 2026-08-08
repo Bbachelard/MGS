@@ -89,6 +89,7 @@ function dessinerHub(container) {
         vide.textContent = lectureSeule
     ? "Cet utilisateur n'a lié aucun compte."
     : "Lie un compte pour voir apparaître tes statistiques ici.";
+        container.appendChild(vide);
     }
 }
 

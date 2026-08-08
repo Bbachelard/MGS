@@ -133,7 +133,7 @@ $friendUsername = htmlspecialchars((string) $friend['username'], ENT_QUOTES, 'UT
 <main>
     <section class="hero">
         <p class="hero-hello">Profil de</p>
-        <h1 class="hero-name"><?= $friendUsername ?></h1>
+        <h1 class="hero-name"><?= htmlspecialchars($friendUsername) ?></h1>
         <p class="hero-sub">Toutes ses stats, réunies au même endroit.</p>
     </section>
 
