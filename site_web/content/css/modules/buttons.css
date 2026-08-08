@@ -1,0 +1,70 @@
+/* ============================================================
+   BOUTONS — actions réutilisables sur tout le site
+   ============================================================ */
+
+/* --- Bouton de recherche (accueil) ---
+   ATTENTION : .search-btn est aussi défini dans styleAceuil.css.
+   C'est ce fichier-ci qui gagne s'il est chargé en dernier. */
+
+.search-btn {
+    background-color: #1f1f1f;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0 20px;
+    cursor: pointer;
+    font-size: 14px;
+    text-align: center;
+}
+
+.search-btn:hover {
+    background-color: #7c5cff;
+}
+
+/* --- Bouton "Lier mon compte" --- */
+
+.link-btn {
+    display: inline-block;
+    padding: 9px 18px;
+    background: #7c5cff;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: filter 0.15s ease;
+}
+
+.link-btn:hover {
+    filter: brightness(1.15);
+}
+
+/* Variante compacte, utilisée dans les pastilles du hub */
+.link-btn--sm {
+    margin-left: auto;
+    padding: 6px 14px;
+    font-size: 13px;
+}
+
+/* --- Bouton "Délier mon compte" --- */
+
+.unlink-btn {
+    display: block;
+    margin: 16px auto 0;
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid #c0392b;
+    color: #c0392b;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.unlink-btn:hover {
+    background: #c0392b;
+    color: #fff;
+}
+
+.unlink-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

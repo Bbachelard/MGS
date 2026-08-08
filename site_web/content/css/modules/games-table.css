@@ -1,0 +1,203 @@
+/* ============================================================
+   BIBLIOTHÈQUE — tableau triable des jeux (games-table.js)
+   ============================================================ */
+
+.games-section {
+    max-width: 1000px;
+    margin: 0 auto 80px;
+    padding: 0 20px;
+}
+
+.games-head {
+    margin-bottom: 18px;
+}
+
+.games-title {
+    margin: 0;
+    font-size: 24px;
+    color: #fff;
+}
+
+/* Réutilise .summary-box / .summary-value / .summary-label du hub */
+.games-totals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    padding: 20px;
+    margin-bottom: 18px;
+    background: linear-gradient(145deg, #2f2f38, #232329);
+    border: 1px solid #3a3a45;
+    border-radius: 14px;
+}
+
+/* ------------------------------------------------------------
+   Barre d'outils : nombre par page + recherche
+   ------------------------------------------------------------ */
+
+.games-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #8f8fa5;
+    font-size: 13px;
+}
+
+.toolbar-left select,
+.games-search {
+    background: #1f1f26;
+    border: 1px solid #3a3a45;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 13px;
+    padding: 8px 12px;
+    outline: none;
+}
+
+.games-search {
+    min-width: 220px;
+}
+
+.games-search:focus,
+.toolbar-left select:focus {
+    border-color: #7c5cff;
+}
+
+/* ------------------------------------------------------------
+   Tableau
+   ------------------------------------------------------------ */
+
+.games-scroll {
+    overflow-x: auto;
+    border: 1px solid #3a3a45;
+    border-radius: 12px;
+}
+
+.games-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: #2a2a33;
+}
+
+.games-table th {
+    position: sticky;
+    top: 0;
+    padding: 12px 14px;
+    text-align: left;
+    background: #1f1f26;
+    color: #b9b9cc;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.games-table td {
+    padding: 8px 14px;
+    color: #ddd;
+    border-top: 1px solid #33333d;
+    white-space: nowrap;
+}
+
+.games-table tbody tr:hover {
+    background: #31313b;
+}
+
+/* --- En-têtes cliquables --- */
+
+.th-sort {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s ease;
+}
+
+.th-sort:hover {
+    color: #fff;
+}
+
+.th-sort.is-active {
+    color: #b3a0ff;
+}
+
+.sort-arrow {
+    font-size: 10px;
+    opacity: 0.7;
+}
+
+/* --- Colonnes --- */
+
+.col-img {
+    width: 100px;
+    padding: 6px 0 6px 10px;
+}
+
+.col-img img {
+    display: block;
+    width: 92px;
+    height: 35px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.col-name {
+    white-space: normal;
+    min-width: 220px;
+}
+
+.col-name a {
+    color: #fff;
+    text-decoration: none;
+}
+
+.col-name a:hover {
+    color: #b3a0ff;
+    text-decoration: underline;
+}
+
+.cell-muted {
+    color: #666;
+}
+
+/* ------------------------------------------------------------
+   Pagination
+   ------------------------------------------------------------ */
+
+.games-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 16px;
+    color: #8f8fa5;
+    font-size: 13px;
+}
+
+.games-pagination button {
+    background: #2a2a33;
+    border: 1px solid #3a3a45;
+    border-radius: 8px;
+    color: #ddd;
+    padding: 7px 14px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.games-pagination button:hover:not(:disabled) {
+    background: #7c5cff;
+    border-color: #7c5cff;
+    color: #fff;
+}
+
+.games-pagination button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}

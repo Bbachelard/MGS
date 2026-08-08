@@ -1,0 +1,232 @@
+/* ============================================================
+   CARTE JOUEUR — rendu de construireCarte() (accueil + hub)
+   ============================================================ */
+
+/* --- Conteneurs --- */
+
+.compte {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-self: stretch;
+}
+
+.stats-result {
+    margin: 30px 0 0;
+    text-align: center;
+    max-width: 700px;
+    width: 100%;
+}
+
+.platform-cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 24px;
+    width: 100%;
+    max-width: 1100px;
+    margin: 30px auto 60px;
+}
+
+.card-slot {
+    display: flex;
+    justify-content: center;
+}
+
+/* --- Carte --- */
+
+.player-card {
+    display: inline-flex;
+    align-self: stretch;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    background-color: #2a2a33;
+    border-radius: 14px;
+    padding: 28px;
+    color: #fff;
+    margin: 0 auto;
+}
+
+/* Variante affichée quand aucun compte n'est lié */
+.player-card--empty {
+    justify-content: center;
+    min-width: 260px;
+    min-height: 220px;
+    border: 1px dashed #3a3a44;
+    background-color: rgba(42, 42, 51, 0.4);
+}
+
+.empty-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+
+.platform-tag {
+    align-self: flex-start;
+    padding: 3px 12px;
+    border-radius: 20px;
+    background: rgba(124, 92, 255, 0.15);
+    border: 1px solid rgba(124, 92, 255, 0.5);
+    color: #b3a0ff;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* --- En-tête : avatar + identité --- */
+
+.player-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.avatar-frame {
+    padding: 6px;
+    border: 3px solid #7c5cff;
+    border-radius: 2%;
+    background: linear-gradient(145deg, #3a3a44, #1f1f26);
+    box-shadow: 0 0 12px rgba(75, 159, 255, 0.4);
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.avatar-frame:hover {
+    background: #2c2c2c;
+    transform: translateY(-2px);
+}
+
+.avatar-frame img {
+    display: block;
+    width: 80px;
+    height: 80px;
+    border-radius: 2%;
+}
+
+.avatar-placeholder {
+    width: 80px;
+    height: 80px;
+    background: #1f1f26;
+    border-radius: 2%;
+}
+
+.player-identity {
+    text-align: left;
+}
+
+.player-identity h3 {
+    margin: 0;
+    font-size: 20px;
+}
+
+.player-identity .realname {
+    margin: 2px 0;
+    font-size: 13px;
+    color: #999;
+}
+
+.in-game {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #7fdc7f;
+}
+
+.status-badge {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    background-color: #555;
+    color: #ccc;
+}
+
+.status-badge.online {
+    background-color: #2e7d32;
+    color: #fff;
+}
+
+/* --- Grille d'informations (highlights) ---
+   Réutilisée telle quelle par les blocs de détail du hub. */
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    width: 100%;
+}
+
+.info-box {
+    display: flex;
+    flex-direction: column;
+    background-color: #1f1f26;
+    border: 1px solid #3a3a44;
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-width: 110px;
+}
+
+.info-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin-bottom: 4px;
+}
+
+.info-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+}
+
+/* --- Sections en liste (jeux récents, etc.) --- */
+
+.recent-games-box {
+    width: 100%;
+    background-color: #1f1f26;
+    border: 1px solid #3a3a44;
+    border-radius: 8px;
+    padding: 12px 14px;
+    text-align: left;
+}
+
+.recent-games-list {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+}
+
+.recent-games-list li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #ccc;
+    padding: 5px 0;
+    border-bottom: 1px solid #2e2e36;
+}
+
+.recent-games-list li:last-child {
+    border-bottom: none;
+}
+
+.recent-games-list li span {
+    color: #4b9fff;
+    font-weight: 600;
+}
+
+/* --- Liens externes de la carte --- */
+
+.profile-link {
+    color: #4b9fff;
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.profile-link:hover {
+    text-decoration: underline;
+}

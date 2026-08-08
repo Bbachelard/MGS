@@ -1,0 +1,41 @@
+/* ============================================================
+   HERO — en-tête "Bonjour <pseudo>" de la page logged
+   ============================================================ */
+
+.hero {
+    text-align: center;
+    padding: 60px 20px 30px;
+}
+
+.hero-hello {
+    margin: 0;
+    font-size: 14px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #8f8fa5;
+}
+
+.hero-name {
+    margin: 6px 0 10px;
+    font-size: 52px;
+    font-weight: 800;
+    line-height: 1.1;
+
+    /* Dégradé appliqué au texte lui-même */
+    background: linear-gradient(120deg, #fff 0%, #b3a0ff 50%, #7c5cff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.hero-sub {
+    margin: 0;
+    font-size: 15px;
+    color: #999;
+}
+
+@media (max-width: 720px) {
+    .hero-name {
+        font-size: 36px;
+    }
+}

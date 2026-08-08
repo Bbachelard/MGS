@@ -1,0 +1,46 @@
+/* ============================================================
+   MESSAGES — états de chargement, erreurs, bannières
+   ============================================================ */
+
+.text {
+    text-align: center;
+}
+
+.stats-error {
+    color: #ff6b6b;
+    text-align: center;
+}
+
+.stats-loading {
+    color: #999;
+    text-align: center;
+}
+
+.stats-info {
+    color: #999;
+    text-align: center;
+    margin: 0;
+}
+
+/* --- Bannières de retour de liaison (?linked= / ?error=) --- */
+
+.banner {
+    max-width: 580px;
+    margin: 20px auto 0;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.banner--success {
+    background: rgba(46, 125, 50, 0.15);
+    border: 1px solid #2e7d32;
+    color: #7fdc7f;
+}
+
+.banner--error {
+    background: rgba(192, 57, 43, 0.15);
+    border: 1px solid #c0392b;
+    color: #ff9b8f;
+}

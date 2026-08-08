@@ -1,0 +1,76 @@
+/* ============================================================
+   NAVBAR — compléments à stylesheet.css (pastille utilisateur,
+   avatar de la plateforme liée, liens d'action)
+   ============================================================ */
+
+.user-chip {
+    grid-column: 2 / 4;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.nav-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #3a3a45;
+    background: #1f1f26;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Appliqué en JS dès qu'un compte est lié */
+.nav-avatar.is-linked {
+    border-color: #7c5cff;
+    box-shadow: 0 0 12px rgba(124, 92, 255, 0.45);
+}
+
+.nav-username {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* --- Liens d'action de la navbar --- */
+
+.friends-actions {
+    grid-column: 6 / 8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.nav-link-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    height: 42px;
+    padding: 0 16px;
+
+    color: white;
+    background: #1f1f1f;
+    border: 1px solid #555;
+    border-radius: 8px;
+
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 14px;
+    white-space: nowrap;
+
+    transition: 0.2s;
+}
+
+.nav-link-btn:hover {
+    background: #7c5cff;
+    border-color: #7c5cff;
+    color: #fff;
+}
+
+@media (max-width: 720px) {
+    .nav-username {
+        display: none;
+    }
+}
