@@ -44,6 +44,10 @@ if ($linked !== null) {
   <body>
     <header class="navbar">
         <div class="logo"><a href="../index.html"><img src="../content/image/mgs_letters.png" width="100"></a></div>
+        <div class="user-chip">
+            <img id="navAvatar" class="nav-avatar" src="../content/image/mgs_icon.png" alt="Avatar">
+            <span class="nav-username"><?= htmlspecialchars($username) ?></span>
+        </div>
         <?php $i = 1; foreach (mgs_platforms() as $slug => $platform): ?>
             <div class="nav-box<?= $i++ ?>">
                 <?php if ($platform['enabled'] && $platform['linkable']): ?>
@@ -59,15 +63,17 @@ if ($linked !== null) {
     </header>
 
     <main>
-        <div class="titre"><h1>Salut <?= htmlspecialchars($username) ?></h1></div>
+        <section class="hero">
+            <p class="hero-hello">Bonjour</p>
+            <h1 class="hero-name"><?= htmlspecialchars($username) ?></h1>
+            <p class="hero-sub">Toutes tes stats, réunies au même endroit.</p>
+        </section>
 
         <?php if ($banner): ?>
             <div class="banner banner--<?= $banner['type'] ?>"><?= htmlspecialchars($banner['text']) ?></div>
         <?php endif; ?>
 
-        <div class="compte">
-            <div id="platform-cards" class="platform-cards"></div>
-        </div>
+        <div id="platform-hub" class="platform-hub"></div>
 
         <div id="imageModal" class="image-modal">
             <span class="image-modal-close">&times;</span>
@@ -75,7 +81,7 @@ if ($linked !== null) {
         </div>
     </main>
 
-    <script src="../js/stats-display.js?v=2"></script>
-    <script src="../js/profile-stats.js?v=2"></script>
+    <script src="../js/stats-display.js?v=3"></script>
+    <script src="../js/profile-stats.js?v=3"></script>
   </body>
 </html>

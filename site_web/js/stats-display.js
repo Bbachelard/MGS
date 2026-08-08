@@ -142,3 +142,168 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape') closeImageModal();
     });
 });
+
+
+/* ================= Vue globale multi-plateformes ================= */
+
+const METRIQUES = [
+    { cle: 'accounts',    label: 'Comptes liés',        suffixe: ''  },
+    { cle: 'games',       label: 'Jeux au total',       suffixe: ''  },
+    { cle: 'totalHours',  label: 'Heures de jeu',       suffixe: 'h' },
+    { cle: 'recentHours', label: 'Heures (2 semaines)', suffixe: 'h' },
+];
+
+function formaterNombre(valeur, suffixe) {
+    const arrondi = Number.isInteger(valeur) ? valeur : Number(valeur.toFixed(1));
+    return arrondi.toLocaleString('fr-FR') + suffixe;
+}
+
+/** Somme les metrics de toutes les plateformes chargées. */
+function construireResume(resultats) {
+    const totaux = {};
+
+    resultats.forEach(r => {
+        const metrics = r.data?.metrics;
+        if (!metrics) return;
+
+        for (const [cle, valeur] of Object.entries(metrics)) {
+            if (typeof valeur === 'number' && !Number.isNaN(valeur)) {
+                totaux[cle] = (totaux[cle] || 0) + valeur;
+            }
+        }
+    });
+
+    const bloc = document.createElement('div');
+    bloc.className = 'hub-summary';
+
+    bloc.innerHTML = METRIQUES
+        .filter(m => totaux[m.cle] !== undefined)
+        .map(m => `
+            <div class="summary-box">
+                <span class="summary-value">${escapeHtml(formaterNombre(totaux[m.cle], m.suffixe))}</span>
+                <span class="summary-label">${escapeHtml(m.label)}</span>
+            </div>
+        `).join('');
+
+    return bloc.children.length ? bloc : null;
+}
+
+/** Bandeau des comptes : une pastille par plateforme. */
+function construireBandeauComptes(resultats, onDelier) {
+    const bloc = document.createElement('div');
+    bloc.className = 'hub-accounts';
+
+    resultats.forEach(r => {
+        const chip = document.createElement('div');
+        chip.className = 'account-chip';
+        chip.dataset.platform = r.platform.slug;
+
+        if (!r.platform.linked) {
+            chip.classList.add('account-chip--empty');
+            const action = (r.platform.enabled && r.platform.linkable)
+                ? `<a class="link-btn link-btn--sm" href="/php/link.php?platform=${encodeURIComponent(r.platform.slug)}">Lier</a>`
+                : `<span class="chip-soon">Bientôt</span>`;
+
+            chip.innerHTML = `
+                <img class="chip-icon" src="${escapeHtml(r.platform.icon)}" alt="">
+                <div class="chip-body">
+                    <span class="chip-name">${escapeHtml(r.platform.label)}</span>
+                    <span class="chip-sub">Non lié</span>
+                </div>
+                ${action}
+            `;
+            bloc.appendChild(chip);
+            return;
+        }
+
+        if (r.error) {
+            chip.classList.add('account-chip--error');
+            chip.innerHTML = `
+                <img class="chip-icon" src="${escapeHtml(r.platform.icon)}" alt="">
+                <div class="chip-body">
+                    <span class="chip-name">${escapeHtml(r.platform.label)}</span>
+                    <span class="chip-sub chip-sub--error">${escapeHtml(r.error)}</span>
+                </div>
+            `;
+        } else {
+            const d = r.data;
+            const avatar = safeUrl(d.avatar);
+            const online = d.status?.online ? 'online' : '';
+
+            chip.innerHTML = `
+                ${avatar
+                    ? `<img class="chip-avatar ${online}" src="${avatar}" alt="" onclick="openImageModal(this.src)">`
+                    : `<div class="chip-avatar"></div>`}
+                <div class="chip-body">
+                    <span class="chip-name">${escapeHtml(d.displayName)}</span>
+                    <span class="chip-sub">${escapeHtml(d.platformLabel)} · ${escapeHtml(d.status?.label || '')}</span>
+                    ${d.activity ? `<span class="chip-game">🎮 ${escapeHtml(d.activity)}</span>` : ''}
+                </div>
+            `;
+        }
+
+        const btn = document.createElement('button');
+        btn.className = 'chip-unlink';
+        btn.title = `Délier ${r.platform.label}`;
+        btn.textContent = '✕';
+        btn.addEventListener('click', () => onDelier(r.platform, btn));
+        chip.appendChild(btn);
+
+        bloc.appendChild(chip);
+    });
+
+    return bloc;
+}
+
+/** Toutes les stats détaillées, groupées par plateforme. */
+function construireDetails(resultats) {
+    const bloc = document.createElement('div');
+    bloc.className = 'hub-details';
+
+    resultats.forEach(r => {
+        if (!r.data) return;
+        const d = r.data;
+
+        const highlights = (d.highlights || []).map(item => `
+            <div class="info-box">
+                <span class="info-label">${escapeHtml(item.label)}</span>
+                <span class="info-value">${escapeHtml(item.value ?? '-')}</span>
+            </div>
+        `).join('');
+
+        const sections = (d.sections || []).map(section => {
+            const items = (section.items || []).map(item => `
+                <li>${escapeHtml(item.name)} <span>${escapeHtml(item.value ?? '')}</span></li>
+            `).join('');
+            return `
+                <div class="recent-games-box">
+                    <span class="info-label">${escapeHtml(section.title)}</span>
+                    <ul class="recent-games-list">
+                        ${items || `<li>${escapeHtml(section.empty || 'Aucune donnée')}</li>`}
+                    </ul>
+                </div>
+            `;
+        }).join('');
+
+        const links = (d.links || []).map(l => {
+            const url = safeUrl(l.url);
+            return url ? `<a href="${url}" target="_blank" rel="noopener" class="profile-link">${escapeHtml(l.label)}</a>` : '';
+        }).join('');
+
+        const groupe = document.createElement('section');
+        groupe.className = 'detail-group';
+        groupe.dataset.platform = d.platform;
+        groupe.innerHTML = `
+            <div class="detail-head">
+                <span class="platform-tag">${escapeHtml(d.platformLabel)}</span>
+                ${links}
+            </div>
+            ${highlights ? `<div class="info-grid">${highlights}</div>` : ''}
+            ${sections}
+        `;
+
+        bloc.appendChild(groupe);
+    });
+
+    return bloc.children.length ? bloc : null;
+}

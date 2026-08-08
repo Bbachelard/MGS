@@ -1,12 +1,14 @@
+let etatPlateformes = [];
+
 document.addEventListener("DOMContentLoaded", () => {
     chargerProfil();
 });
 
 async function chargerProfil() {
-    const container = document.getElementById("platform-cards");
+    const container = document.getElementById("platform-hub");
     if (!container) return;
 
-    container.innerHTML = `<p class="stats-loading">Chargement...</p>`;
+    container.innerHTML = `<p class="stats-loading">Chargement de tes stats...</p>`;
 
     let status;
     try {
@@ -23,25 +25,19 @@ async function chargerProfil() {
         return;
     }
 
-    container.innerHTML = "";
+    // Un fetch par plateforme liée, tous en parallèle
+    etatPlateformes = await Promise.all(
+        status.platforms.map(plateforme => chargerPlateforme(plateforme))
+    );
 
-    // Une carte par plateforme, chargées en parallèle
-    const rendus = status.platforms.map(platform => rendrePlateforme(platform, container));
-    await Promise.allSettled(rendus);
+    dessinerHub(container);
+    majAvatarNavbar();
 }
 
-async function rendrePlateforme(platform, container) {
-    // Emplacement réservé pour garder l'ordre du registre
-    const slot = document.createElement("div");
-    slot.className = "card-slot";
-    container.appendChild(slot);
-
+async function chargerPlateforme(platform) {
     if (!platform.linked) {
-        slot.appendChild(construireCarteVide(platform));
-        return;
+        return { platform, data: null, error: null };
     }
-
-    slot.innerHTML = `<p class="stats-loading">Chargement ${platform.label}...</p>`;
 
     try {
         const url = `/php/api.php?platform=${encodeURIComponent(platform.slug)}`
@@ -49,76 +45,86 @@ async function rendrePlateforme(platform, container) {
         const response = await fetch(url);
         const data = await response.json();
 
-        slot.innerHTML = "";
-
-        if (data.error) {
-            slot.appendChild(construireCarteErreur(platform, data.error));
-            return;
-        }
-
-        const card = construireCarte(data);
-        card.appendChild(construireBoutonDelier(platform, slot));
-        slot.appendChild(card);
+        return data.error
+            ? { platform, data: null, error: data.error }
+            : { platform, data, error: null };
 
     } catch (err) {
         console.error(`Stats ${platform.slug}:`, err);
-        slot.innerHTML = "";
-        slot.appendChild(construireCarteErreur(platform, "Une erreur est survenue."));
+        return { platform, data: null, error: "Stats indisponibles." };
     }
 }
 
-function construireCarteErreur(platform, message) {
-    const card = document.createElement("div");
-    card.className = "player-card player-card--empty";
-    card.innerHTML = `
-        <div class="platform-tag">${escapeHtml(platform.label)}</div>
-        <div class="empty-body">
-            <p class="stats-error">${escapeHtml(message)}</p>
-        </div>
-    `;
-    card.appendChild(construireBoutonDelier(platform, card));
-    return card;
+function dessinerHub(container) {
+    container.innerHTML = "";
+
+    container.appendChild(construireBandeauComptes(etatPlateformes, delierPlateforme));
+
+    const resume = construireResume(etatPlateformes);
+    if (resume) container.appendChild(resume);
+
+    const details = construireDetails(etatPlateformes);
+    if (details) {
+        container.appendChild(details);
+    } else {
+        const vide = document.createElement("p");
+        vide.className = "stats-info";
+        vide.textContent = "Lie un compte pour voir apparaître tes statistiques ici.";
+        container.appendChild(vide);
+    }
 }
 
-function construireBoutonDelier(platform, slot) {
-    const btn = document.createElement("button");
-    btn.className = "unlink-btn";
-    btn.textContent = `Délier mon compte ${platform.label}`;
+/** Prend l'avatar du premier compte lié pour la navbar. */
+function majAvatarNavbar() {
+    const img = document.getElementById("navAvatar");
+    if (!img) return;
 
-    btn.addEventListener("click", async () => {
-        if (!confirm(`Confirmer la suppression de la liaison avec ton compte ${platform.label} ?`)) {
+    const premier = etatPlateformes.find(r => r.data && r.data.avatar);
+    if (!premier) return;
+
+    img.src = premier.data.avatar;
+    img.classList.add("is-linked");
+    img.title = premier.data.displayName;
+}
+
+async function delierPlateforme(platform, btn) {
+    if (!confirm(`Confirmer la suppression de la liaison avec ton compte ${platform.label} ?`)) {
+        return;
+    }
+
+    btn.disabled = true;
+
+    try {
+        const response = await fetch("/php/unlink.php", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ platform: platform.slug })
+        });
+        const data = await response.json();
+
+        if (data.error) {
+            alert(data.error);
+            btn.disabled = false;
             return;
         }
 
-        btn.disabled = true;
-        btn.textContent = "Suppression en cours...";
+        // On met à jour l'état local et on redessine tout le hub
+        etatPlateformes = etatPlateformes.map(r =>
+            r.platform.slug === platform.slug
+                ? { platform: { ...r.platform, linked: false, accountId: null }, data: null, error: null }
+                : r
+        );
 
-        try {
-            const response = await fetch("/php/unlink.php", {
-                method: "POST",
-                credentials: "include",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: new URLSearchParams({ platform: platform.slug })
-            });
-            const data = await response.json();
+        dessinerHub(document.getElementById("platform-hub"));
 
-            if (data.error) {
-                alert(data.error);
-                btn.disabled = false;
-                btn.textContent = `Délier mon compte ${platform.label}`;
-                return;
-            }
+        const img = document.getElementById("navAvatar");
+        if (img) { img.src = "../content/image/mgs_icon.png"; img.classList.remove("is-linked"); }
+        majAvatarNavbar();
 
-            slot.innerHTML = "";
-            slot.appendChild(construireCarteVide({ ...platform, linked: false, accountId: null }));
-
-        } catch (err) {
-            console.error("unlink:", err);
-            alert("Une erreur est survenue, réessaie plus tard.");
-            btn.disabled = false;
-            btn.textContent = `Délier mon compte ${platform.label}`;
-        }
-    });
-
-    return btn;
+    } catch (err) {
+        console.error("unlink:", err);
+        alert("Une erreur est survenue, réessaie plus tard.");
+        btn.disabled = false;
+    }
 }
