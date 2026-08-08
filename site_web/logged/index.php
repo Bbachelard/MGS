@@ -79,12 +79,9 @@ if ($linked !== null) {
             <div class="banner banner--<?= $banner['type'] ?>"><?= htmlspecialchars($banner['text']) ?></div>
         <?php endif; ?>
 
-        <div id="platform-hub" class="platform-hub">
+        <div id="platform-hub" class="platform-hub"></div>
 
         <div id="games-table" class="games-section"></div>
-
-        </div>
-
 
         <div id="imageModal" class="image-modal">
             <span class="image-modal-close">&times;</span>
