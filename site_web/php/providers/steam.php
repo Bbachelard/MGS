@@ -88,6 +88,19 @@ function steam_fetch_stats(array $cfg, string $accountId): array
         ];
     }
 
+
+    $recentMinutes = 0;
+    foreach ($recentGames as $game) {
+        $recentMinutes += (int)($game['playtime_2weeks'] ?? 0);
+    }
+
+    $playedMinutes = 0;
+    foreach ($ownedGames as $game) {
+        $playedMinutes += (int)($game['playtime_forever'] ?? 0);
+    }
+
+
+
     return [
         'ok'   => true,
         'card' => [
@@ -123,6 +136,12 @@ function steam_fetch_stats(array $cfg, string $accountId): array
             ],
             'links'         => [
                 ['label' => 'Voir le profil Steam', 'url' => $player['profileurl'] ?? ''],
+            ],
+            'metrics'       => [
+                'accounts'    => 1,
+                'games'       => count($ownedGames),
+                'recentHours' => round($recentMinutes / 60, 1),
+                'totalHours'  => round($playedMinutes / 60),
             ],
         ],
     ];
