@@ -17,7 +17,7 @@
   </head>
   <body>
     <header class="navbar">
-        <div class="logo"><a href="./index.html"><img src="../content/image/mgs_letters.png" width="100"></a></div>
+        <div class="logo"><a href="../index.html"><img src="../content/image/mgs_letters.png" width="100"></a></div>
         <div class="nav-box1"><a href=""><img src="../content/image/Steam_icon.webp" width="50"></a></div>
         <div class="nav-box2"><a href=""><img src="../content/image/riot-icon.png" width="50"></a></div>
         <div class="nav-box3"><a href=""><img src="../content/image/Epic_icon.webp" width="50"></a></div>
@@ -71,8 +71,7 @@
 
             <div class="form-group">
                 <div class="form-actions">
-                    <input class="button" type="submit" value="Se connecter">
-                    <a href="https://my-gamers-stats.com/signup/" class="button-2">S'inscrire</a>
+                    <input class="button" type="submit" value="Créer mon compte">
                 </div>
             </div>
         </form>
