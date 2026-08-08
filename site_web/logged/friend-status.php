@@ -97,10 +97,11 @@ if (!$isFriend) {
 $stmt = $conn->prepare("
     SELECT
         u.id,
-        sl.steam_id
+        pl.platform_user_id
     FROM users u
-    LEFT JOIN steam_links sl
-        ON sl.user_id = u.id
+    LEFT JOIN platform_links pl
+        ON pl.user_id = u.id
+       AND pl.platform = 'steam'
     WHERE u.id = ?
     LIMIT 1
 ");
@@ -135,13 +136,9 @@ if (!$user) {
     exit;
 }
 
-
-/*
- * Réponse attendue par profile-stats.js.
- */
 echo json_encode([
     'connected' => true,
-    'steamId' => $user['steam_id'] ?? null
+    'steamId' => $user['platform_user_id'] ?? null
 ]);
 
 exit;
