@@ -32,6 +32,11 @@ async function chargerProfil() {
 
     dessinerHub(container);
     majAvatarNavbar();
+    const steam = etatPlateformes.find(r => r.data && r.platform.slug === "steam");
+    if (steam) {
+        chargerBibliotheque("steam");
+    }
+
 }
 
 async function chargerPlateforme(platform) {
