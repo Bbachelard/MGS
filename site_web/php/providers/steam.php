@@ -174,60 +174,65 @@ function steam_complete_link(array $cfg, string $returnUrl): array
     }
 }
 
+/* ================================================================== */
+/*  Bibliothèque complète                                             */
+/* ================================================================== */
 
-
-<?php
-declare(strict_types=1);
-
-session_start();
-
-require_once __DIR__ . '/platforms.php';
-require_once __DIR__ . '/links-model.php';
-
-$config = require __DIR__ . '/../config.php';
-
-header('Content-Type: application/json; charset=utf-8');
-
-function mgs_games_error(int $status, string $message): never
+function steam_fetch_games(array $cfg, string $accountId): array
 {
-    http_response_code($status);
-    echo json_encode(['error' => $message], JSON_UNESCAPED_UNICODE);
-    exit;
+    $apiKey = $cfg['api_key'] ?? '';
+
+    if ($apiKey === '') {
+        return ['ok' => false, 'status' => 500, 'error' => 'Erreur de configuration API.'];
+    }
+
+    $owned = mgs_http_get_json(
+        'https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/'
+        . '?key=' . urlencode($apiKey)
+        . '&steamid=' . urlencode($accountId)
+        . '&include_appinfo=1&include_played_free_games=1'
+    );
+
+    if ($owned === null) {
+        return ['ok' => false, 'status' => 502, 'error' => 'Impossible de récupérer ta bibliothèque.'];
+    }
+
+    $ownedGames = $owned['response']['games'] ?? [];
+
+    $games      = [];
+    $totalMin   = 0;
+    $joues      = 0;
+
+    foreach ($ownedGames as $game) {
+        $appId    = (int)$game['appid'];
+        $minutes  = (int)($game['playtime_forever'] ?? 0);
+        $recent   = (int)($game['playtime_2weeks'] ?? 0);
+
+        $totalMin += $minutes;
+        if ($minutes > 0) {
+            $joues++;
+        }
+
+        $games[] = [
+            'appid'       => $appId,
+            'name'        => $game['name'] ?? ('App ' . $appId),
+            'image'       => 'https://cdn.cloudflare.steamstatic.com/steam/apps/' . $appId . '/capsule_184x69.jpg',
+            'storeUrl'    => 'https://store.steampowered.com/app/' . $appId . '/',
+            'hours'       => round($minutes / 60, 1),
+            'recentHours' => round($recent / 60, 1),
+            'lastPlayed'  => isset($game['rtime_last_played']) && (int)$game['rtime_last_played'] > 0
+                             ? (int)$game['rtime_last_played']
+                             : null,
+        ];
+    }
+
+    return [
+        'ok'     => true,
+        'games'  => $games,
+        'totals' => [
+            'count'  => count($games),
+            'played' => $joues,
+            'hours'  => round($totalMin / 60, 1),
+        ],
+    ];
 }
-
-if (!isset($_SESSION['user_id'])) {
-    mgs_games_error(401, 'Session expirée, reconnecte-toi.');
-}
-
-$slug = mgs_resolve_platform($_GET['platform'] ?? '');
-
-if ($slug === null) {
-    mgs_games_error(400, 'Plateforme inconnue.');
-}
-
-$platform = mgs_platform($slug);
-
-if (!$platform['enabled'] || !mgs_load_provider($slug) || !mgs_provider_supports($slug, 'fetch_games')) {
-    mgs_games_error(501, 'Bibliothèque indisponible pour ' . $platform['label'] . '.');
-}
-
-// accountId lu en base, jamais depuis l'URL : sinon n'importe qui pourrait
-// faire scanner la bibliothèque d'un tiers via notre serveur et notre clé API.
-$accountId = mgs_get_link($conn, (int)$_SESSION['user_id'], $slug);
-
-if ($accountId === null) {
-    mgs_games_error(404, 'Aucun compte ' . $platform['label'] . ' lié.');
-}
-
-$result = mgs_provider_call($slug, 'fetch_games', $config['PLATFORMS'][$slug] ?? [], $accountId);
-
-if (!$result['ok']) {
-    mgs_games_error($result['status'] ?? 502, $result['error']);
-}
-
-echo json_encode([
-    'platform' => $slug,
-    'label'    => $platform['label'],
-    'games'    => $result['games'],
-    'totals'   => $result['totals'],
-], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

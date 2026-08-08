@@ -81,13 +81,16 @@ if ($linked !== null) {
 
         <div id="platform-hub" class="platform-hub"></div>
 
+        <div id="games-table" class="games-section"></div>
+
         <div id="imageModal" class="image-modal">
             <span class="image-modal-close">&times;</span>
             <img class="image-modal-content" id="imageModalContent">
         </div>
     </main>
 
-    <script src="../js/stats-display.js?v=3"></script>
-    <script src="../js/profile-stats.js?v=3"></script>
+    <script src="../js/stats-display.js?v=4"></script>
+    <script src="../js/games-table.js?v=1"></script>
+    <script src="../js/profile-stats.js?v=4"></script>
   </body>
 </html>
