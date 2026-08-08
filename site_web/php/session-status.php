@@ -1,33 +1,46 @@
 <?php
-
-require __DIR__ . '/../config.php';
-
+declare(strict_types=1);
 
 session_start();
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: https://my-gamers-stats.com/');
-header('Access-Control-Allow-Credentials: true');
+
+require_once __DIR__ . '/platforms.php';
+require_once __DIR__ . '/links-model.php';
+
+$config = require __DIR__ . '/../config.php';
+
+header('Content-Type: application/json; charset=utf-8');
 
 if (!isset($_SESSION['user_id'])) {
     echo json_encode(['connected' => false]);
     exit;
 }
 
-$userId = $_SESSION['user_id'];
+$userId = (int)$_SESSION['user_id'];
 
-$stmt = $conn->prepare('SELECT email FROM users WHERE id = ?');
-$stmt->bind_param("i", $userId);
+$stmt = $conn->prepare('SELECT username, email FROM users WHERE id = ?');
+$stmt->bind_param('i', $userId);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-$stmt = $conn->prepare('SELECT steam_id FROM steam_links WHERE user_id = ?');
-$stmt->bind_param("i", $userId);
-$stmt->execute();
-$link = $stmt->get_result()->fetch_assoc();
+$links     = mgs_get_user_links($conn, $userId);
+$platforms = [];
+
+foreach (mgs_platforms() as $slug => $platform) {
+    $platforms[] = [
+        'slug'      => $slug,
+        'label'     => $platform['label'],
+        'icon'      => $platform['icon'],
+        'enabled'   => $platform['enabled'],
+        'linkable'  => $platform['linkable'],
+        'accountId' => $links[$slug],
+        'linked'    => $links[$slug] !== null,
+    ];
+}
 
 echo json_encode([
     'connected' => true,
-    'username'  => $user['username'],
-    'email'     => $user['email'],
-    'steamId'   => $link['steam_id'] ?? null,
-]);
+    'username'  => $user['username'] ?? '',
+    'email'     => $user['email'] ?? '',
+    'platforms' => $platforms,
+], JSON_UNESCAPED_UNICODE);
