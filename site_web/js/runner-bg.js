@@ -14,11 +14,11 @@
     const ACCENT = "#7c5cff";      // couleur principale (thème du site)
     const ACCENT_DARK = "#5b3fd9"; // ombre / contour
     const GROUND_COLOR = "rgba(124, 92, 255, 0.25)";
-    const STRIP_HEIGHT = 130;      // hauteur de la bande en bas de l'écran
-    const CHAR_HEIGHT = 46;        // hauteur du personnage (pieds -> tête)
+    const STRIP_HEIGHT = 170;      // hauteur de la bande en bas de l'écran
+    const CHAR_REACH = 55;         // hauteur max du perso au-dessus de son point de pied (tête + visière + marge)
     const SPEED = 2.4;             // vitesse de déplacement horizontal (px/frame)
-    const GRAVITY = 0.9;
-    const JUMP_VELOCITY = -14;
+    const GRAVITY = 1;
+    const JUMP_VELOCITY = -12;
     const MIN_JUMP_DELAY = 1500;   // ms
     const MAX_JUMP_DELAY = 4000;   // ms
 
@@ -49,7 +49,8 @@
     window.addEventListener("resize", resize);
 
     // ---------- État du personnage ----------
-    const groundY = STRIP_HEIGHT - 30; // ligne de sol (pieds du perso)
+    const groundY = STRIP_HEIGHT - 34; // ligne de sol (pieds du perso)
+    const MAX_JUMP_HEIGHT = groundY - CHAR_REACH; // garde-fou : hauteur max avant de sortir du haut du canvas
     let x = -60;
     let vy = 0;
     let onGround = true;
@@ -167,6 +168,12 @@
         if (!onGround) {
             vy += GRAVITY * step;
             currentY += vy * step;
+
+            // Garde-fou : on ne laisse jamais le perso sortir du haut du canvas
+            if (currentY < -MAX_JUMP_HEIGHT) {
+                currentY = -MAX_JUMP_HEIGHT;
+                if (vy < 0) vy = 0; // amorce la retombée si on tapait encore le "plafond"
+            }
 
             if (currentY >= 0) {
                 // Atterrissage
