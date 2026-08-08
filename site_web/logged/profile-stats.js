@@ -38,7 +38,7 @@ async function loadSteamProfile() {
 
     try {
         const statusUrl = isFriendProfile
-            ? `../php/friend-status.php?id=${encodeURIComponent(targetUserId)}`
+            ? `./friend-status.php?id=${encodeURIComponent(targetUserId)}`
             : "../php/session-status.php";
 
         const statusResponse = await fetch(statusUrl, {
