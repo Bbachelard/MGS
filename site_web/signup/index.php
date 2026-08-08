@@ -12,6 +12,7 @@
   <head>
     <link rel="stylesheet" href="../content/css/stylesheet.css">
     <link rel="stylesheet" href="../content/css/styleLogin.css">
+    <link href="https://googleapis.com" rel="stylesheet">
     <title>Connexion</title>
   </head>
   <body>

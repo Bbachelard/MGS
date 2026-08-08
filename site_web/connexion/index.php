@@ -21,6 +21,7 @@
         <div class="nav-box1"><a href=""><img src="../content/image/Steam_icon.webp" width="50"></a></div>
         <div class="nav-box2"><a href=""><img src="../content/image/riot-icon.png" width="50"></a></div>
         <div class="nav-box3"><a href=""><img src="../content/image/Epic_icon.webp" width="50"></a></div>
+        <link href="https://googleapis.com" rel="stylesheet">
     </header>
 
     <div class="page">
