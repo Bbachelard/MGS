@@ -13,10 +13,19 @@ function setStatsMessage(resultBox, className, message) {
 }
 
 async function readJsonResponse(response) {
+    const text = await response.text();
+
+    console.log("URL appelée :", response.url);
+    console.log("HTTP :", response.status);
+    console.log("Content-Type :", response.headers.get("content-type"));
+    console.log("RÉPONSE BRUTE :", text);
+
     try {
-        return await response.json();
+        return JSON.parse(text);
     } catch {
-        throw new Error(`Réponse serveur invalide (${response.status}).`);
+        throw new Error(
+            `JSON invalide. Réponse reçue : ${text.substring(0, 500)}`
+        );
     }
 }
 
