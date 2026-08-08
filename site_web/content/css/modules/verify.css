@@ -1,0 +1,219 @@
+/* ============================================================
+   MODALE DE VÉRIFICATION — liaison de compte sans OAuth
+   ============================================================ */
+
+.verify-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(10, 10, 14, 0.75);
+    backdrop-filter: blur(3px);
+}
+
+.verify-box {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 28px;
+    background: linear-gradient(145deg, #2f2f38, #232329);
+    border: 1px solid #3a3a45;
+    border-radius: 14px;
+    color: #fff;
+}
+
+.verify-close {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    background: none;
+    border: none;
+    color: #777;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.verify-close:hover {
+    color: #fff;
+}
+
+.verify-title {
+    margin: 0 0 16px;
+    font-size: 19px;
+}
+
+.verify-lead,
+.verify-account {
+    margin: 0 0 16px;
+    font-size: 14px;
+    color: #c9c9d6;
+}
+
+.verify-account strong {
+    color: #b3a0ff;
+}
+
+/* --- Formulaire --- */
+
+.verify-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #8f8fa5;
+}
+
+.verify-input {
+    width: 100%;
+    padding: 11px 14px;
+    background: #1f1f26;
+    border: 1px solid #3a3a45;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 15px;
+}
+
+.verify-input:focus {
+    outline: none;
+    border-color: #7c5cff;
+}
+
+.verify-hint {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: #8f8fa5;
+}
+
+.verify-hint code {
+    padding: 1px 5px;
+    background: #1f1f26;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+/* --- Bloc icône --- */
+
+.verify-icon-block {
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+    padding: 18px;
+    margin-bottom: 16px;
+    background: rgba(124, 92, 255, 0.08);
+    border: 1px solid rgba(124, 92, 255, 0.35);
+    border-radius: 12px;
+}
+
+.verify-icon {
+    flex-shrink: 0;
+    width: 96px;
+    height: 96px;
+    border-radius: 8px;
+    border: 3px solid #7c5cff;
+    box-shadow: 0 0 14px rgba(124, 92, 255, 0.45);
+}
+
+.verify-steps {
+    font-size: 13px;
+    color: #c9c9d6;
+}
+
+.verify-steps p {
+    margin: 0 0 8px;
+}
+
+.verify-steps ol {
+    margin: 0;
+    padding-left: 18px;
+    line-height: 1.7;
+}
+
+.verify-steps em {
+    color: #b3a0ff;
+    font-style: normal;
+}
+
+/* --- Retours --- */
+
+.verify-status {
+    min-height: 20px;
+    margin: 0 0 14px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.verify-status--warn {
+    color: #f0c04a;
+}
+
+.verify-status--error {
+    color: #ff9b8f;
+}
+
+.verify-error {
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: #ff9b8f;
+}
+
+.verify-success {
+    margin: 0 0 20px;
+    font-size: 15px;
+    color: #7fdc7f;
+    line-height: 1.6;
+}
+
+/* --- Actions --- */
+
+.verify-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.verify-submit,
+.verify-done {
+    margin-top: 18px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.verify-check {
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.verify-check:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.verify-back {
+    background: none;
+    border: none;
+    color: #8f8fa5;
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.verify-back:hover {
+    color: #fff;
+}
+
+@media (max-width: 560px) {
+    .verify-icon-block {
+        flex-direction: column;
+        align-items: center;
+        text-align: left;
+    }
+}
