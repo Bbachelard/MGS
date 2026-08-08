@@ -1,100 +1,144 @@
-function afficherResultat(data, resultBox) {
-    const dateCreation = data.timecreated
-        ? new Date(data.timecreated * 1000).toLocaleDateString('fr-FR')
-        : 'Inconnue';
+/* ================= Utilitaires ================= */
 
-    const derniereConnexion = data.lastlogoff
-        ? new Date(data.lastlogoff * 1000).toLocaleString('fr-FR')
-        : 'Inconnue';
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
-    const jeuxRecents = (data.recentGames || []).slice(0, 5).map(g =>
-        `<li>${g.name} <span>${(g.playtime_2weeks / 60).toFixed(1)}h</span></li>`
-    ).join('') || '<li>Aucun jeu récent</li>';
+/** N'autorise que http(s) : bloque javascript:... dans un href/src. */
+function safeUrl(url) {
+    const value = String(url ?? '').trim();
+    return /^https?:\/\//i.test(value) ? value : '';
+}
 
-    resultBox.innerHTML = `
-        <div class="player-card">
-            <div class="player-header">
-                <div class="avatar-frame">
-                    <img src="${data.avatar}" alt="avatar" onclick="openImageModal(this.src)" style="cursor: pointer;">
-                </div>
-                <div class="player-identity">
-                    <h3>${data.pseudo}</h3>
-                    ${data.realname ? `<p class="realname">${data.realname}</p>` : ''}
-                    <span class="status-badge ${data.statut === 'En ligne' ? 'online' : ''}">${data.statut}</span>
-                    ${data.gameextrainfo ? `<p class="in-game">🎮 ${data.gameextrainfo}</p>` : ''}
-                </div>
-            </div>
+/* ================= Rendu générique d'une carte ================= */
 
-            <div class="info-grid">
-                <div class="info-box">
-                    <span class="info-label">Plateforme</span>
-                    <span class="info-value">${data.platform}</span>
-                </div>
-                <div class="info-box">
-                    <span class="info-label">Profil</span>
-                    <span class="info-value">${data.communityvisibilitystate}</span>
-                </div>
-                <div class="info-box">
-                    <span class="info-label">Niveau Steam</span>
-                    <span class="info-value">${data.steamLevel ?? '-'}</span>
-                </div>
-                <div class="info-box">
-                    <span class="info-label">XP</span>
-                    <span class="info-value">${data.xp ?? '-'}</span>
-                </div>
-                <div class="info-box">
-                    <span class="info-label">Pays</span>
-                    <span class="info-value">${data.loccountrycode || '-'}</span>
-                </div>
-                <div class="info-box">
-                    <span class="info-label">Membre depuis</span>
-                    <span class="info-value">${dateCreation}</span>
-                </div>
-                <div class="info-box">
-                    <span class="info-label">Dernière connexion</span>
-                    <span class="info-value">${derniereConnexion}</span>
-                </div>
-                <div class="info-box">
-                    <span class="info-label">Jeux possédés</span>
-                    <span class="info-value">${data.ownedGamesCount ?? 0}</span>
-                </div>
-            </div>
+function construireCarte(data) {
+    const card = document.createElement('div');
+    card.className = 'player-card';
+    card.dataset.platform = data.platform || '';
 
+    const avatar = safeUrl(data.avatar);
+    const status = data.status || {};
+
+    const highlights = (data.highlights || []).map(item => `
+        <div class="info-box">
+            <span class="info-label">${escapeHtml(item.label)}</span>
+            <span class="info-value">${escapeHtml(item.value ?? '-')}</span>
+        </div>
+    `).join('');
+
+    const sections = (data.sections || []).map(section => {
+        const items = (section.items || []).map(item => `
+            <li>${escapeHtml(item.name)} <span>${escapeHtml(item.value ?? '')}</span></li>
+        `).join('');
+
+        return `
             <div class="recent-games-box">
-                <span class="info-label">Récemment joués</span>
-                <ul class="recent-games-list">${jeuxRecents}</ul>
+                <span class="info-label">${escapeHtml(section.title)}</span>
+                <ul class="recent-games-list">
+                    ${items || `<li>${escapeHtml(section.empty || 'Aucune donnée')}</li>`}
+                </ul>
             </div>
+        `;
+    }).join('');
 
-            <a href="${data.profileUrl}" target="_blank" class="profile-link">Voir le profil Steam</a>
+    const links = (data.links || []).map(link => {
+        const url = safeUrl(link.url);
+        return url
+            ? `<a href="${url}" target="_blank" rel="noopener" class="profile-link">${escapeHtml(link.label)}</a>`
+            : '';
+    }).join('');
+
+    card.innerHTML = `
+        <div class="platform-tag">${escapeHtml(data.platformLabel || data.platform)}</div>
+
+        <div class="player-header">
+            <div class="avatar-frame">
+                ${avatar
+                    ? `<img src="${avatar}" alt="avatar" onclick="openImageModal(this.src)" style="cursor:pointer;">`
+                    : `<div class="avatar-placeholder"></div>`}
+            </div>
+            <div class="player-identity">
+                <h3>${escapeHtml(data.displayName)}</h3>
+                ${data.subtitle ? `<p class="realname">${escapeHtml(data.subtitle)}</p>` : ''}
+                ${status.label ? `<span class="status-badge ${status.online ? 'online' : ''}">${escapeHtml(status.label)}</span>` : ''}
+                ${data.activity ? `<p class="in-game">🎮 ${escapeHtml(data.activity)}</p>` : ''}
+            </div>
+        </div>
+
+        ${highlights ? `<div class="info-grid">${highlights}</div>` : ''}
+        ${sections}
+        ${links}
+    `;
+
+    return card;
+}
+
+/** Carte affichée pour une plateforme non liée / indisponible. */
+function construireCarteVide(platform) {
+    const card = document.createElement('div');
+    card.className = 'player-card player-card--empty';
+    card.dataset.platform = platform.slug;
+
+    const icon = safeUrl(platform.icon) || platform.icon || '';
+
+    let action = `<p class="stats-info">Bientôt disponible.</p>`;
+    if (platform.enabled && platform.linkable) {
+        action = `<a class="link-btn" href="/php/link.php?platform=${encodeURIComponent(platform.slug)}">Lier mon compte ${escapeHtml(platform.label)}</a>`;
+    }
+
+    card.innerHTML = `
+        <div class="platform-tag">${escapeHtml(platform.label)}</div>
+        <div class="empty-body">
+            ${icon ? `<img src="${escapeHtml(icon)}" alt="" width="48">` : ''}
+            <p class="stats-info">Aucun compte ${escapeHtml(platform.label)} lié.</p>
+            ${action}
         </div>
     `;
 
-    resultBox.scrollIntoView({ behavior: "smooth", block: "center" });
+    return card;
 }
 
+/* ================= Compatibilité page d'accueil ================= */
 
+function afficherResultat(data, resultBox) {
+    resultBox.innerHTML = '';
+    resultBox.appendChild(construireCarte(data));
+    resultBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/* ================= Modale image ================= */
 
 function openImageModal(src) {
     const modal = document.getElementById('imageModal');
     const modalImg = document.getElementById('imageModalContent');
+    if (!modal || !modalImg) return;
     modal.style.display = 'flex';
     modalImg.src = src;
 }
 
 function closeImageModal() {
-    document.getElementById('imageModal').style.display = 'none';
+    const modal = document.getElementById('imageModal');
+    if (modal) modal.style.display = 'none';
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-    document.querySelector('.image-modal-close').addEventListener('click', closeImageModal);
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('imageModal');
+    if (!modal) return;
 
-    // Fermer en cliquant en dehors de l'image
-    document.getElementById('imageModal').addEventListener('click', function (e) {
-        if (e.target === this) closeImageModal();
+    const closeBtn = document.querySelector('.image-modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeImageModal);
+
+    modal.addEventListener('click', e => {
+        if (e.target === modal) closeImageModal();
     });
 
-    // Fermer avec la touche Echap
-    document.addEventListener('keydown', function (e) {
+    document.addEventListener('keydown', e => {
         if (e.key === 'Escape') closeImageModal();
     });
 });

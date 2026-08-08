@@ -123,7 +123,7 @@
 /* --- Cases d'informations type "CV" --- */
 .info-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 12px;
     width: 100%;
 }
@@ -260,4 +260,103 @@
 .unlink-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+
+/* ================= Multi-plateformes ================= */
+
+.platform-cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 24px;
+    width: 100%;
+    max-width: 1100px;
+    margin: 30px auto 60px;
+}
+
+.card-slot {
+    display: flex;
+    justify-content: center;
+}
+
+.platform-tag {
+    align-self: flex-start;
+    padding: 3px 12px;
+    border-radius: 20px;
+    background: rgba(124, 92, 255, 0.15);
+    border: 1px solid rgba(124, 92, 255, 0.5);
+    color: #b3a0ff;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.player-card--empty {
+    justify-content: center;
+    min-width: 260px;
+    min-height: 220px;
+    border: 1px dashed #3a3a44;
+    background-color: rgba(42, 42, 51, 0.4);
+}
+
+.empty-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+
+.avatar-placeholder {
+    width: 80px;
+    height: 80px;
+    background: #1f1f26;
+    border-radius: 2%;
+}
+
+.stats-info {
+    color: #999;
+    text-align: center;
+    margin: 0;
+}
+
+.link-btn {
+    display: inline-block;
+    padding: 9px 18px;
+    background: #7c5cff;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: filter 0.15s ease;
+}
+
+.link-btn:hover {
+    filter: brightness(1.15);
+}
+
+/* ================= Bannières ================= */
+
+.banner {
+    max-width: 580px;
+    margin: 20px auto 0;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.banner--success {
+    background: rgba(46, 125, 50, 0.15);
+    border: 1px solid #2e7d32;
+    color: #7fdc7f;
+}
+
+.banner--error {
+    background: rgba(192, 57, 43, 0.15);
+    border: 1px solid #c0392b;
+    color: #ff9b8f;
 }

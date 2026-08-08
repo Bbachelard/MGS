@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
         resultBox.innerHTML = `<p class="stats-loading">Recherche en cours...</p>`;
 
         try {
-            const url = `../php/api.php?platform=${encodeURIComponent(selectedPlatform)}&pseudo=${encodeURIComponent(pseudo)}`;
+            const url = `/php/api.php?platform=${encodeURIComponent(selectedPlatform)}&pseudo=${encodeURIComponent(pseudo)}`;
             const response = await fetch(url);
             const data = await response.json();
 
