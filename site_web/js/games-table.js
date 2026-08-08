@@ -106,8 +106,7 @@ function dessinerTableau() {
     }).join("");
 
     const lignes = visibles.map(jeu => `
-        <h2 class="games-title">${gamesState.lectureSeule ? "Sa bibliothèque" : "Ma bibliothèque"}</h2>
-        <tr>
+         <tr>
             <td class="col-img">
                 <img src="${escapeHtml(jeu.image)}" alt="" loading="lazy"
                      onerror="this.style.visibility='hidden'">
@@ -125,7 +124,7 @@ function dessinerTableau() {
 
     zone.innerHTML = `
         <div class="games-head">
-            <h2 class="games-title">Ma bibliothèque</h2>
+            <h2 class="games-title">${gamesState.lectureSeule ? "Sa bibliothèque" : "Ma bibliothèque"}</h2>
         </div>
 
         <div class="games-totals">

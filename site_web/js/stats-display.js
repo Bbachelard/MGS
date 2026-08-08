@@ -200,23 +200,60 @@ function construireBandeauComptes(resultats, onDelier, options = {}) {
         chip.className = 'account-chip';
         chip.dataset.platform = r.platform.slug;
 
+        const icone = `<img class="chip-icon" src="${escapeHtml(r.platform.icon)}" alt="">`;
+
+        // --- Cas 1 : plateforme non liée ---
         if (!r.platform.linked) {
             chip.classList.add('account-chip--empty');
 
-            // Pas de bouton "Lier" sur le profil de quelqu'un d'autre
             const action = lectureSeule
                 ? ''
                 : (r.platform.enabled && r.platform.linkable)
                     ? `<a class="link-btn link-btn--sm" href="/php/link.php?platform=${encodeURIComponent(r.platform.slug)}">Lier</a>`
                     : `<span class="chip-soon">Bientôt</span>`;
-            /* ...le reste du innerHTML est inchangé... */
+
+            chip.innerHTML = `
+                ${icone}
+                <div class="chip-body">
+                    <span class="chip-name">${escapeHtml(r.platform.label)}</span>
+                    <span class="chip-sub">${lectureSeule ? 'Non lié' : 'Aucun compte lié'}</span>
+                    ${action}
+                </div>
+            `;
             bloc.appendChild(chip);
             return;
         }
 
-        /* ...blocs error / data inchangés... */
+        // --- Cas 2 : lié mais les stats ont échoué ---
+        if (r.error || !r.data) {
+            chip.classList.add('account-chip--error');
+            chip.innerHTML = `
+                ${icone}
+                <div class="chip-body">
+                    <span class="chip-name">${escapeHtml(r.platform.label)}</span>
+                    <span class="chip-sub chip-sub--error">${escapeHtml(r.error || 'Stats indisponibles.')}</span>
+                </div>
+            `;
 
-        // Le bouton "délier" n'existe que sur son propre profil
+        // --- Cas 3 : lié, stats OK ---
+        } else {
+            const d = r.data;
+            const avatar = safeUrl(d.avatar);
+            const status = d.status || {};
+
+            chip.innerHTML = `
+                ${avatar
+                    ? `<img class="chip-avatar ${status.online ? 'online' : ''}" src="${avatar}"
+                            alt="" onclick="openImageModal(this.src)">`
+                    : icone}
+                <div class="chip-body">
+                    <span class="chip-name">${escapeHtml(d.displayName || r.platform.label)}</span>
+                    <span class="chip-sub">${escapeHtml(status.label || r.platform.label)}</span>
+                    ${d.activity ? `<span class="chip-game">🎮 ${escapeHtml(d.activity)}</span>` : ''}
+                </div>
+            `;
+        }
+
         if (!lectureSeule) {
             const btn = document.createElement('button');
             btn.className = 'chip-unlink';
