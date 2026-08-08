@@ -20,6 +20,8 @@ function mgs_games_error(int $status, string $message): never
 if (!isset($_SESSION['user_id'])) {
     mgs_games_error(401, 'Session expirée, reconnecte-toi.');
 }
+$userId = (int)$_SESSION['user_id'];
+session_write_close();
 
 $slug = mgs_resolve_platform($_GET['platform'] ?? '');
 
@@ -35,7 +37,7 @@ if (!$platform['enabled'] || !mgs_load_provider($slug) || !mgs_provider_supports
 
 // accountId lu en base, jamais depuis l'URL : sinon n'importe qui pourrait
 // faire scanner la bibliothèque d'un tiers via notre serveur et notre clé API.
-$accountId = mgs_get_link($conn, (int)$_SESSION['user_id'], $slug);
+$accountId = mgs_get_link($conn, $userId, $slug);
 
 if ($accountId === null) {
     mgs_games_error(404, 'Aucun compte ' . $platform['label'] . ' lié.');

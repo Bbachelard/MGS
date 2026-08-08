@@ -25,17 +25,17 @@ async function chargerProfil() {
         return;
     }
 
-    // Un fetch par plateforme liée, tous en parallèle
+   const steam = status.platforms.find(p => p.slug === "steam" && p.linked);
+    if (steam) {
+        chargerBibliotheque("steam");
+    }
+
     etatPlateformes = await Promise.all(
         status.platforms.map(plateforme => chargerPlateforme(plateforme))
     );
 
     dessinerHub(container);
     majAvatarNavbar();
-    const steam = etatPlateformes.find(r => r.data && r.platform.slug === "steam");
-    if (steam) {
-        chargerBibliotheque("steam");
-    }
 
 }
 

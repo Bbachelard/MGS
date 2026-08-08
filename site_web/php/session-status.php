@@ -16,6 +16,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $userId = (int)$_SESSION['user_id'];
+session_write_close();
 
 $stmt = $conn->prepare('SELECT username, email FROM users WHERE id = ?');
 $stmt->bind_param('i', $userId);

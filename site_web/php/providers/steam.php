@@ -59,18 +59,25 @@ function steam_fetch_stats(array $cfg, string $accountId): array
     $key  = '?key=' . urlencode($apiKey);
     $sid  = urlencode($accountId);
 
-    $summary = mgs_http_get_json($base . "ISteamUser/GetPlayerSummaries/v2/{$key}&steamids={$sid}");
-    $player  = $summary['response']['players'][0] ?? null;
+    $reponses = mgs_http_get_json_multi([
+        'summary' => $base . "ISteamUser/GetPlayerSummaries/v2/{$key}&steamids={$sid}",
+        'owned'   => $base . "IPlayerService/GetOwnedGames/v1/{$key}&steamid={$sid}&include_appinfo=1&include_played_free_games=1",
+        'recent'  => $base . "IPlayerService/GetRecentlyPlayedGames/v1/{$key}&steamid={$sid}",
+        'level'   => $base . "IPlayerService/GetSteamLevel/v1/{$key}&steamid={$sid}",
+        'badges'  => $base . "IPlayerService/GetBadges/v1/{$key}&steamid={$sid}",
+    ]);
+
+    $summary = $reponses['summary'];
+    $owned   = $reponses['owned'];
+    $recent  = $reponses['recent'];
+    $level   = $reponses['level'];
+    $badges  = $reponses['badges'];
+
+    $player = $summary['response']['players'][0] ?? null;
 
     if (!$player) {
         return ['ok' => false, 'status' => 404, 'error' => 'Profil introuvable ou privé.'];
     }
-
-    $owned  = mgs_http_get_json($base . "IPlayerService/GetOwnedGames/v1/{$key}&steamid={$sid}&include_appinfo=1&include_played_free_games=1");
-    $recent = mgs_http_get_json($base . "IPlayerService/GetRecentlyPlayedGames/v1/{$key}&steamid={$sid}");
-    $level  = mgs_http_get_json($base . "IPlayerService/GetSteamLevel/v1/{$key}&steamid={$sid}");
-    $badges = mgs_http_get_json($base . "IPlayerService/GetBadges/v1/{$key}&steamid={$sid}");
-
     $ownedGames  = $owned['response']['games'] ?? [];
     $recentGames = $recent['response']['games'] ?? [];
 
@@ -216,7 +223,7 @@ function steam_fetch_games(array $cfg, string $accountId): array
         $games[] = [
             'appid'       => $appId,
             'name'        => $game['name'] ?? ('App ' . $appId),
-            'image'       => 'https://cdn.cloudflare.steamstatic.com/steam/apps/' . $appId . '/capsule_184x69.jpg',
+            'image'       => 'https://cdn.akamai.steamstatic.com/steam/apps/' . $appId . '/capsule_184x69.jpg',
             'storeUrl'    => 'https://store.steampowered.com/app/' . $appId . '/',
             'hours'       => round($minutes / 60, 1),
             'recentHours' => round($recent / 60, 1),

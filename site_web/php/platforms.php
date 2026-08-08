@@ -118,3 +118,61 @@ function mgs_http_get_json(string $url): ?array
 
     return is_array($data) ? $data : null;
 }
+
+
+/**
+ * Comme mgs_http_get_json(), mais lance toutes les URL en parallèle.
+ * @param  array<string,string> $urls  Clé => URL
+ * @return array<string,?array>        Mêmes clés, décodées en tableau (ou null)
+ */
+function mgs_http_get_json_multi(array $urls): array
+{
+    if (!$urls) {
+        return [];
+    }
+
+    // Repli séquentiel si l'extension curl n'est pas dispo
+    if (!function_exists('curl_multi_init')) {
+        $out = [];
+        foreach ($urls as $cle => $url) {
+            $out[$cle] = mgs_http_get_json($url);
+        }
+        return $out;
+    }
+
+    $multi   = curl_multi_init();
+    $handles = [];
+
+    foreach ($urls as $cle => $url) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_ENCODING       => '',   // active gzip
+        ]);
+        curl_multi_add_handle($multi, $ch);
+        $handles[$cle] = $ch;
+    }
+
+    do {
+        $status = curl_multi_exec($multi, $running);
+        if ($running) {
+            curl_multi_select($multi, 1.0);
+        }
+    } while ($running && $status === CURLM_OK);
+
+    $resultats = [];
+
+    foreach ($handles as $cle => $ch) {
+        $data = json_decode((string)curl_multi_getcontent($ch), true);
+        $resultats[$cle] = is_array($data) ? $data : null;
+        curl_multi_remove_handle($multi, $ch);
+        curl_close($ch);
+    }
+
+    curl_multi_close($multi);
+
+    return $resultats;
+}
