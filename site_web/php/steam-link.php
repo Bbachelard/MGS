@@ -35,7 +35,7 @@ $stmt->execute();
 $existing = $stmt->get_result()->fetch_assoc();
 
 if ($existing && (int)$existing['user_id'] !== (int)$userId) {
-    header('Location: ' . $config['SITE_URL'] . '/index.html?error=steam_deja_lie');
+    header('Location: ' . $config['SITE_URL'] . '/logged/index.php?error=steam_deja_lie');
     exit;
 }
 
@@ -46,5 +46,5 @@ $stmt = $conn->prepare(
 $stmt->bind_param("is", $userId, $steamId);
 $stmt->execute();
 
-header('Location: ' . $config['SITE_URL'] . '/index.html?linked=1');
+header('Location: ' . $config['SITE_URL'] . '/logged/index.php?linked=1');
 exit;
