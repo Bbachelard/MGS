@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="../content/css/stylesheet.css">
     <link rel="stylesheet" href="../content/css/styleLogin.css">
     <link href="https://googleapis.com" rel="stylesheet">
-    <title>Connexion</title>
+    <title>Inscription</title>
   </head>
   <body>
     <header class="navbar">
@@ -28,6 +28,10 @@
       <div class="login-wrapper">
         <form action="create_user.php" method="post" class="form_connect">
             <h1>Inscription</h1>
+            <?php if (isset($_SESSION['signup_error'])): ?>
+            <p class="error-message"><?= htmlspecialchars($_SESSION['signup_error']) ?></p>
+            <?php unset($_SESSION['signup_error']); ?>
+            <?php endif; ?>
             <p>completes les champs suivants pour créer ta page.</p>
 
             <div class="form-group">
