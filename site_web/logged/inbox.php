@@ -15,17 +15,18 @@ $myUsername = $_SESSION['username'] ?? '';
 
 $banner = null;
 
+
 /* ---------------------------------------------------------
    Accepter / Refuser une demande d'ami
 --------------------------------------------------------- */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['friendship_id'], $_POST['action'])) {
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && isset($_POST['friendship_id'], $_POST['action'])
+) {
     $friendshipId = (int) $_POST['friendship_id'];
     $action       = $_POST['action'];
 
-    /*
-     * On récupère la demande en vérifiant qu'elle appartient
-     * bien à l'utilisateur connecté.
-     */
+    // Vérifie que la demande existe et nous est bien destinée
     $stmt = $conn->prepare(
         "SELECT id, sender_id, receiver_id, status
          FROM friendships
@@ -39,84 +40,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['friendship_id'], $_PO
     $stmt->execute();
 
     $friendship = $stmt->get_result()->fetch_assoc();
-
     $stmt->close();
 
+
     if (!$friendship) {
+
         $banner = [
             'type' => 'error',
             'text' => "Cette demande n'existe pas ou a déjà été traitée."
         ];
-    } else {
+
+    } elseif ($action === 'accept') {
 
         /* -------------------------
            Accepter
         ------------------------- */
-        if ($action === 'accept') {
 
-            $stmt = $conn->prepare(
-                "UPDATE friendships
-                 SET status = 'accepted'
-                 WHERE id = ?
-                   AND receiver_id = ?
-                   AND status = 'pending'"
-            );
+        $stmt = $conn->prepare(
+            "UPDATE friendships
+             SET status = 'accepted'
+             WHERE id = ?
+               AND receiver_id = ?
+               AND status = 'pending'"
+        );
 
-            $stmt->bind_param("ii", $friendshipId, $myId);
+        $stmt->bind_param("ii", $friendshipId, $myId);
 
-            if ($stmt->execute()) {
-                $banner = [
-                    'type' => 'success',
-                    'text' => "Demande d'ami acceptée."
-                ];
-            } else {
-                $banner = [
-                    'type' => 'error',
-                    'text' => "Une erreur est survenue."
-                ];
-            }
+        if ($stmt->execute()) {
+            $banner = [
+                'type' => 'success',
+                'text' => "Demande d'ami acceptée."
+            ];
+        } else {
+            $banner = [
+                'type' => 'error',
+                'text' => "Une erreur est survenue."
+            ];
+        }
 
-            $stmt->close();
+        $stmt->close();
+
+
+    } elseif ($action === 'refuse') {
 
         /* -------------------------
            Refuser
         ------------------------- */
-        } elseif ($action === 'refuse') {
 
-            /*
-             * Ici on supprime simplement la demande.
-             * Cela permet à l'utilisateur de renvoyer
-             * une demande plus tard.
-             */
-            $stmt = $conn->prepare(
-                "DELETE FROM friendships
-                 WHERE id = ?
-                   AND receiver_id = ?
-                   AND status = 'pending'"
-            );
+        $stmt = $conn->prepare(
+            "DELETE FROM friendships
+             WHERE id = ?
+               AND receiver_id = ?
+               AND status = 'pending'"
+        );
 
-            $stmt->bind_param("ii", $friendshipId, $myId);
+        $stmt->bind_param("ii", $friendshipId, $myId);
 
-            if ($stmt->execute()) {
-                $banner = [
-                    'type' => 'success',
-                    'text' => "Demande d'ami refusée."
-                ];
-            } else {
-                $banner = [
-                    'type' => 'error',
-                    'text' => "Une erreur est survenue."
-                ];
-            }
-
-            $stmt->close();
-
+        if ($stmt->execute()) {
+            $banner = [
+                'type' => 'success',
+                'text' => "Demande d'ami refusée."
+            ];
         } else {
             $banner = [
                 'type' => 'error',
-                'text' => "Action invalide."
+                'text' => "Une erreur est survenue."
             ];
         }
+
+        $stmt->close();
+
+
+    } else {
+
+        $banner = [
+            'type' => 'error',
+            'text' => "Action invalide."
+        ];
+
     }
 }
 
@@ -144,33 +145,98 @@ $requests = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 $stmt->close();
 
+
+/* ---------------------------------------------------------
+   Récupération de la liste des amis
+--------------------------------------------------------- */
+$stmt = $conn->prepare(
+    "SELECT
+        users.id,
+        users.username
+     FROM friendships
+
+     INNER JOIN users
+        ON users.id = CASE
+            WHEN friendships.sender_id = ?
+                THEN friendships.receiver_id
+            ELSE friendships.sender_id
+        END
+
+     WHERE friendships.status = 'accepted'
+
+       AND (
+            friendships.sender_id = ?
+            OR friendships.receiver_id = ?
+       )
+
+     ORDER BY users.username ASC"
+);
+
+$stmt->bind_param("iii", $myId, $myId, $myId);
+$stmt->execute();
+
+$friends = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+$stmt->close();
+
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Demandes d'ami — My gamers stats</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-    <link rel="stylesheet" href="../content/css/stylesheet.css">
-    <link rel="stylesheet" href="../content/css/styleLogin.css">
-    <link rel="stylesheet" href="../content/css/ajouts-stats.css">
+    <title>Amis — My gamers stats</title>
+
+    <link
+        rel="stylesheet"
+        href="../content/css/stylesheet.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="../content/css/styleLogin.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="../content/css/ajouts-stats.css"
+    >
+
 </head>
+
 
 <body>
 
 <header class="navbar">
 
     <div class="logo">
+
         <a href="../index.html">
-            <img src="../content/image/mgs_letters.png" width="100">
+
+            <img
+                src="../content/image/mgs_letters.png"
+                width="100"
+                alt="My Gamer Stats"
+            >
+
         </a>
+
     </div>
 
+
     <div class="login">
-        <a href="./profile.php">Mon profil</a>
+
+        <a href="./profile.php">
+            Mon profil
+        </a>
+
     </div>
 
 </header>
@@ -179,27 +245,41 @@ $stmt->close();
 <main>
 
     <div class="titre">
-        <h1>Demandes d'ami</h1>
+
+        <h1>Mes amis</h1>
+
     </div>
 
 
     <?php if ($banner): ?>
 
         <div class="banner banner--<?= htmlspecialchars($banner['type']) ?>">
+
             <?= htmlspecialchars($banner['text']) ?>
+
         </div>
 
     <?php endif; ?>
 
 
+
+    <!-- =====================================================
+         DEMANDES D'AMI
+    ====================================================== -->
+
     <div class="compte">
 
         <div class="stats-result">
 
+            <h2>Demandes d'ami</h2>
+
+
             <?php if (empty($requests)): ?>
 
                 <p class="stats-info">
+
                     Tu n'as aucune demande d'ami en attente.
+
                 </p>
 
             <?php endif; ?>
@@ -207,18 +287,26 @@ $stmt->close();
 
             <?php foreach ($requests as $request): ?>
 
-                <div class="player-card" style="margin-bottom: 16px;">
+                <div
+                    class="player-card"
+                    style="margin-bottom: 16px;"
+                >
 
                     <div class="player-header">
 
                         <div class="player-identity">
 
                             <h3>
+
                                 <?= htmlspecialchars($request['username']) ?>
+
                             </h3>
 
+
                             <span class="status-badge">
-                                Demande d'ami
+
+                                Veut devenir ton ami
+
                             </span>
 
                         </div>
@@ -226,10 +314,20 @@ $stmt->close();
                     </div>
 
 
-                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <div
+                        style="
+                            display: flex;
+                            gap: 10px;
+                            margin-top: 15px;
+                        "
+                    >
 
                         <!-- Accepter -->
-                        <form action="" method="post">
+
+                        <form
+                            action=""
+                            method="post"
+                        >
 
                             <input
                                 type="hidden"
@@ -254,7 +352,11 @@ $stmt->close();
 
 
                         <!-- Refuser -->
-                        <form action="" method="post">
+
+                        <form
+                            action=""
+                            method="post"
+                        >
 
                             <input
                                 type="hidden"
@@ -287,7 +389,81 @@ $stmt->close();
 
     </div>
 
+
+
+    <!-- =====================================================
+         LISTE DES AMIS
+    ====================================================== -->
+
+    <div class="compte">
+
+        <div class="stats-result">
+
+            <h2>Liste de mes amis</h2>
+
+
+            <?php if (empty($friends)): ?>
+
+                <p class="stats-info">
+
+                    Tu n'as pas encore d'amis.
+
+                </p>
+
+            <?php endif; ?>
+
+
+            <?php foreach ($friends as $friend): ?>
+
+                <div
+                    class="player-card"
+                    style="margin-bottom: 16px;"
+                >
+
+                    <div class="player-header">
+
+                        <div class="player-identity">
+
+                            <h3>
+
+                                <?= htmlspecialchars($friend['username']) ?>
+
+                            </h3>
+
+
+                            <span class="status-badge online">
+
+                                Ami
+
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div style="margin-top: 15px;">
+
+                        <a
+                            href="./friend_profile.php?id=<?= (int) $friend['id'] ?>"
+                            class="button"
+                        >
+                            Voir le profil
+                        </a>
+
+                    </div>
+
+                </div>
+
+            <?php endforeach; ?>
+
+        </div>
+
+    </div>
+
+
 </main>
 
 </body>
+
 </html>
