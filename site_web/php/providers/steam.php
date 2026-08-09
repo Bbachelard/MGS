@@ -100,12 +100,33 @@ function steam_fetch_stats(array $cfg, string $accountId): array
     foreach ($recentGames as $game) {
         $recentMinutes += (int)($game['playtime_2weeks'] ?? 0);
     }
+    usort($recentGames, fn($a, $b) => ($b['playtime_2weeks'] ?? 0) <=> ($a['playtime_2weeks'] ?? 0));
+
+    $recentTop = [];
+    foreach (array_slice($recentGames, 0, 3) as $game) {
+        $recentTop[] = [
+            'name'     => $game['name'] ?? 'Jeu inconnu',
+            'hours'    => round(($game['playtime_2weeks'] ?? 0) / 60, 1),
+            'platform' => 'steam',
+        ];
+    }
 
     $playedMinutes = 0;
     foreach ($ownedGames as $game) {
         $playedMinutes += (int)($game['playtime_forever'] ?? 0);
     }
 
+    $topGame = null;
+    foreach ($ownedGames as $game) {
+        if ($topGame === null || ($game['playtime_forever'] ?? 0) > ($topGame['playtime_forever'] ?? 0)) {
+            $topGame = $game;
+        }
+    }
+
+    $playedCount = 0;
+    foreach ($ownedGames as $game) {
+        if ((int)($game['playtime_forever'] ?? 0) > 0) $playedCount++;
+    }
 
 
     return [
@@ -144,11 +165,21 @@ function steam_fetch_stats(array $cfg, string $accountId): array
             'links'         => [
                 ['label' => 'Voir le profil Steam', 'url' => $player['profileurl'] ?? ''],
             ],
-            'metrics'       => [
+            'metrics' => [
                 'accounts'    => 1,
                 'games'       => count($ownedGames),
+                'playedGames' => $playedCount,
                 'recentHours' => round($recentMinutes / 60, 1),
                 'totalHours'  => round($playedMinutes / 60),
+                'topGame'     => $topGame ? [
+                    'name'     => $topGame['name'] ?? 'Jeu inconnu',
+                    'hours'    => round(($topGame['playtime_forever'] ?? 0) / 60),
+                    'image'    => 'https://cdn.cloudflare.steamstatic.com/steam/apps/'
+                                . (int)$topGame['appid'] . '/header.jpg',
+                    'platform' => 'Steam',
+                ] : null,
+                'mainRank'    => null,
+                'recentTop' => $recentTop,
             ],
         ],
     ];
@@ -232,6 +263,7 @@ function steam_fetch_games(array $cfg, string $accountId): array
                              : null,
         ];
     }
+    
 
     return [
         'ok'     => true,
