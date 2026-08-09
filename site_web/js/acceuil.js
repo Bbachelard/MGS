@@ -73,8 +73,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const statsForm = document.getElementById("statsForm");
     const pseudoField = document.getElementById("pseudoField");
     const resultBox = document.getElementById("stats-result");
-<<<<<<< Updated upstream
-
 
     // Vérifie que tous les éléments nécessaires existent
     if (
@@ -99,13 +97,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // Ouvre / ferme le menu au clic
-=======
  
     // Plateforme sélectionnée par défaut 
     let selectedPlatform = "Steam";
  
     // Ouvre / ferme le menu au clic sur le bouton
->>>>>>> Stashed changes
     platformToggle.addEventListener("click", (e) => {
 
         e.stopPropagation();
@@ -122,7 +118,6 @@ document.addEventListener("DOMContentLoaded", () => {
             e.stopPropagation();
 
             const choix = item.getAttribute("data-value");
-<<<<<<< Updated upstream
 
             if (!choix) {
                 return;
@@ -132,11 +127,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             platformValue.innerHTML =
                 `${choix} <span class="arrow">▾</span>`;
-
-=======
             selectedPlatform = choix;
             platformValue.innerHTML = choix + ' <span class="arrow">▾</span>';
->>>>>>> Stashed changes
             platformSelect.classList.remove("open");
         });
     });
@@ -147,8 +139,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         platformSelect.classList.remove("open");
     });
-<<<<<<< Updated upstream
-
 
     /* =====================================================
        SOUMISSION DU FORMULAIRE
