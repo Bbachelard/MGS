@@ -48,26 +48,6 @@ if ($accountId === '') {
     $accountId = $resolved['accountId'];
 }
 
-require_once __DIR__ . '/cache.php';
-
-$cle = "card:{$slug}:{$accountId}";
-
-if ($cachee = mgs_cache_get($cle, 300)) {           // 5 min
-    header('X-Cache: HIT');
-    echo json_encode($cachee, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    exit;
-}
-
-$stats = mgs_provider_call($slug, 'fetch_stats', $config['PLATFORMS'][$slug] ?? [], $accountId);
-
-if (!$stats['ok']) {
-    mgs_json_error($stats['status'] ?? 502, $stats['error']);
-}
-
-mgs_cache_set($cle, $stats['card']);
-header('X-Cache: MISS');
-echo json_encode($stats['card'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
 $stats = mgs_provider_call($slug, 'fetch_stats', $config['PLATFORMS'][$slug] ?? [], $accountId);
 
 if (!$stats['ok']) {

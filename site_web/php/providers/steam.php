@@ -108,23 +108,29 @@ function steam_prix_app(int $appId): ?float
  * chargement est impossible (rate limit ~200 requêtes / 5 min), donc :
  * cache persistant + extrapolation des jeux inconnus sur la moyenne des
  * jeux connus. L'arrondi large est fait côté JS.
- */function steam_library_value(array $ownedGames): array
+ */
+function steam_library_value(array $ownedGames): array
 {
     $fichier = __DIR__ . '/../../cache/steam-prices.json';
     $dir     = dirname($fichier);
-    if (!is_dir($dir)) @mkdir($dir, 0775, true);
+
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
 
     $cache = is_file($fichier)
         ? (json_decode((string)file_get_contents($fichier), true) ?: [])
         : [];
 
     $limite = time() - STEAM_PRIX_CACHE_JOURS * 86400;
+
+    // Les jeux les plus joués d'abord : c'est eux qu'on veut mesurer en vrai.
     usort($ownedGames, fn($a, $b) => ($b['playtime_forever'] ?? 0) <=> ($a['playtime_forever'] ?? 0));
 
-    // --- Passe 1 : on trie connus / à interroger, sans aucun appel réseau
     $connus    = [];
-    $aFaire    = [];
     $manquants = 0;
+    $appels    = 0;
+    $modifie   = false;
 
     foreach ($ownedGames as $game) {
         $appId  = (int)($game['appid'] ?? 0);
@@ -132,33 +138,27 @@ function steam_prix_app(int $appId): ?float
 
         if ($entree !== null && (int)($entree['t'] ?? 0) > $limite) {
             $connus[] = (float)$entree['p'];
-        } elseif (count($aFaire) < STEAM_PRIX_PAR_APPEL) {
-            $aFaire[$appId] = 'https://store.steampowered.com/api/appdetails'
-                            . '?appids=' . $appId . '&cc=fr&l=fr&filters=price_overview';
-        } else {
-            $manquants++;
-        }
-    }
-
-    // --- Passe 2 : tous les appels restants EN PARALLÈLE
-    $modifie = false;
-    foreach (mgs_http_get_json_multi($aFaire) as $appId => $data) {
-        $bloc = $data[$appId] ?? null;
-
-        if (!is_array($bloc) || ($bloc['success'] ?? false) !== true) {
-            $manquants++;
             continue;
         }
 
-        $centimes = $bloc['data']['price_overview']['initial'] ?? null;
-        $prix     = $centimes === null ? 0.0 : $centimes / 100;
+        if ($appels < STEAM_PRIX_PAR_APPEL) {
+            $appels++;
+            $prix = steam_prix_app($appId);
 
-        $cache[$appId] = ['p' => $prix, 't' => time()];
-        $connus[] = $prix;
-        $modifie  = true;
+            if ($prix !== null) {
+                $cache[$appId] = ['p' => $prix, 't' => time()];
+                $modifie  = true;
+                $connus[] = $prix;
+                continue;
+            }
+        }
+
+        $manquants++;
     }
 
-    if ($modifie) @file_put_contents($fichier, json_encode($cache), LOCK_EX);
+    if ($modifie) {
+        @file_put_contents($fichier, json_encode($cache));
+    }
 
     $moyenne = $connus ? array_sum($connus) / count($connus) : 0.0;
 

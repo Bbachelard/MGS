@@ -4,7 +4,6 @@ const PROFILE_QS = PROFILE.userId ? `?userId=${encodeURIComponent(PROFILE.userId
 let etatPlateformes = [];
 let lectureSeule = false;
 
-
 document.addEventListener("DOMContentLoaded", () => {
     chargerProfil();
 });
@@ -42,26 +41,12 @@ if (steam) {
     chargerBibliotheque("steam", { userId: PROFILE.userId, lectureSeule });
 }
 
-// État initial : les comptes liés sont marqués "en chargement"
-etatPlateformes = status.platforms.map(platform => ({
-    platform,
-    data:       null,
-    error:      null,
-    chargement: platform.linked === true,
-}));
+etatPlateformes = await Promise.all(
+    status.platforms.map(plateforme => chargerPlateforme(plateforme))
+);
 
-dessinerHub(container);   // la page s'affiche tout de suite, avec squelettes
+dessinerHub(container);
 majAvatarNavbar();
-
-// Chaque plateforme remplace son squelette dès qu'elle répond
-status.platforms.forEach((platform, i) => {
-    if (!platform.linked) return;
-
-    chargerPlateforme(platform).then(resultat => {
-        etatPlateformes[i] = { ...resultat, chargement: false };
-        dessinerHub(container);
-    });
-});
 
 }
 
@@ -93,12 +78,7 @@ function dessinerHub(container) {
     construireBandeauComptes(etatPlateformes, delierPlateforme, { lectureSeule })
 );
     const resume = construireResume(etatPlateformes);
-    if (resume) {
-        if (etatPlateformes.some(r => r.chargement)) {
-            resume.classList.add('hub-global--partiel');
-        }
-        container.appendChild(resume);
-}
+    if (resume) container.appendChild(resume);
 
     const details = construireDetails(etatPlateformes);
     if (details) {
