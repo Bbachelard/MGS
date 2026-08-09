@@ -156,7 +156,7 @@ $friendUsername = htmlspecialchars((string) $friend['username'], ENT_QUOTES, 'UT
     };
 </script>
 <script src="../js/stats-display.js?v=7"></script>
-<script src="../js/hub-resume.js?v=1"></script>
+<script src="../js/hub-resume.js?v=3"></script>
 <script src="../js/games-table.js?v=2"></script>
 <script src="../js/profile-stats.js?v=7"></script>
 </body>

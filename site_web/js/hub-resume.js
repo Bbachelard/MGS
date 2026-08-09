@@ -60,7 +60,15 @@ function hubAgreger(resultats) {
         agg.playedGames += m.playedGames || 0;
         agg.recentHours += m.recentHours || 0;
 
-        if (m.hoursUnknown) {
+        if ((m.totalHours || 0) > 0) {
+            agg.totalHours += m.totalHours;
+            agg.parts.push({
+                slug:   r.platform.slug,
+                label:  r.platform.label,
+                hours:  m.totalHours,
+                estime: !!m.hoursEstimated,
+            });
+        } else if (m.hoursUnknown || m.hoursEstimated) {
             agg.inconnues.push(r.platform.label);
         } else if ((m.totalHours || 0) > 0) {
             agg.totalHours += m.totalHours;
@@ -99,34 +107,14 @@ function hubHero(agg) {
     const segments = agg.parts.map(p => {
         const pct = agg.totalHours > 0 ? (p.hours / agg.totalHours) * 100 : 0;
         return `<span class="hero-seg"
-                      style="width:${pct.toFixed(2)}%;background:${hubCouleur(p.slug)}"></span>`;
+                      style="width:${pct.toFixed(2)}%;background:${hubCouleur(p.slug)};${p.estime ? "opacity:.6;" : ""}"></span>`;
     }).join("");
 
     const legende = agg.parts.map(p => `
         <span class="hero-leg">
-            <i style="background:${hubCouleur(p.slug)}"></i>${escapeHtml(p.label)} ${hubNombre(p.hours)} h
+            <i style="background:${hubCouleur(p.slug)}"></i>${escapeHtml(p.label)} ${p.estime ? "≈ " : ""}${hubNombre(p.hours)} h
         </span>
     `).join("");
-
-    const inconnues = agg.inconnues.length
-        ? `<span class="hero-leg hero-leg--muted">${escapeHtml(agg.inconnues.join(", "))} : estimation indisponible</span>`
-        : "";
-
-    return `
-        <section class="hub-hero">
-            <span class="hero-label">Temps de jeu cumulé</span>
-
-            <div class="hero-line">
-                <span class="hero-value">${hubNombre(agg.totalHours)} h</span>
-                <span class="hero-unit">heures</span>
-                <span class="hero-aside">soit ${hubNombre(jours)} jours non-stop</span>
-            </div>
-
-            <div class="hero-bar">${segments}</div>
-            <div class="hero-legend">${legende}${inconnues}</div>
-        </section>
-    `;
-}
 
 /* ------------------------------------------------------------
    Étage 2 — cartes vedettes

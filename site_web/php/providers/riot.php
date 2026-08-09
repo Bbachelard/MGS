@@ -223,10 +223,14 @@ function riot_fetch_stats(array $cfg, string $accountId): array
 
         $win            = (bool)($me['win'] ?? false);
         $victoires     += $win ? 1 : 0;
-        $recentSeconds += (int)($info['gameDuration'] ?? 0);
-        $champ = $me['championName'] ?? '?';
-        $parChampion[$champ] = ($parChampion[$champ] ?? 0) + (int)($info['gameDuration'] ?? 0);
+        $duree = (int)($info['gameDuration'] ?? 0);
+        if ($duree > 100000) {
+            $duree = intdiv($duree, 1000);   // ancien format en millisecondes
+        }
 
+        $recentSeconds += $duree;
+        $champ = $me['championName'] ?? '?';
+        $parChampion[$champ] = ($parChampion[$champ] ?? 0) + $duree;
         $matchItems[] = [
             'name'  => ($me['championName'] ?? '?') . ' — ' . (RIOT_QUEUES[$info['queueId'] ?? 0] ?? 'Partie'),
             'value' => ($win ? '✅ ' : '❌ ')
@@ -255,6 +259,22 @@ function riot_fetch_stats(array $cfg, string $accountId): array
     $losses = (int)($solo['losses'] ?? 0);
     $total  = $wins + $losses;
 
+
+    /* --- Estimation du temps de jeu ------------------------------------
+       Riot n'expose aucun total. On multiplie la durée moyenne des
+       dernières parties par le nombre de parties classées connues.
+       Les normales / ARAM / Arena ne sont pas comptées.               */
+
+    $dureeMoyenne = count($matchItems) > 0
+        ? $recentSeconds / count($matchItems)
+        : 1800;                                     // 30 min par défaut
+
+    $partiesClassees = $wins + $losses
+                     + (int)($flex['wins'] ?? 0)
+                     + (int)($flex['losses'] ?? 0);
+
+    $heuresEstimees = (int) round($partiesClassees * $dureeMoyenne / 3600);
+
     return [
         'ok'   => true,
         'card' => [
@@ -279,6 +299,7 @@ function riot_fetch_stats(array $cfg, string $accountId): array
                 ['label' => 'Défaites',      'value' => $solo ? (string)$losses : '-'],
                 ['label' => 'Winrate',       'value' => $total > 0 ? round($wins / $total * 100) . ' %' : '-'],
                 ['label' => 'Forme récente', 'value' => $matchItems ? $victoires . 'V / ' . (count($matchItems) - $victoires) . 'D' : '-'],
+                ['label' => 'Temps estimé', 'value' => $heuresEstimees > 0 ? '≈ ' . $heuresEstimees . ' h' : '-'],
             ],
             'sections'      => [
                 [
@@ -305,8 +326,8 @@ function riot_fetch_stats(array $cfg, string $accountId): array
                 'games'       => $total,
                 'playedGames' => 0,
                 'recentHours' => round($recentSeconds / 3600, 1),
-                'totalHours'  => 0,
-                'hoursUnknown' => true,   // <-- le hub affichera "estimation indisponible"
+                'totalHours'     => $heuresEstimees,
+                'hoursEstimated' => true,
                 'topGame'     => null,
                 'recentTop' => $recentTop,
                 'mainRank'    => $solo ? [
