@@ -3,6 +3,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../platforms.php';
 
+/** Durée de vie du cache de prix, en jours. */
+const STEAM_PRIX_CACHE_JOURS = 30;
+
+/** Nombre d'appels au Store par chargement. Le cache se remplit progressivement. */
+const STEAM_PRIX_PAR_APPEL = 25;
+
 /* ------------------------------------------------------------------ */
 /*  Recherche : pseudo / URL / SteamID64  ->  accountId                */
 /* ------------------------------------------------------------------ */
@@ -44,6 +50,124 @@ function steam_resolve_account_id(array $cfg, string $query): array
     return ['ok' => true, 'accountId' => (string)$data['response']['steamid']];
 }
 
+
+/**
+ * Total d'heures au 1er passage de l'année, pour pouvoir calculer le delta.
+ * L'API Steam n'expose aucune donnée par année : sans ce repère, "temps de
+ * jeu cette année" est impossible à produire honnêtement.
+ */
+function steam_snapshot_annuel(string $accountId, float $heuresActuelles): array
+{
+    $dir = __DIR__ . '/../../cache/snapshots';
+
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+
+    $annee   = (int)date('Y');
+    $cle     = preg_replace('/[^0-9A-Za-z]/', '', $accountId);
+    $fichier = "{$dir}/steam-{$cle}-{$annee}.json";
+
+    if (is_file($fichier)) {
+        $snap = json_decode((string)file_get_contents($fichier), true) ?: [];
+    } else {
+        $snap = ['hours' => $heuresActuelles, 'since' => date('Y-m-d')];
+        @file_put_contents($fichier, json_encode($snap));
+    }
+
+    $depuis = (string)($snap['since'] ?? date('Y-m-d'));
+
+    return [
+        'hours'   => max(0, round($heuresActuelles - (float)($snap['hours'] ?? $heuresActuelles), 1)),
+        'since'   => $depuis,
+        'partial' => $depuis !== $annee . '-01-01',
+    ];
+}
+
+/** Prix de base (hors promo) d'un app, en euros. 0 pour les free-to-play. */
+function steam_prix_app(int $appId): ?float
+{
+    $data = mgs_http_get_json(
+        'https://store.steampowered.com/api/appdetails'
+        . '?appids=' . $appId . '&cc=fr&l=fr&filters=price_overview'
+    );
+
+    $bloc = $data[$appId] ?? null;
+
+    if (!is_array($bloc) || ($bloc['success'] ?? false) !== true) {
+        return null;
+    }
+
+    $centimes = $bloc['data']['price_overview']['initial'] ?? null;
+
+    return $centimes === null ? 0.0 : $centimes / 100;
+}
+
+/**
+ * Valeur de la bibliothèque. Interroger le Store pour 400 jeux à chaque
+ * chargement est impossible (rate limit ~200 requêtes / 5 min), donc :
+ * cache persistant + extrapolation des jeux inconnus sur la moyenne des
+ * jeux connus. L'arrondi large est fait côté JS.
+ */
+function steam_library_value(array $ownedGames): array
+{
+    $fichier = __DIR__ . '/../../cache/steam-prices.json';
+    $dir     = dirname($fichier);
+
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+
+    $cache = is_file($fichier)
+        ? (json_decode((string)file_get_contents($fichier), true) ?: [])
+        : [];
+
+    $limite = time() - STEAM_PRIX_CACHE_JOURS * 86400;
+
+    // Les jeux les plus joués d'abord : c'est eux qu'on veut mesurer en vrai.
+    usort($ownedGames, fn($a, $b) => ($b['playtime_forever'] ?? 0) <=> ($a['playtime_forever'] ?? 0));
+
+    $connus    = [];
+    $manquants = 0;
+    $appels    = 0;
+    $modifie   = false;
+
+    foreach ($ownedGames as $game) {
+        $appId  = (int)($game['appid'] ?? 0);
+        $entree = $cache[$appId] ?? null;
+
+        if ($entree !== null && (int)($entree['t'] ?? 0) > $limite) {
+            $connus[] = (float)$entree['p'];
+            continue;
+        }
+
+        if ($appels < STEAM_PRIX_PAR_APPEL) {
+            $appels++;
+            $prix = steam_prix_app($appId);
+
+            if ($prix !== null) {
+                $cache[$appId] = ['p' => $prix, 't' => time()];
+                $modifie  = true;
+                $connus[] = $prix;
+                continue;
+            }
+        }
+
+        $manquants++;
+    }
+
+    if ($modifie) {
+        @file_put_contents($fichier, json_encode($cache));
+    }
+
+    $moyenne = $connus ? array_sum($connus) / count($connus) : 0.0;
+
+    return [
+        'value'    => round(array_sum($connus) + $manquants * $moyenne),
+        'measured' => count($connus),
+        'total'    => count($ownedGames),
+    ];
+}
 /* ------------------------------------------------------------------ */
 /*  Stats  ->  carte normalisée                                        */
 /* ------------------------------------------------------------------ */
@@ -128,6 +252,10 @@ function steam_fetch_stats(array $cfg, string $accountId): array
         if ((int)($game['playtime_forever'] ?? 0) > 0) $playedCount++;
     }
 
+    $heuresTotales = round($playedMinutes / 60);
+    $annee         = steam_snapshot_annuel($accountId, (float)$heuresTotales);
+    $valeur        = steam_library_value($ownedGames);
+
 
     return [
         'ok'   => true,
@@ -166,20 +294,33 @@ function steam_fetch_stats(array $cfg, string $accountId): array
                 ['label' => 'Voir le profil Steam', 'url' => $player['profileurl'] ?? ''],
             ],
             'metrics' => [
-                'accounts'    => 1,
-                'games'       => count($ownedGames),
-                'playedGames' => $playedCount,
-                'recentHours' => round($recentMinutes / 60, 1),
-                'totalHours'  => round($playedMinutes / 60),
-                'topGame'     => $topGame ? [
+                'accounts'      => 1,
+                'games'         => count($ownedGames),
+                'playedGames'   => $playedCount,
+                'recentHours'   => round($recentMinutes / 60, 1),
+                'totalHours'    => $heuresTotales,
+                'topGame'       => $topGame ? [
                     'name'     => $topGame['name'] ?? 'Jeu inconnu',
                     'hours'    => round(($topGame['playtime_forever'] ?? 0) / 60),
                     'image'    => 'https://cdn.cloudflare.steamstatic.com/steam/apps/'
                                 . (int)$topGame['appid'] . '/header.jpg',
                     'platform' => 'Steam',
                 ] : null,
-                'mainRank'    => null,
-                'recentTop' => $recentTop,
+                'recentTop'     => $recentTop,
+
+                'yearHours'     => $annee['hours'],
+                'yearSince'     => $annee['since'],
+                'yearPartial'   => $annee['partial'],
+
+                'libraryValue'    => $valeur['value'],
+                'libraryMeasured' => [
+                    'measured' => $valeur['measured'],
+                    'total'    => $valeur['total'],
+                ],
+
+                // L'API officielle Steam n'expose aucun rang (CS2, Dota…).
+                'ranks'         => [],
+                'mainRank'      => null,
             ],
         ],
     ];

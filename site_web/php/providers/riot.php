@@ -30,6 +30,30 @@ const RIOT_QUEUES = [
     1700 => 'Arena',
 ];
 
+const RIOT_DIVISIONS = ['IV' => 0, 'III' => 1, 'II' => 2, 'I' => 3];
+
+/** Tiers apex : pas de divisions, on étale sur les LP. */
+const RIOT_TIERS_APEX = ['MASTER', 'GRANDMASTER', 'CHALLENGER'];
+
+/**
+ * Percentile approximatif de chaque tier sur la ladder soloq EUW.
+ * [plancher, plafond] = % de joueurs que tu dépasses.
+ * C'est CE chiffre qui permet de comparer un Diamant LoL à un
+ * Diamant CS2 : chaque provider doit renvoyer la même échelle 0-100.
+ */
+const RIOT_TIER_PERCENTILE = [
+    'IRON'        => [0.0,   4.0],
+    'BRONZE'      => [4.0,  20.0],
+    'SILVER'      => [20.0, 40.0],
+    'GOLD'        => [40.0, 60.0],
+    'PLATINUM'    => [60.0, 78.0],
+    'EMERALD'     => [78.0, 90.0],
+    'DIAMOND'     => [90.0, 97.5],
+    'MASTER'      => [97.5, 99.6],
+    'GRANDMASTER' => [99.6, 99.9],
+    'CHALLENGER'  => [99.9, 100.0],
+];
+
 /** Points de maîtrise moyens rapportés par partie (sert à estimer le temps de jeu). */
 const RIOT_POINTS_PAR_PARTIE = 350;
 /* ------------------------------------------------------------------ */
@@ -284,6 +308,15 @@ function riot_fetch_stats(array $cfg, string $accountId): array
     $partiesEstimees = (int) round($pointsTotaux / 350);
     $heuresEstimees  = (int) round($partiesEstimees * $dureeMoyenne / 3600);
 
+    $annee = riot_year_hours($regional, $puuid, $apiKey, $dureeMoyenne);
+
+    $rangs = array_values(array_filter([
+        riot_rank_entry($solo, 'League of Legends', 'Solo/Duo'),
+        riot_rank_entry($flex, 'League of Legends', 'Flex 5v5'),
+    ]));
+
+    usort($rangs, fn($a, $b) => ($b['score'] ?? -1) <=> ($a['score'] ?? -1));
+
     return [
         'ok'   => true,
         'card' => [
@@ -333,22 +366,34 @@ function riot_fetch_stats(array $cfg, string $accountId): array
                 ],
             ],
             'metrics' => [
-                'accounts'    => 1,
-                'games'       => $total,
-                'playedGames' => 0,
-                'recentHours' => round($recentSeconds / 3600, 1),
+                'accounts'       => 1,
+                'games'          => $total,
+                'playedGames'    => 0,
+                'recentHours'    => round($recentSeconds / 3600, 1),
                 'totalHours'     => $heuresEstimees,
                 'hoursEstimated' => true,
-                'topGame'     => null,
-                'recentTop' => $recentTop,
-                'mainRank'    => $solo ? [
-                    'label'    => riot_format_rank($solo),
-                    'tier'     => strtoupper((string)($solo['tier'] ?? '')),
-                    'queue'    => 'LoL — Solo/Duo',
-                    'sub'      => (int)$solo['leaguePoints'] . ' LP · '
-                                . ($total > 0 ? round($wins / $total * 100) : 0) . ' % winrate',
-                    'platform' => 'Riot',
+
+                // Sans ça, Steam gagnait le duel du "jeu principal" par forfait.
+                'topGame'        => $heuresEstimees > 0 ? [
+                    'name'      => 'League of Legends',
+                    'hours'     => $heuresEstimees,
+                    'image'     => '/content/img/games/lol.jpg',
+                    'platform'  => 'Riot',
+                    'estimated' => true,
                 ] : null,
+
+                'recentTop'      => $recentTop,
+
+                'yearHours'      => $annee['heures'],
+                'yearEstimated'  => true,
+                'yearTruncated'  => $annee['tronque'],
+
+                'libraryValue'   => 0,   // LoL est gratuit
+
+                'ranks'          => $rangs,
+
+                // Conservé pour stats-display.js tant qu'il lit encore mainRank.
+                'mainRank'       => $rangs[0] ?? null,
             ],
         ],
     ];
@@ -373,6 +418,122 @@ function riot_format_rank(?array $entry): string
     $tier = $tiers[$entry['tier'] ?? ''] ?? ucfirst(strtolower((string)($entry['tier'] ?? '')));
 
     return trim($tier . ' ' . (string)($entry['rank'] ?? ''));
+}
+
+/**
+ * Convertit une entrée league-v4 en percentile 0-100.
+ * null = non classé (la carte le reléguera en dernier).
+ */
+function riot_rank_percentile(?array $entry): ?float
+{
+    if ($entry === null) {
+        return null;
+    }
+
+    $tier = strtoupper((string)($entry['tier'] ?? ''));
+
+    if (!isset(RIOT_TIER_PERCENTILE[$tier])) {
+        return null;
+    }
+
+    [$bas, $haut] = RIOT_TIER_PERCENTILE[$tier];
+    $lp = (int)($entry['leaguePoints'] ?? 0);
+
+    if (in_array($tier, RIOT_TIERS_APEX, true)) {
+        $ratio = min(1.0, $lp / 1500);
+    } else {
+        $div   = RIOT_DIVISIONS[strtoupper((string)($entry['rank'] ?? 'IV'))] ?? 0;
+        $ratio = ($div + min(1.0, $lp / 100)) / 4;
+    }
+
+    return round($bas + ($haut - $bas) * $ratio, 2);
+}
+
+/**
+ * Emblème du tier. Les assets sont servis en local : les chemins CDN
+ * de Riot changent à chaque refonte du client, on ne s'y accroche pas.
+ * Fichiers attendus : content/img/ranks/lol-diamond.png, lol-gold.png, etc.
+ */
+function riot_rank_icon(string $tier): string
+{
+    $tier = strtolower(trim($tier));
+
+    return $tier === '' ? '' : '/content/img/ranks/lol-' . $tier . '.png';
+}
+
+/** Entrée de rang normalisée, consommée telle quelle par hub-resume.js. */
+function riot_rank_entry(?array $entry, string $jeu, string $queue): ?array
+{
+    if ($entry === null) {
+        return null;
+    }
+
+    $tier   = strtoupper((string)($entry['tier'] ?? ''));
+    $lp     = (int)($entry['leaguePoints'] ?? 0);
+    $wins   = (int)($entry['wins'] ?? 0);
+    $losses = (int)($entry['losses'] ?? 0);
+    $total  = $wins + $losses;
+
+    $details = [$lp . ' LP'];
+    if ($total > 0) {
+        $details[] = round($wins / $total * 100) . ' % WR';
+        $details[] = $total . ' parties';
+    }
+
+    return [
+        'game'     => $jeu,
+        'queue'    => $queue,
+        'label'    => riot_format_rank($entry),
+        'tier'     => $tier,
+        'division' => (string)($entry['rank'] ?? ''),
+        'lp'       => $lp,
+        'winrate'  => $total > 0 ? round($wins / $total * 100) : null,
+        'games'    => $total,
+        'icon'     => riot_rank_icon($tier),
+        'score'    => riot_rank_percentile($entry),
+        'sub'      => implode(' · ', $details),
+        'platform' => 'riot',
+    ];
+}
+
+/**
+ * Parties jouées depuis le 1er janvier.
+ * match-v5 ne renvoie que des IDs (pas de durée) : on multiplie par la
+ * durée moyenne des dernières parties. C'est une estimation assumée.
+ */
+function riot_year_hours(string $regional, string $puuid, string $apiKey, float $dureeMoyenne): array
+{
+    $debut   = mktime(0, 0, 0, 1, 1, (int)date('Y'));
+    $parties = 0;
+    $start   = 0;
+
+    // 10 pages = 1000 parties max. Au-delà on tronque plutôt que de
+    // marteler l'API à chaque affichage de page.
+    for ($page = 0; $page < 10; $page++) {
+        $res = riot_get(
+            "{$regional}/lol/match/v5/matches/by-puuid/" . rawurlencode($puuid)
+            . "/ids?startTime={$debut}&start={$start}&count=100",
+            $apiKey
+        );
+
+        if ($res['status'] !== 200 || !is_array($res['data'])) {
+            break;
+        }
+
+        $lot      = count($res['data']);
+        $parties += $lot;
+        $start   += $lot;
+
+        if ($lot < 100) {
+            break;
+        }
+    }
+
+    return [
+        'parties' => $parties,
+        'heures'  => round($parties * $dureeMoyenne / 3600, 1),
+        'tronque' => $parties >= 1000,
+    ];
 }
 
 /** Dernière version Data Dragon, mise en cache 24 h (aucune clé requise). */
