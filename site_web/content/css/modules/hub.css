@@ -292,34 +292,7 @@
     margin-bottom: 12px;
 }
 
-.feature-visual {
-    height: 60px;
-    border-radius: 8px;
-    background: #1f1f26;
-    border: 1px solid #33333d;
-    overflow: hidden;
-    margin-bottom: 12px;
-}
 
-.feature-visual img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.feature-visual--rank {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(124, 92, 255, 0.12);
-    border-color: #4a3f7a;
-}
-
-.rank-badge {
-    font-size: 17px;
-    font-weight: 800;
-    color: #b3a0ff;
-}
 
 .feature-title {
     margin: 0 0 3px;
@@ -527,34 +500,7 @@
     color: #8f8fa5;
 }
 
-.feature-visual {
-    height: 60px;
-    margin-bottom: 12px;
-    background: #1f1f26;
-    border: 1px solid #33333d;
-    border-radius: 8px;
-    overflow: hidden;
-}
 
-.feature-visual img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.feature-visual--rank {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(124, 92, 255, 0.12);
-    border-color: #4a3f7a;
-}
-
-.rank-badge {
-    font-size: 17px;
-    font-weight: 800;
-    color: #b3a0ff;
-}
 
 .feature-title {
     margin: 0 0 3px;
@@ -688,11 +634,147 @@
 .hero-line   { row-gap: 6px; }
 .hub-counters .summary-value { white-space: nowrap; }
 
-.feature-visual { display: flex; align-items: center; justify-content: center; }
 .rank-badge {
     font-size: 16px;
     line-height: 1.2;
     padding: 0 8px;
     text-align: center;
     white-space: nowrap;
+}
+
+/* ============================================================
+   Hero — temps de l'année + valeur de la bibliothèque
+   ============================================================ */
+
+.hero-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #3a3a45;
+}
+
+.hero-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.hero-stat-value {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+    color: #fff;
+    white-space: nowrap;
+}
+
+.hero-stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #8f8fa5;
+}
+
+/* ============================================================
+   Carte "Meilleur rang" — un rang par jeu, navigables
+   ============================================================ */
+
+.feature-card--rank {
+    cursor: pointer;
+}
+
+.feature-card--rank:focus-visible {
+    outline: 2px solid #7c5cff;
+    outline-offset: 2px;
+}
+
+/* Hauteur fixe : sans elle, la grille saute d'un rang à l'autre. */
+.rank-stage {
+    min-height: 148px;
+}
+
+.rank-slide[hidden] {
+    display: none;
+}
+
+.rank-visual {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 72px;
+    padding: 0 12px;
+    margin-bottom: 12px;
+    background: rgba(124, 92, 255, 0.12);
+    border: 1px solid #4a3f7a;
+    border-radius: 8px;
+}
+
+.rank-icon {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+}
+
+.rank-badge {
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.2;
+    color: #b3a0ff;
+}
+
+.rank-top {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: #6f6f85;
+}
+
+.rank-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.rank-arrow {
+    padding: 2px 8px;
+    font-size: 16px;
+    line-height: 1;
+    color: #8f8fa5;
+    background: none;
+    border: 1px solid #3a3a45;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.rank-arrow:hover {
+    color: #fff;
+    border-color: #7c5cff;
+}
+
+.rank-dots {
+    display: flex;
+    gap: 6px;
+}
+
+.rank-dot {
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    background: #4a4a58;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.rank-dot.is-active {
+    background: #b3a0ff;
+}
+
+@media (max-width: 720px) {
+    .hero-stats {
+        gap: 18px;
+    }
 }

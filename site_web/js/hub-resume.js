@@ -4,12 +4,13 @@
    Expose construireResume(resultats), appelé par profile-stats.js
    dans dessinerHub().
 
-   IMPORTANT : ce fichier doit être chargé APRÈS stats-display.js
-   (il réutilise escapeHtml) et AVANT profile-stats.js.
+   Chargé APRÈS stats-display.js (réutilise escapeHtml)
+   et AVANT profile-stats.js.
 
    Structure produite :
      .hub-global
-        .hub-hero      -> total d'heures + barre par plateforme
+        .hub-hero      -> total d'heures, barre par plateforme,
+                          temps de l'année, valeur de la bibliothèque
         .hub-featured  -> jeu principal / meilleur rang / 2 semaines
         .hub-counters  -> compteurs secondaires
    ============================================================ */
@@ -31,6 +32,23 @@ function hubNombre(valeur, decimales = 0) {
     });
 }
 
+/* Arrondi volontairement grossier : la valeur d'une bibliothèque est une
+   estimation, l'afficher à l'euro près lui donnerait une fausse précision. */
+function hubArrondiLarge(valeur) {
+    const v = Number(valeur || 0);
+    if (v <= 0) return 0;
+
+    const pas = v < 500 ? 50 : v < 5000 ? 100 : 500;
+    return Math.round(v / pas) * pas;
+}
+
+function hubDate(iso) {
+    const d = new Date(String(iso) + "T00:00:00");
+    return isNaN(d.getTime())
+        ? String(iso)
+        : d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+}
+
 /* ------------------------------------------------------------
    Agrégation des metrics de toutes les plateformes
    ------------------------------------------------------------ */
@@ -41,12 +59,17 @@ function hubAgreger(resultats) {
         comptesTotal:  resultats.length,
         totalHours:    0,
         recentHours:   0,
+        yearHours:     0,
+        yearSince:     null,
+        yearPartiel:   false,
+        libraryValue:  0,
+        libraryMesure: { mesures: 0, total: 0 },
         games:         0,
         playedGames:   0,
         parts:         [],   // { slug, label, hours } pour la barre
         inconnues:     [],   // plateformes sans estimation d'heures
         topGame:       null,
-        mainRank:      null,
+        ranks:         [],
         recentTop:     [],
     };
 
@@ -59,6 +82,20 @@ function hubAgreger(resultats) {
         agg.games       += m.games       || 0;
         agg.playedGames += m.playedGames || 0;
         agg.recentHours += m.recentHours || 0;
+        agg.yearHours   += m.yearHours   || 0;
+
+        // On garde la date de repère la plus récente : c'est elle qui limite
+        // ce qu'on peut réellement affirmer sur "cette année".
+        if (m.yearSince && (!agg.yearSince || m.yearSince > agg.yearSince)) {
+            agg.yearSince = m.yearSince;
+        }
+        if (m.yearPartial) agg.yearPartiel = true;
+
+        agg.libraryValue += m.libraryValue || 0;
+        if (m.libraryMeasured) {
+            agg.libraryMesure.mesures += m.libraryMeasured.measured || 0;
+            agg.libraryMesure.total   += m.libraryMeasured.total    || 0;
+        }
 
         if ((m.totalHours || 0) > 0) {
             agg.totalHours += m.totalHours;
@@ -70,27 +107,34 @@ function hubAgreger(resultats) {
             });
         } else if (m.hoursUnknown || m.hoursEstimated) {
             agg.inconnues.push(r.platform.label);
-        } else if ((m.totalHours || 0) > 0) {
-            agg.totalHours += m.totalHours;
-            agg.parts.push({
-                slug:  r.platform.slug,
-                label: r.platform.label,
-                hours: m.totalHours,
-            });
         }
 
         if (m.topGame && (!agg.topGame || m.topGame.hours > agg.topGame.hours)) {
             agg.topGame = m.topGame;
         }
 
-        if (m.mainRank && !agg.mainRank) {
-            agg.mainRank = Object.assign({ platform: r.platform.label }, m.mainRank);
-        }
+        // Tous les rangs de toutes les plateformes, pas seulement le premier.
+        const rangs = Array.isArray(m.ranks)
+            ? m.ranks
+            : (m.mainRank ? [m.mainRank] : []);
+
+        rangs.forEach(rang => {
+            if (!rang) return;
+            agg.ranks.push(Object.assign({
+                platformLabel: r.platform.label,
+                slug:          r.platform.slug,
+            }, rang));
+        });
 
         (m.recentTop || []).forEach(jeu => agg.recentTop.push(jeu));
     });
 
     agg.parts.sort((a, b) => b.hours - a.hours);
+
+    // Tri sur le percentile, pas sur le tier brut : un Diamant LoL (top 3 %)
+    // et un Diamant CS2 (top 15 %) ne valent pas la même chose.
+    agg.ranks.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+
     agg.recentTop.sort((a, b) => b.hours - a.hours);
     agg.recentTop = agg.recentTop.slice(0, 3);
 
@@ -120,6 +164,37 @@ function hubHero(agg) {
         ? `<span class="hero-leg hero-leg--muted">${escapeHtml(agg.inconnues.join(", "))} : estimation indisponible</span>`
         : "";
 
+    const stats = [];
+
+    if (agg.yearHours > 0) {
+        stats.push([
+            `${hubNombre(agg.yearHours)} h`,
+            agg.yearPartiel && agg.yearSince
+                ? `Joué depuis le ${hubDate(agg.yearSince)}`
+                : "Joué cette année",
+        ]);
+    }
+
+    if (agg.libraryValue > 0) {
+        const mesure = agg.libraryMesure;
+        const detail = mesure.total > 0 && mesure.mesures < mesure.total
+            ? `Valeur estimée · ${hubNombre(mesure.mesures)} prix sur ${hubNombre(mesure.total)}`
+            : "Valeur de la bibliothèque";
+
+        stats.push([`≈ ${hubNombre(hubArrondiLarge(agg.libraryValue))} €`, detail]);
+    }
+
+    const bloc = stats.length ? `
+        <div class="hero-stats">
+            ${stats.map(([valeur, label]) => `
+                <div class="hero-stat">
+                    <span class="hero-stat-value">${valeur}</span>
+                    <span class="hero-stat-label">${escapeHtml(label)}</span>
+                </div>
+            `).join("")}
+        </div>
+    ` : "";
+
     return `
         <section class="hub-hero">
             <span class="hero-label">Temps de jeu cumulé</span>
@@ -132,6 +207,7 @@ function hubHero(agg) {
 
             <div class="hero-bar">${segments}</div>
             <div class="hero-legend">${legende}${inconnues}</div>
+            ${bloc}
         </section>
     `;
 }
@@ -152,39 +228,117 @@ function hubCarteJeuPrincipal(agg) {
                 loading="lazy" onerror="this.remove()">`
         : "";
 
+    // Les heures Riot sont déduites des points de maîtrise : on le signale.
+    const prefixe = agg.topGame.estimated ? "≈ " : "";
+
     return `
         <article class="feature-card">
             <span class="feature-label">Jeu principal</span>
             <div class="feature-visual">${visuel}</div>
             <p class="feature-title">${escapeHtml(agg.topGame.name)}</p>
             <p class="feature-sub">
-                <strong>${hubNombre(agg.topGame.hours)} h</strong> · ${part} % du total
+                <strong>${prefixe}${hubNombre(agg.topGame.hours)} h</strong> · ${part} % du total
             </p>
         </article>
     `;
 }
 
 function hubCarteRang(agg) {
-    if (!agg.mainRank) return "";
+    if (!agg.ranks.length) return "";
 
-    const details = [];
-    if (agg.mainRank.lp !== undefined && agg.mainRank.lp !== null) {
-        details.push(`${hubNombre(agg.mainRank.lp)} LP`);
-    }
-    if (agg.mainRank.winrate !== undefined && agg.mainRank.winrate !== null) {
-        details.push(`${hubNombre(agg.mainRank.winrate)} % winrate`);
-    }
+    const slides = agg.ranks.map((rang, i) => {
+        const icone = rang.icon
+            ? `<img class="rank-icon" src="${escapeHtml(rang.icon)}" alt=""
+                    loading="lazy" onerror="this.remove()">`
+            : "";
+
+        const top = (rang.score !== null && rang.score !== undefined)
+            ? `<p class="rank-top">Top ${hubNombre(Math.max(0.1, 100 - rang.score), 1)} % des joueurs</p>`
+            : "";
+
+        const sousTitre = [rang.queue, rang.sub].filter(Boolean).join(" · ");
+
+        return `
+            <div class="rank-slide" data-rank-slide="${i}"${i === 0 ? "" : " hidden"}>
+                <div class="rank-visual">
+                    ${icone}
+                    <span class="rank-badge">${escapeHtml(rang.label || "Non classé")}</span>
+                </div>
+                <p class="feature-title">${escapeHtml(rang.game || rang.platformLabel || "")}</p>
+                <p class="feature-sub">${escapeHtml(sousTitre) || "&nbsp;"}</p>
+                ${top}
+            </div>
+        `;
+    }).join("");
+
+    const nav = agg.ranks.length > 1 ? `
+        <div class="rank-nav">
+            <button type="button" class="rank-arrow" data-rank-prev
+                    aria-label="Rang précédent">‹</button>
+            <div class="rank-dots">
+                ${agg.ranks.map((rang, i) => `
+                    <button type="button" class="rank-dot${i === 0 ? " is-active" : ""}"
+                            data-rank-dot="${i}"
+                            aria-label="${escapeHtml([rang.game, rang.queue].filter(Boolean).join(" "))}"></button>
+                `).join("")}
+            </div>
+            <button type="button" class="rank-arrow" data-rank-next
+                    aria-label="Rang suivant">›</button>
+        </div>
+    ` : "";
 
     return `
-        <article class="feature-card">
+        <article class="feature-card feature-card--rank" data-rank-card>
             <span class="feature-label">Meilleur rang</span>
-            <div class="feature-visual feature-visual--rank">
-                <span class="rank-badge">${escapeHtml(agg.mainRank.label || "Non classé")}</span>
-            </div>
-            <p class="feature-title">${escapeHtml(agg.mainRank.queue || agg.mainRank.platform || "")}</p>
-            <p class="feature-sub">${escapeHtml(details.join(" · ")) || "&nbsp;"}</p>
+            <div class="rank-stage">${slides}</div>
+            ${nav}
         </article>
     `;
+}
+
+/* Navigation entre les rangs. Appelée avant insertion dans le document :
+   bloc est déjà un vrai élément, querySelector fonctionne. */
+function hubBrancherRangs(bloc) {
+    const carte = bloc.querySelector("[data-rank-card]");
+    if (!carte) return;
+
+    const slides = Array.from(carte.querySelectorAll("[data-rank-slide]"));
+    const puces  = Array.from(carte.querySelectorAll("[data-rank-dot]"));
+    if (slides.length < 2) return;
+
+    let index = 0;
+
+    function afficher(n) {
+        index = (n + slides.length) % slides.length;
+        slides.forEach((s, i) => { s.hidden = i !== index; });
+        puces.forEach((p, i) => p.classList.toggle("is-active", i === index));
+    }
+
+    const prev = carte.querySelector("[data-rank-prev]");
+    const next = carte.querySelector("[data-rank-next]");
+
+    if (prev) prev.addEventListener("click", e => { e.stopPropagation(); afficher(index - 1); });
+    if (next) next.addEventListener("click", e => { e.stopPropagation(); afficher(index + 1); });
+
+    puces.forEach((p, i) => {
+        p.addEventListener("click", e => { e.stopPropagation(); afficher(i); });
+    });
+
+    carte.tabIndex = 0;
+    carte.setAttribute("role", "group");
+    carte.setAttribute("aria-label", "Rangs classés, du meilleur au moins bon");
+
+    carte.addEventListener("click", () => afficher(index + 1));
+
+    carte.addEventListener("keydown", e => {
+        if (e.key === "ArrowRight" || e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            afficher(index + 1);
+        } else if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            afficher(index - 1);
+        }
+    });
 }
 
 function hubCarteRecent(agg) {
@@ -268,6 +422,8 @@ function construireResume(resultats) {
         ${cartes ? `<div class="hub-featured">${cartes}</div>` : ""}
         ${hubCompteurs(agg)}
     `;
+
+    hubBrancherRangs(bloc);
 
     return bloc;
 }
