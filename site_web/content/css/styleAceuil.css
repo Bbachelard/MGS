@@ -223,3 +223,28 @@
         width: 100%;
     }
 }
+
+.hero-text {
+    text-align: center;
+    padding: 12px 20px 6px;
+    max-width: 750px;
+    margin: 0 auto;
+}
+
+.hero-text h1 {
+    margin: 0 0 8px;
+    color: #fff;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.hero-text h1 span {
+    color: var(--accent);
+}
+
+.hero-text p {
+    margin: 0;
+    color: #999;
+    font-size: 15px;
+    line-height: 1.5;
+}
