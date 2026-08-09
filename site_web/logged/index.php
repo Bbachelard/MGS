@@ -97,7 +97,7 @@ if ($linked !== null) {
         </div>
     </main>
 
-    <script src="../js/stats-display.js?v=6"></script>
+    <script src="../js/stats-display.js?v=7"></script>
     <script src="../js/link-verify.js?v=1"></script>
     <script src="../js/games-table.js?v=2"></script>
     <script src="../js/profile-stats.js?v=6"></script>

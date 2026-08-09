@@ -196,6 +196,7 @@ function riot_fetch_stats(array $cfg, string $accountId): array
     $ids = riot_get("{$regional}/lol/match/v5/matches/by-puuid/" . rawurlencode($puuid) . '/ids?start=0&count=5', $apiKey);
 
     $matchItems    = [];
+    $parChampion = [];
     $recentSeconds = 0;
     $victoires     = 0;
 
@@ -223,11 +224,23 @@ function riot_fetch_stats(array $cfg, string $accountId): array
         $win            = (bool)($me['win'] ?? false);
         $victoires     += $win ? 1 : 0;
         $recentSeconds += (int)($info['gameDuration'] ?? 0);
+        $champ = $me['championName'] ?? '?';
+        $parChampion[$champ] = ($parChampion[$champ] ?? 0) + (int)($info['gameDuration'] ?? 0);
 
         $matchItems[] = [
             'name'  => ($me['championName'] ?? '?') . ' — ' . (RIOT_QUEUES[$info['queueId'] ?? 0] ?? 'Partie'),
             'value' => ($win ? '✅ ' : '❌ ')
                        . (int)($me['kills'] ?? 0) . '/' . (int)($me['deaths'] ?? 0) . '/' . (int)($me['assists'] ?? 0),
+        ];
+    }
+    arsort($parChampion);
+
+    $recentTop = [];
+    foreach (array_slice($parChampion, 0, 3, true) as $nom => $secondes) {
+        $recentTop[] = [
+            'name'     => 'LoL — ' . $nom,
+            'hours'    => round($secondes / 3600, 1),
+            'platform' => 'riot',
         ];
     }
 
@@ -287,11 +300,23 @@ function riot_fetch_stats(array $cfg, string $accountId): array
                     'url'   => 'https://www.op.gg/summoners/' . rawurlencode($region) . '/' . rawurlencode(str_replace('#', '-', $riotId)),
                 ],
             ],
-            'metrics'       => [
+            'metrics' => [
                 'accounts'    => 1,
                 'games'       => $total,
+                'playedGames' => 0,
                 'recentHours' => round($recentSeconds / 3600, 1),
-                'totalHours'  => 0, // Riot n'expose pas de temps de jeu cumulé
+                'totalHours'  => 0,
+                'hoursUnknown' => true,   // <-- le hub affichera "estimation indisponible"
+                'topGame'     => null,
+                'recentTop' => $recentTop,
+                'mainRank'    => $solo ? [
+                    'label'    => riot_format_rank($solo),
+                    'tier'     => strtoupper((string)($solo['tier'] ?? '')),
+                    'queue'    => 'LoL — Solo/Duo',
+                    'sub'      => (int)$solo['leaguePoints'] . ' LP · '
+                                . ($total > 0 ? round($wins / $total * 100) : 0) . ' % winrate',
+                    'platform' => 'Riot',
+                ] : null,
             ],
         ],
     ];
