@@ -1,0 +1,7 @@
+<?php
+
+
+return [
+    'STEAM_API_KEY' => 'A72D48AD10CAF77CAC9D30AADF16C19C',
+];
+ 
