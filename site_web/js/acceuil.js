@@ -73,7 +73,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const statsForm = document.getElementById("statsForm");
     const pseudoField = document.getElementById("pseudoField");
     const resultBox = document.getElementById("stats-result");
-<<<<<<< Updated upstream
 
 
     // Vérifie que tous les éléments nécessaires existent
@@ -99,13 +98,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // Ouvre / ferme le menu au clic
-=======
- 
-    // Plateforme sélectionnée par défaut 
-    let selectedPlatform = "Steam";
- 
-    // Ouvre / ferme le menu au clic sur le bouton
->>>>>>> Stashed changes
     platformToggle.addEventListener("click", (e) => {
 
         e.stopPropagation();
@@ -122,7 +114,6 @@ document.addEventListener("DOMContentLoaded", () => {
             e.stopPropagation();
 
             const choix = item.getAttribute("data-value");
-<<<<<<< Updated upstream
 
             if (!choix) {
                 return;
@@ -133,10 +124,6 @@ document.addEventListener("DOMContentLoaded", () => {
             platformValue.innerHTML =
                 `${choix} <span class="arrow">▾</span>`;
 
-=======
-            selectedPlatform = choix;
-            platformValue.innerHTML = choix + ' <span class="arrow">▾</span>';
->>>>>>> Stashed changes
             platformSelect.classList.remove("open");
         });
     });
@@ -147,7 +134,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         platformSelect.classList.remove("open");
     });
-<<<<<<< Updated upstream
 
 
     /* =====================================================
@@ -530,50 +516,3 @@ function formaterHeuresAccueil(valeur) {
         }
     ) + "h";
 }
-=======
- 
-    // Soumission du formulaire : on appelle notre backend PHP
-    statsForm.addEventListener("submit", async (e) => {
-        e.preventDefault(); // empêche le rechargement de la page 
- 
-        const pseudo = pseudoField.value.trim();
- 
-        if (!pseudo) {
-            resultBox.innerHTML = `<p class="stats-error">Merci de saisir un pseudo.</p>`;
-            return;
-        }
- 
-        resultBox.innerHTML = `<p class="stats-loading">Recherche en cours...</p>`;
- 
-        try {
-            const url = `../php/api.php?platform=${encodeURIComponent(selectedPlatform)}&pseudo=${encodeURIComponent(pseudo)}`;
-            const response = await fetch(url);
-            const data = await response.json();
- 
-            if (data.error) {
-                resultBox.innerHTML = `<p class="stats-error">${data.error}</p>`;
-                return;
-            }
- 
-            afficherResultat(data);
-        } catch (err) {
-            console.error("Erreur récupération des stats :", err);
-            resultBox.innerHTML = `<p class="stats-error">Une erreur est survenue, réessaie plus tard.</p>`;
-        }
-    });
- 
-    function afficherResultat(data) {
-        resultBox.innerHTML = `
-            <div class="stats-card">
-                <img src="${data.avatar}" alt="avatar" width="64">
-                <div>
-                    <h3>${data.pseudo}</h3>
-                    <p>Plateforme : ${data.platform}</p>
-                    <p>Statut : ${data.statut}</p>
-                    <a href="${data.profileUrl}" target="_blank">Voir le profil</a>
-                </div>
-            </div>
-        `;
-    }
-});
->>>>>>> Stashed changes
