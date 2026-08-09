@@ -66,12 +66,11 @@ document.addEventListener("DOMContentLoaded", () => {
 /* ================= Rendu enrichi (accueil) =================
    Reprend la carte "CV" existante (construireCarte, dans stats-display.js)
    et lui ajoute un aperçu compact de la bibliothèque de jeux : totaux
-   (jeux possédés / lancés / heures) + top 5 jeux les plus joués.
+   (jeux lancés / temps total) + top 5 jeux les plus joués, avec vignette.
 
-   Passe par games-public.php (nouveau fichier, miroir public de
-   games.php) car api.php ne renvoie pas d'accountId exploitable côté
-   client, et games.php n'accepte pas d'accountId venant de l'URL
-   (résolution en base uniquement, par design).
+   Passe par games-public.php (miroir public de games.php) car api.php ne
+   renvoie pas d'accountId exploitable côté client, et games.php n'accepte
+   pas d'accountId venant de l'URL (résolution en base uniquement).
 
    Ne vit que dans acceuil.js, chargé uniquement sur la page d'accueil :
    aucun impact sur le profil connecté (index.php).
@@ -114,15 +113,19 @@ async function construireApercuBibliotheque(platform, pseudo) {
             .sort((a, b) => (b.hours || 0) - (a.hours || 0))
             .slice(0, 5);
 
+        // Bloc distinct, visuellement séparé du reste de la carte
+        // (bordure + marge en haut), pour ne pas se confondre avec les
+        // infos déjà présentes plus haut (ex: "Jeux possédés" du profil).
         const wrapper = document.createElement("div");
         wrapper.className = "library-preview";
+        wrapper.style.marginTop = "20px";
+        wrapper.style.paddingTop = "16px";
+        wrapper.style.borderTop = "1px solid #3a3a44";
+        wrapper.style.width = "100%";
 
         wrapper.innerHTML = `
-            <div class="info-grid">
-                <div class="info-box">
-                    <span class="info-label">Jeux possédés</span>
-                    <span class="info-value">${escapeHtml(totaux.count ?? data.games.length)}</span>
-                </div>
+            <span class="info-label" style="display:block;text-align:left;margin-bottom:10px;">Bibliothèque</span>
+            <div class="info-grid" style="grid-template-columns: repeat(2, 1fr);">
                 <div class="info-box">
                     <span class="info-label">Jeux lancés</span>
                     <span class="info-value">${escapeHtml(totaux.played ?? "-")}</span>
@@ -133,12 +136,10 @@ async function construireApercuBibliotheque(platform, pseudo) {
                 </div>
             </div>
             ${top.length ? `
-                <div class="recent-games-box">
+                <div class="recent-games-box" style="margin-top:12px;">
                     <span class="info-label">Jeux les plus joués</span>
                     <ul class="recent-games-list">
-                        ${top.map((jeu) => `
-                            <li>${escapeHtml(jeu.name)} <span>${escapeHtml(formaterHeuresAccueil(jeu.hours))}</span></li>
-                        `).join("")}
+                        ${top.map((jeu) => construireLigneJeu(jeu)).join("")}
                     </ul>
                 </div>
             ` : ""}
@@ -149,6 +150,23 @@ async function construireApercuBibliotheque(platform, pseudo) {
         console.error("Erreur lors du chargement de la bibliothèque (accueil) :", err);
         return null;
     }
+}
+
+/** Ligne d'un jeu avec vignette, nom et temps de jeu. */
+function construireLigneJeu(jeu) {
+    const image = safeUrl(jeu.image);
+
+    return `
+        <li style="display:flex;align-items:center;gap:10px;">
+            ${image ? `
+                <img src="${image}" alt="" loading="lazy"
+                     style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0;"
+                     onerror="this.style.display='none'">
+            ` : ""}
+            <span style="flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(jeu.name)}</span>
+            <span style="flex-shrink:0;">${escapeHtml(formaterHeuresAccueil(jeu.hours))}</span>
+        </li>
+    `;
 }
 
 function formaterHeuresAccueil(valeur) {
