@@ -352,162 +352,39 @@ async function construireApercuBibliotheque(
 
 
         wrapper.innerHTML = `
-
-            <style>
-
-                .library-preview {
-                    margin-top: 20px;
-                    padding-top: 16px;
-                    border-top: 1px solid #3a3a44;
-                    width: 100%;
-                }
-
-
-                .library-preview .lib-title {
-                    display: block;
-                    text-align: left;
-                    margin-bottom: 10px;
-                }
-
-
-                .library-preview .info-grid {
-                    grid-template-columns: repeat(2, 1fr);
-                }
-
-
-                .library-games-box {
-                    margin-top: 14px;
-                }
-
-
-                .library-games-list {
-                    list-style: none;
-                    margin: 8px 0 0;
-                    padding: 0;
-                }
-
-
-                .library-game-row {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    padding: 6px 4px;
-                    border-radius: 6px;
-                    border-bottom: 1px solid #2e2e36;
-
-                    transition:
-                        background-color .15s ease;
-                }
-
-
-                .library-game-row:last-child {
-                    border-bottom: none;
-                }
-
-
-                .library-game-row:hover {
-                    background-color:
-                        rgba(124, 92, 255, 0.1);
-                }
-
-
-                .library-game-thumb {
-                    width: 40px;
-                    height: 40px;
-
-                    border-radius: 6px;
-
-                    object-fit: cover;
-
-                    flex-shrink: 0;
-
-                    box-shadow:
-                        0 2px 6px
-                        rgba(0, 0, 0, .35);
-
-                    background: #2f2f38;
-                }
-
-
-                .library-game-name {
-                    flex: 1 1 auto;
-
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-
-                    color: #ddd;
-
-                    font-size: 13px;
-
-                    text-decoration: none;
-                }
-
-
-                a.library-game-name:hover {
-                    text-decoration: underline;
-                    color: #4b9fff;
-                }
-
-
-                .library-game-hours {
-                    flex-shrink: 0;
-
-                    color: #4b9fff;
-
-                    font-weight: 600;
-
-                    font-size: 13px;
-                }
-
-            </style>
-
-
             <span class="info-label lib-title">
                 Bibliothèque
             </span>
 
-
             <div class="info-grid">
 
                 <div class="info-box">
-
                     <span class="info-label">
                         Jeux lancés
                     </span>
 
                     <span class="info-value">
-                        ${escapeHtml(
-                            totaux.played ?? "-"
-                        )}
+                        ${escapeHtml(totaux.played ?? "-")}
                     </span>
-
                 </div>
 
-
                 <div class="info-box">
-
                     <span class="info-label">
                         Temps total
                     </span>
 
                     <span class="info-value">
                         ${escapeHtml(
-                            formaterHeuresAccueil(
-                                totaux.hours ?? 0
-                            )
+                            formaterHeuresAccueil(totaux.hours ?? 0)
                         )}
                     </span>
-
                 </div>
 
             </div>
 
-
             ${
                 top.length
                     ? `
-
                         <div class="recent-games-box library-games-box">
 
                             <span class="info-label">
@@ -515,20 +392,14 @@ async function construireApercuBibliotheque(
                             </span>
 
                             <ul class="library-games-list">
-
                                 ${
                                     top
-                                        .map(
-                                            (jeu) =>
-                                                construireLigneJeu(jeu)
-                                        )
+                                        .map((jeu) => construireLigneJeu(jeu))
                                         .join("")
                                 }
-
                             </ul>
 
                         </div>
-
                     `
                     : ""
             }

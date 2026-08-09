@@ -21,127 +21,265 @@
 @import url("modules/modal.css");
 @import url("modules/verify.css");
 
-/* ================= FRIENDS PAGE ================= */
+/* =========================================================
+   CARTE DE STATS - ACCUEIL
+========================================================= */
 
-.friends-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 16px;
-    margin-top: 12px;
-}
-
-.friend-card {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-
-    background-color: rgba(42, 42, 51, 0.6);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(124, 92, 255, 0.18);
-    border-radius: 0.75em;
-    padding: 18px 20px;
-
-    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
-}
-
-.friend-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(124, 92, 255, 0.4);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-}
-
-.friend-card__main {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
-
-.friend-avatar {
-    flex-shrink: 0;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    background: linear-gradient(135deg, #7c5cff, #6247e0);
-    color: #fff;
-    font-weight: 700;
-    font-size: 18px;
-
-    box-shadow: 0 4px 12px rgba(124, 92, 255, 0.3);
-}
-
-.friend-info h3 {
-    margin: 0 0 6px;
-    font-size: 1em;
-    color: #fff;
-}
-
-.status-badge {
-    display: inline-block;
-    font-size: 0.75em;
-    padding: 3px 10px;
-    border-radius: 12px;
-
-    background: rgba(124, 92, 255, 0.15);
-    border: 1px solid rgba(124, 92, 255, 0.3);
-    color: rgb(200, 190, 255);
-}
-
-.status-badge.online {
-    background: rgba(80, 220, 140, 0.12);
-    border-color: rgba(80, 220, 140, 0.3);
-    color: rgb(140, 230, 175);
-}
-
-.friend-actions {
-    display: flex;
-    gap: 10px;
-}
-
-.friend-actions__form {
-    flex: 1;
-}
-
-.btn-sm {
+.stats-result {
     width: 100%;
-    padding: 9px 0;
-    font-size: 13px;
+    display: flex;
+    justify-content: center;
 }
 
-.button--ghost {
-    background-color: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: rgb(210, 210, 220);
+
+/* La carte créée par stats-display.js */
+.stats-result > * {
+    box-sizing: border-box;
 }
 
-.button--ghost:hover {
-    background-color: rgba(255, 255, 255, 0.06);
+
+/* =========================================================
+   BIBLIOTHÈQUE
+========================================================= */
+
+.library-preview {
+    width: 100%;
+    margin-top: 24px;
+    padding-top: 20px;
+
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.empty-state {
-    margin-top: 12px;
-    padding: 32px 16px;
+
+/* Titre "Bibliothèque" */
+.library-preview .lib-title {
+    display: block;
+
+    margin-bottom: 14px;
+
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+
+    color: #9696a7;
+}
+
+
+/* =========================================================
+   STATS BIBLIOTHÈQUE
+========================================================= */
+
+.library-preview .info-grid {
+    display: grid;
+
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 12px;
+
+    margin-bottom: 16px;
+}
+
+
+.library-preview .info-box {
+    min-width: 0;
+
+    padding: 12px 16px;
+
+    border: 1px solid #363641;
+    border-radius: 9px;
+
+    background: #1d1d24;
+
     text-align: center;
 
-    border: 1px dashed rgba(124, 92, 255, 0.25);
-    border-radius: 0.75em;
-
-    color: rgb(150, 150, 165);
-    font-size: 0.9em;
+    transition:
+        transform 0.15s ease,
+        border-color 0.15s ease,
+        background-color 0.15s ease;
 }
 
-/* ================= RESPONSIVE ================= */
 
-@media (max-width: 480px) {
-    .friends-grid {
-        grid-template-columns: 1fr;
+.library-preview .info-box:hover {
+    transform: translateY(-2px);
+
+    border-color: #4b4b5c;
+
+    background: #212129;
+}
+
+
+.library-preview .info-label {
+    display: block;
+
+    margin-bottom: 4px;
+
+    font-size: 11px;
+
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    color: #9292a3;
+}
+
+
+.library-preview .info-value {
+    display: block;
+
+    font-size: 15px;
+    font-weight: 700;
+
+    color: #ffffff;
+}
+
+
+/* =========================================================
+   TOP JEUX
+========================================================= */
+
+.library-games-box {
+    margin-top: 14px;
+
+    padding: 14px;
+
+    border: 1px solid #363641;
+    border-radius: 9px;
+
+    background: #1d1d24;
+}
+
+
+.library-games-box > .info-label {
+    margin-bottom: 8px;
+}
+
+
+.library-games-list {
+    list-style: none;
+
+    padding: 0;
+    margin: 0;
+}
+
+
+/* Ligne d'un jeu */
+.library-game-row {
+    display: grid;
+
+    grid-template-columns: 46px minmax(0, 1fr) auto;
+
+    align-items: center;
+
+    gap: 12px;
+
+    min-height: 58px;
+
+    padding: 6px 4px;
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+    transition:
+        background-color 0.15s ease,
+        transform 0.15s ease;
+}
+
+
+.library-game-row:last-child {
+    border-bottom: none;
+}
+
+
+.library-game-row:hover {
+    background: rgba(75, 159, 255, 0.06);
+
+    transform: translateX(2px);
+}
+
+
+/* Image */
+.library-game-thumb {
+    width: 46px;
+    height: 46px;
+
+    border-radius: 7px;
+
+    object-fit: cover;
+
+    background: #292932;
+
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+
+/* Nom */
+.library-game-name {
+    min-width: 0;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-size: 13px;
+    font-weight: 500;
+
+    color: #eeeeF3;
+
+    text-decoration: none;
+}
+
+
+a.library-game-name:hover {
+    color: #4b9fff;
+
+    text-decoration: none;
+}
+
+
+/* Temps */
+.library-game-hours {
+    padding-left: 8px;
+
+    white-space: nowrap;
+
+    font-size: 13px;
+    font-weight: 700;
+
+    color: #4b9fff;
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+
+    .library-preview .info-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
     }
 
-    .friend-actions {
-        flex-direction: column;
+
+    .library-games-box {
+        padding: 10px;
+    }
+
+
+    .library-game-row {
+        grid-template-columns: 40px minmax(0, 1fr) auto;
+
+        gap: 9px;
+    }
+
+
+    .library-game-thumb {
+        width: 40px;
+        height: 40px;
+    }
+
+
+    .library-game-name,
+    .library-game-hours {
+        font-size: 12px;
     }
 }
