@@ -393,8 +393,8 @@ $stmt->close();
 
                             <div class="friend-actions">
 
-                                
-                                    href="./friend_profile.php?id=<?= (int) $friend['id'] ?>"
+    
+                                <a href="./friend_profile.php?id=<?= (int) $friend['id'] ?>"
                                     class="button btn-sm"
                                 >
                                     Voir le profil
