@@ -23,6 +23,14 @@ function verifyEscape(value) {
         .replace(/"/g, '&quot;');
 }
 
+/**
+ * Appelle verify.php.
+ *
+ * On lit le corps en texte avant de le parser : une réponse vide ou du HTML
+ * (warning PHP, json_encode qui échoue) doit remonter comme une vraie erreur,
+ * et non se transformer en objet vide qui ferait afficher un message de repli
+ * trompeur du genre "l'icône ne correspond pas".
+ */
 async function verifyPost(params) {
     const response = await fetch('/php/verify.php', {
         method: 'POST',
@@ -31,11 +39,34 @@ async function verifyPost(params) {
         body: new URLSearchParams(params),
     });
 
-    const data = await response.json().catch(() => ({}));
+    const texte = (await response.text()).trim();
+
+    if (texte === '') {
+        throw new Error(
+            `Le serveur a répondu ${response.status} avec un corps vide. `
+            + `Regarde l'onglet Réseau des outils de développement.`
+        );
+    }
+
+    let data;
+    try {
+        data = JSON.parse(texte);
+    } catch (err) {
+        console.error('Réponse non-JSON de verify.php :', texte);
+        throw new Error(
+            `Réponse illisible du serveur (HTTP ${response.status}). `
+            + `Détail dans la console.`
+        );
+    }
 
     // 202 = "pas encore vérifié", ce n'est pas un échec
     if (!response.ok && response.status !== 202) {
-        throw new Error(data.error || 'Erreur inattendue.');
+        throw new Error(data.error || `Erreur serveur (HTTP ${response.status}).`);
+    }
+
+    // Filet : un corps 200 qui contient quand même une erreur
+    if (data.error) {
+        throw new Error(data.error);
     }
 
     return data;
@@ -45,7 +76,7 @@ async function verifyPost(params) {
 /*  Modale                                                             */
 /* ------------------------------------------------------------------ */
 
-function fermerVerification() {
+function fermerVerification({ annuler = true } = {}) {
     if (!verifyModal) return;
 
     const slug = verifyModal.dataset.platform;
@@ -53,8 +84,11 @@ function fermerVerification() {
     verifyModal = null;
     document.removeEventListener('keydown', verifyEchap);
 
-    // On libère la vérification en attente côté serveur
-    verifyPost({ action: 'cancel', platform: slug }).catch(() => {});
+    // On ne libère le défi que si l'utilisateur abandonne vraiment.
+    // Fermer par erreur ne doit plus lui coûter une nouvelle icône à poser.
+    if (annuler) {
+        verifyPost({ action: 'cancel', platform: slug }).catch(() => {});
+    }
 }
 
 function verifyEchap(event) {
@@ -62,7 +96,7 @@ function verifyEchap(event) {
 }
 
 function ouvrirVerification(platform, onLie) {
-    fermerVerification();
+    fermerVerification({ annuler: false });
 
     verifyModal = document.createElement('div');
     verifyModal.className = 'verify-modal';
@@ -139,6 +173,8 @@ function etapeIcone(platform, data, onLie) {
     body.innerHTML = `
         <p class="verify-account">Compte trouvé : <strong>${verifyEscape(data.account)}</strong></p>
 
+        ${data.reprise ? `<p class="verify-hint">Vérification déjà en cours reprise : c'est la même icône qu'avant.</p>` : ''}
+
         <div class="verify-icon-block">
             <img class="verify-icon" src="${verifyEscape(data.iconUrl)}" alt="Icône à appliquer">
             <div class="verify-steps">
@@ -149,7 +185,8 @@ function etapeIcone(platform, data, onLie) {
                     <li>Choisis exactement l'icône affichée ici (n°${Number(data.iconId)})</li>
                     <li>Reviens et clique sur « J'ai changé mon icône »</li>
                 </ol>
-                <p class="verify-hint">Tu pourras remettre ton ancienne icône juste après.</p>
+                <p class="verify-hint">Riot peut mettre plus de dix minutes à propager le changement.
+                   Laisse cette fenêtre ouverte : la vérification se relance toute seule.</p>
             </div>
         </div>
 
@@ -164,32 +201,46 @@ function etapeIcone(platform, data, onLie) {
     const retour = body.querySelector('.verify-back');
     const status = body.querySelector('.verify-status');
 
-    retour.addEventListener('click', () => etapeSaisie(platform, onLie));
+    let sondage = null;
 
-    bouton.addEventListener('click', async () => {
+    const stopper = () => { if (sondage) { clearInterval(sondage); sondage = null; } };
+
+    retour.addEventListener('click', () => { stopper(); etapeSaisie(platform, onLie); });
+
+    const verifier = async ({ auto = false } = {}) => {
+        if (!verifyModal) { stopper(); return; }
+
         bouton.disabled = true;
-        bouton.textContent = 'Vérification…';
-        status.className = 'verify-status';
-        status.textContent = '';
+        bouton.textContent = auto ? 'Vérification automatique…' : 'Vérification…';
 
         try {
             const res = await verifyPost({ action: 'confirm', platform: platform.slug });
 
             if (res.step === 'linked') {
+                stopper();
                 etapeSucces(platform, res, onLie);
                 return;
             }
 
             status.className = 'verify-status verify-status--warn';
-            status.textContent = res.message || "L'icône ne correspond pas encore.";
+            status.textContent = res.message || 'En attente de la propagation côté Riot…';
+
+            // Premier échec manuel : on prend le relais toutes les 20 s
+            if (!auto && !sondage) {
+                sondage = setInterval(() => verifier({ auto: true }), 20000);
+            }
+
         } catch (err) {
+            stopper();
             status.className = 'verify-status verify-status--error';
             status.textContent = err.message;
         }
 
         bouton.disabled = false;
-        bouton.textContent = 'Réessayer';
-    });
+        bouton.textContent = 'Réessayer maintenant';
+    };
+
+    bouton.addEventListener('click', () => verifier());
 }
 
 /* --- Étape 3 : succès -------------------------------------------- */
@@ -203,11 +254,7 @@ function etapeSucces(platform, res, onLie) {
     `;
 
     body.querySelector('.verify-done').addEventListener('click', () => {
-        // On ferme sans envoyer "cancel" : la liaison est faite
-        verifyModal.remove();
-        verifyModal = null;
-        document.removeEventListener('keydown', verifyEchap);
-
+        fermerVerification({ annuler: false });
         if (typeof onLie === 'function') onLie(platform);
     });
 }

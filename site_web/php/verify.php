@@ -21,15 +21,41 @@ header('Content-Type: application/json; charset=utf-8');
  *  pas nous faire enregistrer un compte qu'il n'a pas fait vérifier.
  * ================================================================== */
 
-const MGS_VERIFY_TTL     = 900; // 15 min pour finir la manip
-const MGS_VERIFY_MAX_TRY = 12;  // anti-martelage de l'API Riot
-const MGS_VERIFY_COOLDOWN = 4;  // secondes entre deux "confirm"
+const MGS_VERIFY_TTL      = 3600; // 1 h : Riot peut mettre >10 min à propager l'icône
+const MGS_VERIFY_MAX_TRY  = 40;   // anti-martelage de l'API Riot
+const MGS_VERIFY_COOLDOWN = 4;    // secondes entre deux "confirm"
+
+/**
+ * Sortie JSON unique du script.
+ *
+ * json_encode() renvoie false sur le moindre octet non-UTF8, et "echo false"
+ * n'écrit rien : le client recevait alors un corps vide avec un code 200/202
+ * et affichait un message de repli trompeur. On garantit ici qu'un corps
+ * exploitable part toujours.
+ */
+function mgs_verify_send(int $status, array $payload): never
+{
+    http_response_code($status);
+
+    $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+    if ($json === false) {
+        // Deuxième chance : on remplace les octets invalides au lieu d'échouer
+        $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    }
+
+    if ($json === false) {
+        $json = '{"step":"error","error":"Reponse illisible cote serveur ('
+                . addslashes(json_last_error_msg()) . ')."}';
+    }
+
+    echo $json;
+    exit;
+}
 
 function mgs_verify_error(int $status, string $message): never
 {
-    http_response_code($status);
-    echo json_encode(['error' => $message], JSON_UNESCAPED_UNICODE);
-    exit;
+    mgs_verify_send($status, ['error' => $message]);
 }
 
 if (!isset($_SESSION['user_id'])) {
@@ -65,8 +91,7 @@ $action = (string)($_POST['action'] ?? '');
 /* ------------------------------------------------------------------ */
 if ($action === 'cancel') {
     unset($_SESSION['verify']);
-    echo json_encode(['step' => 'idle']);
-    exit;
+    mgs_verify_send(200, ['step' => 'idle']);
 }
 
 /* ------------------------------------------------------------------ */
@@ -99,32 +124,56 @@ if ($action === 'start') {
         mgs_verify_error(502, 'Impossible de préparer la vérification, réessaie.');
     }
 
-    // On évite de tomber sur l'icône déjà portée : sinon le joueur
-    // n'aurait rien à changer et n'importe qui pourrait "prouver" le compte.
-    $current    = mgs_provider_call($slug, 'profile_icon', $cfg, $accountId);
-    $candidates = array_values(array_filter(
-        $icons,
-        static fn (array $icon): bool => $icon['id'] !== $current
-    ));
+    $encours = $_SESSION['verify'] ?? null;
 
-    if (!$candidates) {
-        $candidates = $icons;
+    // Un défi déjà en cours sur le MÊME compte est repris tel quel.
+    // Sans ça, rouvrir la modale tirait une nouvelle icône : l'utilisateur
+    // devait tout recommencer alors qu'il venait d'attendre la propagation.
+    $reprise = is_array($encours)
+               && ($encours['platform'] ?? '') === $slug
+               && ($encours['accountId'] ?? '') === $accountId
+               && time() < (int)($encours['expires'] ?? 0);
+
+    if ($reprise) {
+        $cible = (int)$encours['iconId'];
+
+        foreach ($icons as $icon) {
+            if ((int)$icon['id'] === $cible) {
+                $target = $icon;
+                break;
+            }
+        }
     }
 
-    $target = $candidates[random_int(0, count($candidates) - 1)];
+    if (!isset($target)) {
+        // On évite de tomber sur l'icône déjà portée : sinon le joueur
+        // n'aurait rien à changer et n'importe qui pourrait "prouver" le compte.
+        $current    = mgs_provider_call($slug, 'profile_icon', $cfg, $accountId);
+        $candidates = array_values(array_filter(
+            $icons,
+            static fn (array $icon): bool => $icon['id'] !== $current
+        ));
 
-    $_SESSION['verify'] = [
-        'platform'  => $slug,
-        'accountId' => $accountId,
-        'iconId'    => (int)$target['id'],
-        'previous'  => $current,
-        'expires'   => time() + MGS_VERIFY_TTL,
-        'tries'     => 0,
-        'lastTry'   => 0,
-    ];
+        if (!$candidates) {
+            $candidates = $icons;
+        }
 
-    echo json_encode([
+        $target = $candidates[random_int(0, count($candidates) - 1)];
+
+        $_SESSION['verify'] = [
+            'platform'  => $slug,
+            'accountId' => $accountId,
+            'iconId'    => (int)$target['id'],
+            'previous'  => $current,
+            'expires'   => time() + MGS_VERIFY_TTL,
+            'tries'     => 0,
+            'lastTry'   => 0,
+        ];
+    }
+
+    mgs_verify_send(200, [
         'step'      => 'pending',
+        'reprise'   => $reprise,
         'platform'  => $slug,
         'label'     => $platform['label'],
         'account'   => mgs_provider_supports($slug, 'display_name')
@@ -132,9 +181,8 @@ if ($action === 'start') {
                        : $pseudo,
         'iconId'    => (int)$target['id'],
         'iconUrl'   => $target['url'],
-        'expiresIn' => MGS_VERIFY_TTL,
-    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    exit;
+        'expiresIn' => max(0, (int)$_SESSION['verify']['expires'] - time()),
+    ]);
 }
 
 /* ------------------------------------------------------------------ */
@@ -172,23 +220,25 @@ if ($action === 'confirm') {
     }
 
     if ($current !== (int)$pending['iconId']) {
-        http_response_code(202); // "pas encore", ce n'est pas une erreur
-        echo json_encode([
+        // 202 : "pas encore", ce n'est pas une erreur
+        mgs_verify_send(202, [
             'step'      => 'pending',
             'matched'   => false,
-            'message'   => "L'icône n'a pas encore changé. Riot met parfois 1 à 2 minutes à la propager — "
-                           . "vérifie qu'elle est bien appliquée dans le client, puis réessaie.",
+            'attendu'   => (int)$pending['iconId'],
+            'recu'      => $current,
+            'message'   => "L'icône lue est la n°{$current}, on attend la n°{$pending['iconId']}. "
+                           . "Riot met parfois plus de 10 minutes à propager le changement : "
+                           . "garde cette fenêtre ouverte et réessaie.",
             'triesLeft' => MGS_VERIFY_MAX_TRY - (int)$_SESSION['verify']['tries'],
-        ], JSON_UNESCAPED_UNICODE);
-        exit;
+        ]);
     }
 
     // Re-contrôle du propriétaire : quelqu'un a pu lier ce compte entre-temps
-    $owner = mgs_get_link_owner($conn, $slug, $pending['accountId']);
+    $owner = mgs_get_link_owner($conn, $slug, (string)$pending['accountId']);
 
     if ($owner !== null && $owner !== $userId) {
         unset($_SESSION['verify']);
-        mgs_verify_error(409, 'Ce compte vient d\'être lié à un autre compte MGS.');
+        mgs_verify_error(409, "Ce compte vient d'être lié à un autre compte MGS.");
     }
 
     if (!mgs_save_link($conn, $userId, $slug, (string)$pending['accountId'])) {
@@ -197,13 +247,12 @@ if ($action === 'confirm') {
 
     unset($_SESSION['verify']);
 
-    echo json_encode([
+    mgs_verify_send(200, [
         'step'     => 'linked',
         'matched'  => true,
         'platform' => $slug,
-        'message'  => 'Compte ' . $platform['label'] . ' vérifié et lié. Tu peux remettre ton icône d\'origine.',
-    ], JSON_UNESCAPED_UNICODE);
-    exit;
+        'message'  => 'Compte ' . $platform['label'] . " vérifié et lié. Tu peux remettre ton icône d'origine.",
+    ]);
 }
 
 mgs_verify_error(400, 'Action inconnue.');
