@@ -276,114 +276,70 @@ $stmt->close();
 
             <?php if (empty($requests)): ?>
 
-                <p class="stats-info">
-
+                <div class="empty-state">
                     Tu n'as aucune demande d'ami en attente.
+                </div>
 
-                </p>
+            <?php else: ?>
 
-            <?php endif; ?>
+                <div class="friends-grid">
+
+                    <?php foreach ($requests as $request): ?>
+
+                        <div class="friend-card friend-card--request">
+
+                            <div class="friend-card__main">
+
+                                <div class="friend-avatar">
+                                    <?= htmlspecialchars(mb_strtoupper(mb_substr($request['username'], 0, 1))) ?>
+                                </div>
+
+                                <div class="friend-info">
+
+                                    <h3><?= htmlspecialchars($request['username']) ?></h3>
+
+                                    <span class="status-badge">
+                                        Veut devenir ton ami
+                                    </span>
+
+                                </div>
+
+                            </div>
 
 
-            <?php foreach ($requests as $request): ?>
+                            <div class="friend-actions">
 
-                <div
-                    class="player-card"
-                    style="margin-bottom: 16px;"
-                >
+                                <form action="" method="post" class="friend-actions__form">
 
-                    <div class="player-header">
+                                    <input type="hidden" name="friendship_id" value="<?= (int) $request['friendship_id'] ?>">
+                                    <input type="hidden" name="action" value="accept">
 
-                        <div class="player-identity">
+                                    <button type="submit" class="button btn-sm">
+                                        Accepter
+                                    </button>
 
-                            <h3>
+                                </form>
 
-                                <?= htmlspecialchars($request['username']) ?>
+                                <form action="" method="post" class="friend-actions__form">
 
-                            </h3>
+                                    <input type="hidden" name="friendship_id" value="<?= (int) $request['friendship_id'] ?>">
+                                    <input type="hidden" name="action" value="refuse">
 
+                                    <button type="submit" class="button button--ghost btn-sm">
+                                        Refuser
+                                    </button>
 
-                            <span class="status-badge">
+                                </form>
 
-                                Veut devenir ton ami
-
-                            </span>
+                            </div>
 
                         </div>
 
-                    </div>
-
-
-                    <div
-                        style="
-                            display: flex;
-                            gap: 10px;
-                            margin-top: 15px;
-                        "
-                    >
-
-                        <!-- Accepter -->
-
-                        <form
-                            action=""
-                            method="post"
-                        >
-
-                            <input
-                                type="hidden"
-                                name="friendship_id"
-                                value="<?= (int) $request['friendship_id'] ?>"
-                            >
-
-                            <input
-                                type="hidden"
-                                name="action"
-                                value="accept"
-                            >
-
-                            <button
-                                type="submit"
-                                class="button"
-                            >
-                                Accepter
-                            </button>
-
-                        </form>
-
-
-                        <!-- Refuser -->
-
-                        <form
-                            action=""
-                            method="post"
-                        >
-
-                            <input
-                                type="hidden"
-                                name="friendship_id"
-                                value="<?= (int) $request['friendship_id'] ?>"
-                            >
-
-                            <input
-                                type="hidden"
-                                name="action"
-                                value="refuse"
-                            >
-
-                            <button
-                                type="submit"
-                                class="button"
-                            >
-                                Refuser
-                            </button>
-
-                        </form>
-
-                    </div>
+                    <?php endforeach; ?>
 
                 </div>
 
-            <?php endforeach; ?>
+            <?php endif; ?>
 
         </div>
 
@@ -404,58 +360,55 @@ $stmt->close();
 
             <?php if (empty($friends)): ?>
 
-                <p class="stats-info">
-
+                <div class="empty-state">
                     Tu n'as pas encore d'amis.
+                </div>
 
-                </p>
+            <?php else: ?>
 
-            <?php endif; ?>
+                <div class="friends-grid">
+
+                    <?php foreach ($friends as $friend): ?>
+
+                        <div class="friend-card">
+
+                            <div class="friend-card__main">
+
+                                <div class="friend-avatar">
+                                    <?= htmlspecialchars(mb_strtoupper(mb_substr($friend['username'], 0, 1))) ?>
+                                </div>
+
+                                <div class="friend-info">
+
+                                    <h3><?= htmlspecialchars($friend['username']) ?></h3>
+
+                                    <span class="status-badge online">
+                                        Ami
+                                    </span>
+
+                                </div>
+
+                            </div>
 
 
-            <?php foreach ($friends as $friend): ?>
+                            <div class="friend-actions">
 
-                <div
-                    class="player-card"
-                    style="margin-bottom: 16px;"
-                >
+                                
+                                    href="./friend_profile.php?id=<?= (int) $friend['id'] ?>"
+                                    class="button btn-sm"
+                                >
+                                    Voir le profil
+                                </a>
 
-                    <div class="player-header">
-
-                        <div class="player-identity">
-
-                            <h3>
-
-                                <?= htmlspecialchars($friend['username']) ?>
-
-                            </h3>
-
-
-                            <span class="status-badge online">
-
-                                Ami
-
-                            </span>
+                            </div>
 
                         </div>
 
-                    </div>
-
-
-                    <div style="margin-top: 15px;">
-
-                        <a
-                            href="./friend_profile.php?id=<?= (int) $friend['id'] ?>"
-                            class="button"
-                        >
-                            Voir le profil
-                        </a>
-
-                    </div>
+                    <?php endforeach; ?>
 
                 </div>
 
-            <?php endforeach; ?>
+            <?php endif; ?>
 
         </div>
 
