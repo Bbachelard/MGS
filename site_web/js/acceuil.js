@@ -1,65 +1,4 @@
 document.addEventListener("DOMContentLoaded", () => {
-
-    // =====================================================
-    // LOGO + SONS ALÉATOIRES
-    // =====================================================
-
-    const logoImg = document.querySelector(".titre img");
-
-    if (logoImg) {
-
-        const logoSounds = [
-            "content/sound/logo-click1.mp3",
-            "content/sound/logo-click2.mp3",
-            "content/sound/logo-click3.mp3",
-            "content/sound/logo-click4.mp3"
-        ];
-
-        let lastSoundIndex = -1;
-
-        logoImg.addEventListener("click", () => {
-
-            // Choisit un son différent du précédent
-            let randomIndex;
-
-            do {
-                randomIndex = Math.floor(Math.random() * logoSounds.length);
-            } while (
-                randomIndex === lastSoundIndex &&
-                logoSounds.length > 1
-            );
-
-            lastSoundIndex = randomIndex;
-
-            // Crée un nouvel Audio à chaque clic
-            const audio = new Audio(logoSounds[randomIndex]);
-
-            audio.volume = 0.6;
-
-            audio.play().catch((error) => {
-                console.log("Erreur lecture audio :", error);
-            });
-
-
-            // Animation du logo
-            logoImg.classList.remove("is-pressed");
-
-            void logoImg.offsetWidth;
-
-            logoImg.classList.add("is-pressed");
-        });
-
-
-        logoImg.addEventListener("animationend", () => {
-            logoImg.classList.remove("is-pressed");
-        });
-    }
-
-
-    // =====================================================
-    // RECHERCHE DES STATS
-    // =====================================================
-
     const platformSelect = document.getElementById("platformSelect");
     const platformToggle = document.getElementById("platformToggle");
     const platformValue = document.getElementById("platformValue");
@@ -71,104 +10,152 @@ document.addEventListener("DOMContentLoaded", () => {
     // Plateforme sélectionnée par défaut
     let selectedPlatform = "Steam";
 
-
-    // Ouvre / ferme le menu
+    // Ouvre / ferme le menu au clic sur le bouton
     platformToggle.addEventListener("click", (e) => {
         e.stopPropagation();
         platformSelect.classList.toggle("open");
     });
 
-
-    // Sélection d'une plateforme
+    // Sélection d'une option
     platformMenu.querySelectorAll("li").forEach((item) => {
-
         item.addEventListener("click", () => {
-
             const choix = item.getAttribute("data-value");
-
             selectedPlatform = choix;
-
-            platformValue.innerHTML =
-                choix + ' <span class="arrow">▾</span>';
-
+            platformValue.innerHTML = choix + ' <span class="arrow">▾</span>';
             platformSelect.classList.remove("open");
         });
-
     });
 
-
-    // Ferme le menu si on clique ailleurs
+    // Ferme le menu si on clique ailleurs sur la page
     document.addEventListener("click", () => {
         platformSelect.classList.remove("open");
     });
 
-
-    // =====================================================
-    // SOUMISSION DU FORMULAIRE
-    // =====================================================
-
+    // Soumission du formulaire : on appelle notre backend PHP, jamais Steam directement
     statsForm.addEventListener("submit", async (e) => {
-
-        e.preventDefault();
+        e.preventDefault(); // empêche le rechargement de la page (comportement par défaut d'un <form>)
 
         const pseudo = pseudoField.value.trim();
 
-
         if (!pseudo) {
-
-            resultBox.innerHTML =
-                `<p class="stats-error">
-                    Merci de saisir un pseudo.
-                </p>`;
-
+            resultBox.innerHTML = `<p class="stats-error">Merci de saisir un pseudo.</p>`;
             return;
         }
 
-
-        resultBox.innerHTML =
-            `<p class="stats-loading">
-                Recherche en cours...
-            </p>`;
-
+        resultBox.innerHTML = `<p class="stats-loading">Recherche en cours...</p>`;
 
         try {
-
-            const url =
-                `/php/api.php?platform=${encodeURIComponent(selectedPlatform)}&pseudo=${encodeURIComponent(pseudo)}`;
-
+            const url = `../php/api.php?platform=${encodeURIComponent(selectedPlatform)}&pseudo=${encodeURIComponent(pseudo)}`;
             const response = await fetch(url);
-
             const data = await response.json();
 
-
             if (data.error) {
-
-                resultBox.innerHTML =
-                    `<p class="stats-error">
-                        ${data.error}
-                    </p>`;
-
+                resultBox.innerHTML = `<p class="stats-error">${data.error}</p>`;
                 return;
             }
 
-
-            afficherResultat(data, resultBox);
-
-
+            // Carte enrichie : rendu de base + aperçu bibliothèque
+            afficherResultatAccueil(data, resultBox, selectedPlatform);
         } catch (err) {
+            console.error("Erreur lors de la récupération des stats :", err);
+            resultBox.innerHTML = `<p class="stats-error">Une erreur est survenue, réessaie plus tard.</p>`;
+        }
+    });
+});
 
-            console.error(
-                "Erreur lors de la récupération des stats :",
-                err
-            );
+/* ================= Rendu enrichi (accueil) =================
+   Reprend la carte "CV" existante (construireCarte, dans stats-display.js)
+   et lui ajoute un aperçu compact de la bibliothèque de jeux : totaux
+   (jeux possédés / lancés / heures) + top 5 jeux les plus joués.
 
+   Ne remplace rien côté profil connecté (index.php) : ce code ne vit
+   que dans acceuil.js, chargé uniquement sur la page d'accueil.
+============================================================= */
 
-            resultBox.innerHTML =
-                `<p class="stats-error">
-                    Une erreur est survenue, réessaie plus tard.
-                </p>`;
+async function afficherResultatAccueil(data, resultBox, platform) {
+    resultBox.innerHTML = "";
+
+    const card = construireCarte(data);
+    resultBox.appendChild(card);
+
+    // Identifiant du compte trouvé, pour aller chercher sa bibliothèque.
+    // Hypothèse : api.php renvoie ce champ sous accountId (à défaut steamId / id).
+    const accountId = data.accountId || data.steamId || data.id;
+
+    if (accountId) {
+        const loader = document.createElement("p");
+        loader.className = "stats-loading";
+        loader.textContent = "Chargement de la bibliothèque...";
+        card.appendChild(loader);
+
+        const apercu = await construireApercuBibliotheque(platform, accountId);
+        loader.remove();
+
+        if (apercu) {
+            card.appendChild(apercu);
+        }
+    }
+
+    resultBox.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+async function construireApercuBibliotheque(platform, accountId) {
+    try {
+        // Hypothèse à valider côté back : games.php accepte platform + accountId
+        // (en plus de userId, déjà utilisé côté profil connecté) et renvoie
+        // { games: [...], totals: { count, played, hours } }.
+        const url = `../php/games.php?platform=${encodeURIComponent(platform)}&accountId=${encodeURIComponent(accountId)}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.error || !Array.isArray(data.games)) {
+            return null;
         }
 
-    });
+        const totaux = data.totals || {};
+        const top = [...data.games]
+            .filter((jeu) => (jeu.hours || 0) > 0)
+            .sort((a, b) => (b.hours || 0) - (a.hours || 0))
+            .slice(0, 5);
 
-});
+        const wrapper = document.createElement("div");
+        wrapper.className = "library-preview";
+
+        wrapper.innerHTML = `
+            <div class="info-grid">
+                <div class="info-box">
+                    <span class="info-label">Jeux possédés</span>
+                    <span class="info-value">${escapeHtml(totaux.count ?? data.games.length)}</span>
+                </div>
+                <div class="info-box">
+                    <span class="info-label">Jeux lancés</span>
+                    <span class="info-value">${escapeHtml(totaux.played ?? "-")}</span>
+                </div>
+                <div class="info-box">
+                    <span class="info-label">Temps total</span>
+                    <span class="info-value">${escapeHtml(formaterHeuresAccueil(totaux.hours ?? 0))}</span>
+                </div>
+            </div>
+            ${top.length ? `
+                <div class="recent-games-box">
+                    <span class="info-label">Jeux les plus joués</span>
+                    <ul class="recent-games-list">
+                        ${top.map((jeu) => `
+                            <li>${escapeHtml(jeu.name)} <span>${escapeHtml(formaterHeuresAccueil(jeu.hours))}</span></li>
+                        `).join("")}
+                    </ul>
+                </div>
+            ` : ""}
+        `;
+
+        return wrapper;
+    } catch (err) {
+        console.error("Erreur lors du chargement de la bibliothèque (accueil) :", err);
+        return null;
+    }
+}
+
+function formaterHeuresAccueil(valeur) {
+    const nombre = Number(valeur) || 0;
+    return nombre.toLocaleString("fr-FR", { minimumFractionDigits: 1 }) + "h";
+}
