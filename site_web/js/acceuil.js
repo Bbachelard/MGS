@@ -55,7 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             // Carte enrichie : rendu de base + aperçu bibliothèque
-            afficherResultatAccueil(data, resultBox, selectedPlatform);
+            afficherResultatAccueil(data, resultBox, selectedPlatform, pseudo);
         } catch (err) {
             console.error("Erreur lors de la récupération des stats :", err);
             resultBox.innerHTML = `<p class="stats-error">Une erreur est survenue, réessaie plus tard.</p>`;
@@ -68,43 +68,39 @@ document.addEventListener("DOMContentLoaded", () => {
    et lui ajoute un aperçu compact de la bibliothèque de jeux : totaux
    (jeux possédés / lancés / heures) + top 5 jeux les plus joués.
 
-   Ne remplace rien côté profil connecté (index.php) : ce code ne vit
-   que dans acceuil.js, chargé uniquement sur la page d'accueil.
+   Passe par games-public.php (nouveau fichier, miroir public de
+   games.php) car api.php ne renvoie pas d'accountId exploitable côté
+   client, et games.php n'accepte pas d'accountId venant de l'URL
+   (résolution en base uniquement, par design).
+
+   Ne vit que dans acceuil.js, chargé uniquement sur la page d'accueil :
+   aucun impact sur le profil connecté (index.php).
 ============================================================= */
 
-async function afficherResultatAccueil(data, resultBox, platform) {
+async function afficherResultatAccueil(data, resultBox, platform, pseudo) {
     resultBox.innerHTML = "";
 
     const card = construireCarte(data);
     resultBox.appendChild(card);
 
-    // Identifiant du compte trouvé, pour aller chercher sa bibliothèque.
-    // Hypothèse : api.php renvoie ce champ sous accountId (à défaut steamId / id).
-    const accountId = data.accountId || data.steamId || data.id;
+    const loader = document.createElement("p");
+    loader.className = "stats-loading";
+    loader.textContent = "Chargement de la bibliothèque...";
+    card.appendChild(loader);
 
-    if (accountId) {
-        const loader = document.createElement("p");
-        loader.className = "stats-loading";
-        loader.textContent = "Chargement de la bibliothèque...";
-        card.appendChild(loader);
+    const apercu = await construireApercuBibliotheque(platform, pseudo);
+    loader.remove();
 
-        const apercu = await construireApercuBibliotheque(platform, accountId);
-        loader.remove();
-
-        if (apercu) {
-            card.appendChild(apercu);
-        }
+    if (apercu) {
+        card.appendChild(apercu);
     }
 
     resultBox.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-async function construireApercuBibliotheque(platform, accountId) {
+async function construireApercuBibliotheque(platform, pseudo) {
     try {
-        // Hypothèse à valider côté back : games.php accepte platform + accountId
-        // (en plus de userId, déjà utilisé côté profil connecté) et renvoie
-        // { games: [...], totals: { count, played, hours } }.
-        const url = `../php/games.php?platform=${encodeURIComponent(platform)}&accountId=${encodeURIComponent(accountId)}`;
+        const url = `../php/games-public.php?platform=${encodeURIComponent(platform)}&pseudo=${encodeURIComponent(pseudo)}`;
         const response = await fetch(url);
         const data = await response.json();
 
