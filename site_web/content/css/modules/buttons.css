@@ -68,3 +68,9 @@
     opacity: 0.6;
     cursor: not-allowed;
 }
+
+.chip-body .link-btn--sm {
+    margin-left: 0;
+    margin-top: 6px;
+    align-self: flex-start;
+}

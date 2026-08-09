@@ -91,6 +91,25 @@ function dessinerHub(container) {
     : "Lie un compte pour voir apparaître tes statistiques ici.";
         container.appendChild(vide);
     }
+      if (!lectureSeule) brancherBoutonsVerification();
+}
+
+/** Branche les boutons "Lier" qui passent par la vérification d'icône. */
+function brancherBoutonsVerification() {
+    document.querySelectorAll('.js-verify').forEach(bouton => {
+        if (bouton.dataset.branche === '1') return;   // le hub est redessiné souvent
+        bouton.dataset.branche = '1';
+
+        bouton.addEventListener('click', () => {
+            const trouve = etatPlateformes.find(
+                r => r.platform.slug === bouton.dataset.platform
+            );
+
+            if (trouve) {
+                ouvrirVerification(trouve.platform, () => chargerProfil());
+            }
+        });
+    });
 }
 
 /** Prend l'avatar du premier compte lié pour la navbar. */

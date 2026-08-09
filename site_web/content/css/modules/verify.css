@@ -217,3 +217,12 @@
         text-align: left;
     }
 }
+
+/* Icône de plateforme cliquable dans la navbar */
+.nav-platform {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    line-height: 0;
+}

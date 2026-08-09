@@ -51,11 +51,19 @@ if ($linked !== null) {
         <?php $i = 1; foreach (mgs_platforms() as $slug => $platform): ?>
             <div class="nav-box<?= $i++ ?>">
                 <?php if ($platform['enabled'] && $platform['linkable']): ?>
-                    <a href="../php/link.php?platform=<?= urlencode($slug) ?>" title="Lier mon compte <?= htmlspecialchars($platform['label']) ?>">
+                    <a href="../php/link.php?platform=<?= urlencode($slug) ?>"
+                    title="Lier mon compte <?= htmlspecialchars($platform['label']) ?>">
                         <img src="<?= htmlspecialchars($platform['icon']) ?>" width="50">
                     </a>
+                <?php elseif ($platform['enabled'] && !empty($platform['verifiable'])): ?>
+                    <button type="button" class="nav-platform js-verify"
+                            data-platform="<?= htmlspecialchars($slug) ?>"
+                            title="Lier mon compte <?= htmlspecialchars($platform['label']) ?>">
+                        <img src="<?= htmlspecialchars($platform['icon']) ?>" width="50">
+                    </button>
                 <?php else: ?>
-                    <img src="<?= htmlspecialchars($platform['icon']) ?>" width="50" style="opacity:.35" title="Bientôt disponible">
+                    <img src="<?= htmlspecialchars($platform['icon']) ?>" width="50"
+                        style="opacity:.35" title="Bientôt disponible">
                 <?php endif; ?>
             </div>
         <?php endforeach; ?>
@@ -89,8 +97,9 @@ if ($linked !== null) {
         </div>
     </main>
 
-    <script src="../js/stats-display.js?v=5"></script>
+    <script src="../js/stats-display.js?v=6"></script>
+    <script src="../js/link-verify.js?v=1"></script>
     <script src="../js/games-table.js?v=2"></script>
-    <script src="../js/profile-stats.js?v=5"></script>
+    <script src="../js/profile-stats.js?v=6"></script>
   </body>
 </html>

@@ -80,7 +80,7 @@ function construireCarte(data) {
 }
 
 /** Carte affichée pour une plateforme non liée / indisponible. */
-function construireCarteVide(platform) {
+function construireCarteVide(platform, options = {}) {
     const card = document.createElement('div');
     card.className = 'player-card player-card--empty';
     card.dataset.platform = platform.slug;
@@ -88,9 +88,16 @@ function construireCarteVide(platform) {
     const icon = safeUrl(platform.icon) || platform.icon || '';
 
     let action = `<p class="stats-info">Bientôt disponible.</p>`;
-    if (platform.enabled && platform.linkable) {
+
+    if (options.lectureSeule === true) {
+        action = '';
+    } else if (platform.enabled && platform.linkable) {
         action = `<a class="link-btn" href="/php/link.php?platform=${encodeURIComponent(platform.slug)}">Lier mon compte ${escapeHtml(platform.label)}</a>`;
+    } else if (platform.enabled && platform.verifiable) {
+        action = `<button class="link-btn js-verify" type="button"
+                          data-platform="${escapeHtml(platform.slug)}">Lier mon compte ${escapeHtml(platform.label)}</button>`;
     }
+   
 
     card.innerHTML = `
         <div class="platform-tag">${escapeHtml(platform.label)}</div>
@@ -206,11 +213,17 @@ function construireBandeauComptes(resultats, onDelier, options = {}) {
         if (!r.platform.linked) {
             chip.classList.add('account-chip--empty');
 
-            const action = lectureSeule
-                ? ''
-                : (r.platform.enabled && r.platform.linkable)
-                    ? `<a class="link-btn link-btn--sm" href="/php/link.php?platform=${encodeURIComponent(r.platform.slug)}">Lier</a>`
-                    : `<span class="chip-soon">Bientôt</span>`;
+            let action = `<span class="chip-soon">Bientôt</span>`;
+
+            if (lectureSeule) {
+                action = '';
+            } else if (r.platform.enabled && r.platform.linkable) {
+                action = `<a class="link-btn link-btn--sm"
+                             href="/php/link.php?platform=${encodeURIComponent(r.platform.slug)}">Lier</a>`;
+            } else if (r.platform.enabled && r.platform.verifiable) {
+                action = `<button class="link-btn link-btn--sm js-verify" type="button"
+                                  data-platform="${escapeHtml(r.platform.slug)}">Lier</button>`;
+            }
 
             chip.innerHTML = `
                 ${icone}
