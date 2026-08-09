@@ -377,7 +377,7 @@ function riot_fetch_stats(array $cfg, string $accountId): array
                 'topGame'        => $heuresEstimees > 0 ? [
                     'name'      => 'League of Legends',
                     'hours'     => $heuresEstimees,
-                    'image'     => '/content/img/games/lol.jpg',
+                    'image'     => '/content/image/games/lol.jpg',
                     'platform'  => 'Riot',
                     'estimated' => true,
                 ] : null,
