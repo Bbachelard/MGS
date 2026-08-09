@@ -458,7 +458,7 @@ function riot_rank_icon(string $tier): string
 {
     $tier = strtolower(trim($tier));
 
-    return $tier === '' ? '' : '/content/img/ranks/lol-' . $tier . '.png';
+    return $tier === '' ? '' : '/content/image/ranks/lol-' . $tier . '.png';
 }
 
 /** Entrée de rang normalisée, consommée telle quelle par hub-resume.js. */
