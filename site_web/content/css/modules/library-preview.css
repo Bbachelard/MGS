@@ -1,0 +1,289 @@
+/* =========================================================
+   BIBLIOTHÈQUE - APERÇU ACCUEIL
+========================================================= */
+
+.stats-result {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.stats-result > * {
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   CONTENEUR
+========================================================= */
+
+.library-preview {
+    width: 100%;
+
+    margin-top: 24px;
+    padding-top: 20px;
+
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+
+/* Titre */
+
+.library-preview .lib-title {
+    display: block;
+
+    margin-bottom: 10px;
+
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+
+    color: #9696a7;
+
+    text-align: center;
+}
+
+
+/* =========================================================
+   COMPTEURS
+========================================================= */
+
+.library-preview .info-grid {
+    display: grid;
+
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 12px;
+
+    margin-bottom: 16px;
+}
+
+
+.library-preview .info-box {
+    min-width: 0;
+
+    padding: 11px 16px;
+
+    border: 1px solid #363641;
+    border-radius: 9px;
+
+    background: #1d1d24;
+
+    text-align: center;
+
+    transition:
+        transform 0.15s ease,
+        border-color 0.15s ease,
+        background-color 0.15s ease;
+}
+
+
+.library-preview .info-box:hover {
+    transform: translateY(-2px);
+
+    border-color: #4b4b5c;
+
+    background: #212129;
+}
+
+
+.library-preview .info-label {
+    display: block;
+
+    margin-bottom: 4px;
+
+    font-size: 11px;
+
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    color: #9292a3;
+}
+
+
+.library-preview .info-value {
+    display: block;
+
+    font-size: 15px;
+    font-weight: 700;
+
+    color: #ffffff;
+}
+
+
+/* =========================================================
+   JEUX LES PLUS JOUÉS
+========================================================= */
+
+.library-games-box {
+    margin-top: 14px;
+
+    padding: 14px;
+
+    border: 1px solid #363641;
+    border-radius: 9px;
+
+    background: #1d1d24;
+}
+
+
+.library-games-box > .info-label {
+    margin-bottom: 8px;
+
+    text-align: left;
+}
+
+
+.library-games-list {
+    list-style: none;
+
+    margin: 0;
+    padding: 0;
+}
+
+
+/* =========================================================
+   LIGNE D'UN JEU
+========================================================= */
+
+.library-game-row {
+    display: grid;
+
+    grid-template-columns: 46px minmax(0, 1fr) auto;
+
+    align-items: center;
+
+    gap: 12px;
+
+    min-height: 58px;
+
+    padding: 6px 4px;
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+    transition:
+        background-color 0.15s ease,
+        transform 0.15s ease;
+}
+
+
+.library-game-row:last-child {
+    border-bottom: none;
+}
+
+
+.library-game-row:hover {
+    background: rgba(75, 159, 255, 0.06);
+
+    transform: translateX(2px);
+}
+
+
+/* =========================================================
+   IMAGE
+========================================================= */
+
+.library-game-thumb {
+    display: block;
+
+    width: 46px;
+    height: 46px;
+
+    border-radius: 7px;
+
+    object-fit: cover;
+
+    background: #292932;
+
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+
+/* =========================================================
+   NOM DU JEU
+========================================================= */
+
+.library-game-name {
+    min-width: 0;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-size: 13px;
+    font-weight: 500;
+
+    color: #eeeef3;
+
+    text-decoration: none;
+}
+
+
+a.library-game-name:link,
+a.library-game-name:visited {
+    color: #eeeef3;
+
+    text-decoration: none;
+}
+
+
+a.library-game-name:hover {
+    color: #4b9fff;
+
+    text-decoration: none;
+}
+
+
+/* =========================================================
+   TEMPS DE JEU
+========================================================= */
+
+.library-game-hours {
+    padding-left: 8px;
+
+    white-space: nowrap;
+
+    font-size: 13px;
+    font-weight: 700;
+
+    color: #4b9fff;
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+
+    .library-preview .info-grid {
+        grid-template-columns: 1fr 1fr;
+
+        gap: 8px;
+    }
+
+
+    .library-games-box {
+        padding: 10px;
+    }
+
+
+    .library-game-row {
+        grid-template-columns: 40px minmax(0, 1fr) auto;
+
+        gap: 9px;
+    }
+
+
+    .library-game-thumb {
+        width: 40px;
+        height: 40px;
+    }
+
+
+    .library-game-name,
+    .library-game-hours {
+        font-size: 12px;
+    }
+}
