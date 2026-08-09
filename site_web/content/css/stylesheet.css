@@ -40,6 +40,8 @@ body {
 
 .logo img {
     display: block;
+    width: 100px;
+    height: auto;
 }
 
 .nav-box1,
@@ -119,4 +121,75 @@ body {
 
 .login a:active {
     transform: translateY(0) scale(0.98);
+}
+
+/* ================= RESPONSIVE ================= */
+
+@media (max-width: 768px) {
+    .navbar {
+        padding: 10px 16px;
+        height: auto;
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+
+    .logo img {
+        width: 72px;
+    }
+
+    .nav-box1 img,
+    .nav-box2 img,
+    .nav-box3 img {
+        width: 32px;
+        height: 32px;
+        padding: 6px;
+    }
+
+    .nav-box2 {
+        margin-left: 2px;
+    }
+
+    .nav-box3 {
+        margin-left: 2px;
+    }
+
+    .login {
+        margin-left: 12px;
+    }
+
+    .login a {
+        min-width: 92px;
+        height: 34px;
+        padding: 0 12px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 420px) {
+    .navbar {
+        justify-content: space-between;
+    }
+
+    .logo {
+        margin-right: 0;
+    }
+
+    .nav-box1,
+    .nav-box2,
+    .nav-box3 {
+        margin-left: 2px;
+    }
+
+    .nav-box1 {
+        margin-left: auto;
+    }
+
+    .login {
+        margin-left: 8px;
+    }
+
+    .login a {
+        min-width: 0;
+        padding: 0 10px;
+    }
 }
