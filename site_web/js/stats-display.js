@@ -194,6 +194,18 @@ function construireBandeauComptes(resultats, onDelier, options = {}) {
             return;
         }
 
+        if (r.chargement) {
+            chip.classList.add('account-chip--loading');
+            chip.innerHTML = `
+                ${icone}
+                <div class="chip-body">
+                    <span class="chip-name">${escapeHtml(r.platform.label)}</span>
+                    <span class="chip-sub">Chargement des stats…</span>
+                </div>
+            `;
+            bloc.appendChild(chip);
+            return;
+        }
         // --- Cas 2 : lié mais les stats ont échoué ---
         if (r.error || !r.data) {
             chip.classList.add('account-chip--error');
@@ -245,6 +257,31 @@ function construireDetails(resultats) {
     bloc.className = 'hub-details';
 
     resultats.forEach(r => {
+         if (r.chargement) {
+            const skel = document.createElement('section');
+            skel.className = 'detail-group detail-group--skeleton';
+            skel.dataset.platform = r.platform.slug;
+            skel.setAttribute('aria-busy', 'true');
+            skel.innerHTML = `
+                <div class="detail-head">
+                    <span class="platform-tag">${escapeHtml(r.platform.label)}</span>
+                </div>
+                <div class="info-grid">
+                    ${`<div class="info-box">
+                        <span class="skel skel-label"></span>
+                        <span class="skel skel-value"></span>
+                    </div>`.repeat(8)}
+                </div>
+                <div class="recent-games-box">
+                    <span class="skel skel-label"></span>
+                    <span class="skel skel-row"></span>
+                    <span class="skel skel-row"></span>
+                    <span class="skel skel-row"></span>
+                </div>
+            `;
+            bloc.appendChild(skel);
+            return;
+        }
         if (!r.data) return;
         const d = r.data;
 
