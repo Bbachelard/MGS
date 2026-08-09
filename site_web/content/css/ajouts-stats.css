@@ -283,3 +283,237 @@ a.library-game-name:hover {
         font-size: 12px;
     }
 }
+
+/* =========================================================
+   APERÇU BIBLIOTHÈQUE ACCUEIL
+========================================================= */
+
+.stats-result .library-preview {
+    width: 100%;
+    box-sizing: border-box;
+
+    margin-top: 24px;
+    padding-top: 20px;
+
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+
+/* Titre bibliothèque */
+
+.stats-result .library-preview .lib-title {
+    display: block;
+
+    margin-bottom: 12px;
+
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    color: #9292a3;
+}
+
+
+/* Deux compteurs */
+
+.stats-result .library-preview .info-grid {
+    display: grid;
+
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 12px;
+
+    width: 100%;
+}
+
+
+.stats-result .library-preview .info-box {
+    box-sizing: border-box;
+
+    padding: 10px 14px;
+
+    border: 1px solid #393943;
+    border-radius: 8px;
+
+    background: #1d1d24;
+
+    text-align: center;
+}
+
+
+/* =========================================================
+   TOP JEUX
+========================================================= */
+
+.stats-result .library-games-box {
+    box-sizing: border-box;
+
+    width: 100%;
+
+    margin-top: 14px;
+    padding: 14px;
+
+    border: 1px solid #393943;
+    border-radius: 8px;
+
+    background: #1d1d24;
+}
+
+
+.stats-result .library-games-list {
+    list-style: none !important;
+
+    padding: 0 !important;
+    margin: 8px 0 0 0 !important;
+}
+
+
+/* Une ligne = image | nom | heures */
+
+.stats-result .library-game-row {
+    display: grid !important;
+
+    grid-template-columns: 46px minmax(0, 1fr) auto !important;
+
+    align-items: center;
+
+    gap: 12px;
+
+    min-height: 58px;
+
+    margin: 0 !important;
+    padding: 6px 4px !important;
+
+    list-style: none !important;
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+
+.stats-result .library-game-row:last-child {
+    border-bottom: none;
+}
+
+
+.stats-result .library-game-row::marker {
+    display: none;
+    content: "";
+}
+
+
+/* Images */
+
+.stats-result img.library-game-thumb {
+    display: block;
+
+    width: 46px !important;
+    height: 46px !important;
+
+    min-width: 46px;
+    max-width: 46px;
+
+    min-height: 46px;
+    max-height: 46px;
+
+    margin: 0 !important;
+
+    object-fit: cover;
+
+    border-radius: 6px;
+
+    background: #292932;
+
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+
+/* Placeholder quand aucune image */
+
+.stats-result div.library-game-thumb {
+    width: 46px;
+    height: 46px;
+
+    border-radius: 6px;
+
+    background: #292932;
+}
+
+
+/* Nom du jeu */
+
+.stats-result .library-game-name {
+    display: block;
+
+    min-width: 0;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-size: 13px;
+
+    color: #eeeeee !important;
+
+    text-decoration: none !important;
+}
+
+
+.stats-result a.library-game-name:link,
+.stats-result a.library-game-name:visited {
+    color: #eeeeee !important;
+
+    text-decoration: none !important;
+}
+
+
+.stats-result a.library-game-name:hover {
+    color: #4b9fff !important;
+}
+
+
+/* Nombre d'heures */
+
+.stats-result .library-game-hours {
+    white-space: nowrap;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    color: #4b9fff !important;
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+
+    .stats-result .library-preview .info-grid {
+        gap: 8px;
+    }
+
+    .stats-result .library-games-box {
+        padding: 10px;
+    }
+
+    .stats-result .library-game-row {
+        grid-template-columns: 40px minmax(0, 1fr) auto !important;
+
+        gap: 8px;
+    }
+
+    .stats-result img.library-game-thumb,
+    .stats-result div.library-game-thumb {
+        width: 40px !important;
+        height: 40px !important;
+
+        min-width: 40px;
+        max-width: 40px;
+
+        min-height: 40px;
+        max-height: 40px;
+    }
+
+}
