@@ -116,6 +116,26 @@ function hubHero(agg) {
         </span>
     `).join("");
 
+    const inconnues = agg.inconnues.length
+        ? `<span class="hero-leg hero-leg--muted">${escapeHtml(agg.inconnues.join(", "))} : estimation indisponible</span>`
+        : "";
+
+    return `
+        <section class="hub-hero">
+            <span class="hero-label">Temps de jeu cumulé</span>
+
+            <div class="hero-line">
+                <span class="hero-value">${hubNombre(agg.totalHours)} h</span>
+                <span class="hero-unit">heures</span>
+                <span class="hero-aside">soit ${hubNombre(jours)} jours non-stop</span>
+            </div>
+
+            <div class="hero-bar">${segments}</div>
+            <div class="hero-legend">${legende}${inconnues}</div>
+        </section>
+    `;
+}
+
 /* ------------------------------------------------------------
    Étage 2 — cartes vedettes
    ------------------------------------------------------------ */
