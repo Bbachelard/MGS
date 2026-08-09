@@ -9,7 +9,6 @@
 /* --- Briques réutilisables --- */
 @import url("modules/messages.css");
 @import url("modules/buttons.css");
-@import url("modules/modal.css");
 
 /* --- Structure de page --- */
 @import url("modules/navbar.css");

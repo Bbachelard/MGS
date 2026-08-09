@@ -684,3 +684,15 @@
         transition: none;
     }
 }
+.hero-value  { white-space: nowrap; }
+.hero-line   { row-gap: 6px; }
+.hub-counters .summary-value { white-space: nowrap; }
+
+.feature-visual { display: flex; align-items: center; justify-content: center; }
+.rank-badge {
+    font-size: 16px;
+    line-height: 1.2;
+    padding: 0 8px;
+    text-align: center;
+    white-space: nowrap;
+}
