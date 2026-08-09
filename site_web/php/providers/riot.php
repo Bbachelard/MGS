@@ -30,6 +30,8 @@ const RIOT_QUEUES = [
     1700 => 'Arena',
 ];
 
+/** Points de maîtrise moyens rapportés par partie (sert à estimer le temps de jeu). */
+const RIOT_POINTS_PAR_PARTIE = 350;
 /* ------------------------------------------------------------------ */
 /*  HTTP : la clé passe dans un header, pas dans l'URL                 */
 /* ------------------------------------------------------------------ */
@@ -178,12 +180,21 @@ function riot_fetch_stats(array $cfg, string $accountId): array
         }
     }
 
-    /* --- Maîtrises champions --- */
-    $mastery  = riot_get("{$platform}/lol/champion-mastery/v4/champion-masteries/by-puuid/" . rawurlencode($puuid) . '/top?count=3', $apiKey);
+    /* --- Maîtrises champions ---
+       Liste complète (sans /top) : les points cumulés depuis la création
+       du compte servent à estimer le temps de jeu total.                */
+    $mastery  = riot_get("{$platform}/lol/champion-mastery/v4/champion-masteries/by-puuid/" . rawurlencode($puuid), $apiKey);
     $champions = riot_champion_names();
 
+    $masteryData = $mastery['status'] === 200 ? ($mastery['data'] ?? []) : [];
+
+    $pointsTotaux = 0;
+    foreach ($masteryData as $m) {
+        $pointsTotaux += (int)($m['championPoints'] ?? 0);
+    }
+
     $masteryItems = [];
-    foreach (($mastery['status'] === 200 ? $mastery['data'] : []) ?? [] as $m) {
+    foreach (array_slice($masteryData, 0, 3) as $m) {
         $id = (int)($m['championId'] ?? 0);
         $masteryItems[] = [
             'name'  => $champions[$id] ?? ('Champion ' . $id),
@@ -260,20 +271,18 @@ function riot_fetch_stats(array $cfg, string $accountId): array
     $total  = $wins + $losses;
 
 
-    /* --- Estimation du temps de jeu ------------------------------------
-       Riot n'expose aucun total. On multiplie la durée moyenne des
-       dernières parties par le nombre de parties classées connues.
-       Les normales / ARAM / Arena ne sont pas comptées.               */
+
+    /* --- Estimation du temps de jeu depuis la création du compte -------
+       Une partie rapporte en moyenne ~350 points de maîtrise (variable
+       selon le grade et la victoire). Les points ne sont jamais remis
+       à zéro : c'est le seul compteur "à vie" exposé par Riot.        */
 
     $dureeMoyenne = count($matchItems) > 0
         ? $recentSeconds / count($matchItems)
-        : 1800;                                     // 30 min par défaut
+        : 1800;
 
-    $partiesClassees = $wins + $losses
-                     + (int)($flex['wins'] ?? 0)
-                     + (int)($flex['losses'] ?? 0);
-
-    $heuresEstimees = (int) round($partiesClassees * $dureeMoyenne / 3600);
+    $partiesEstimees = (int) round($pointsTotaux / 350);
+    $heuresEstimees  = (int) round($partiesEstimees * $dureeMoyenne / 3600);
 
     return [
         'ok'   => true,
@@ -300,6 +309,8 @@ function riot_fetch_stats(array $cfg, string $accountId): array
                 ['label' => 'Winrate',       'value' => $total > 0 ? round($wins / $total * 100) . ' %' : '-'],
                 ['label' => 'Forme récente', 'value' => $matchItems ? $victoires . 'V / ' . (count($matchItems) - $victoires) . 'D' : '-'],
                 ['label' => 'Temps estimé', 'value' => $heuresEstimees > 0 ? '≈ ' . $heuresEstimees . ' h' : '-'],
+                ['label' => 'Parties classées (saison)', 'value' => $total > 0 ? (string)$total : '-'],
+                ['label' => 'Parties estimées (total)',  'value' => $partiesEstimees > 0 ? '≈ ' . number_format($partiesEstimees, 0, ',', ' ') : '-'],
             ],
             'sections'      => [
                 [
