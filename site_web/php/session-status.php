@@ -44,13 +44,14 @@ $platforms = [];
 
 foreach (mgs_platforms() as $slug => $platform) {
     $platforms[] = [
-        'slug'      => $slug,
-        'label'     => $platform['label'],
-        'icon'      => $platform['icon'],
-        'enabled'   => $platform['enabled'],
-        'linkable'  => $platform['linkable'],
-        'accountId' => $links[$slug],
-        'linked'    => $links[$slug] !== null,
+        'slug'       => $slug,
+        'label'      => $platform['label'],
+        'icon'       => $platform['icon'],
+        'enabled'    => $platform['enabled'],
+        'linkable'   => $platform['linkable'],
+        'verifiable' => !empty($platform['verifiable']),   // <-- ligne ajoutée
+        'accountId'  => $links[$slug],
+        'linked'     => $links[$slug] !== null,
     ];
 }
 
