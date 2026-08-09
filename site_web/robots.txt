@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+Disallow: /logged/
+Disallow: /php/
+Disallow: /vendor/
+Disallow: /connexion/verify_user.php
+Disallow: /signup/create_user.php
+Disallow: /info.php
+
+Sitemap: https://my-gamers-stats.com/sitemap.xml
