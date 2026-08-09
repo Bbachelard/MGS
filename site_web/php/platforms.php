@@ -22,6 +22,7 @@ function mgs_platforms(): array
             'icon'       => '/content/image/Steam_icon.webp',
             'enabled'    => true,
             'linkable'   => true,
+            'verifiable' => false,
             'searchable' => true,
             'aliases'    => ['steam'],
         ],
@@ -29,9 +30,10 @@ function mgs_platforms(): array
             'slug'       => 'riot',
             'label'      => 'Riot Games',
             'icon'       => '/content/image/riot-icon.png',
-            'enabled'    => false,
-            'linkable'   => false,
-            'searchable' => false,
+            'enabled'    => true,
+            'linkable'   => false, // passera à true le jour où RSO est accordé
+            'verifiable' => true,  // liaison par preuve de propriété (icône)
+            'searchable' => true,
             'aliases'    => ['riot', 'riot games', 'riotgames'],
         ],
         'epic' => [
@@ -40,6 +42,7 @@ function mgs_platforms(): array
             'icon'       => '/content/image/Epic_icon.webp',
             'enabled'    => false,
             'linkable'   => false,
+            'verifiable' => false,
             'searchable' => false,
             'aliases'    => ['epic', 'epic games', 'epicgames'],
         ],
