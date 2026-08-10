@@ -137,14 +137,16 @@ function epic_complete_link(array $cfg, string $returnUrl): array
     $token = epic_http_post_form(
         EPIC_TOKEN_URL,
         [
-            'grant_type'   => 'authorization_code',
-            'code'         => $code,
-            'redirect_uri' => (string)($cfg['redirect_uri'] ?? ''),
-        ],
+            'grant_type'    => 'authorization_code',
+            'code'          => $code,
+            'redirect_uri'  => (string)($cfg['redirect_uri'] ?? ''),
+            'scope'         => (string)($cfg['scope'] ?? 'basic_profile'),
+            'deployment_id' => (string)($cfg['deployment_id'] ?? ''),
+            ],
         ['basic', $clientId, $clientSecret]
     );
     error_log('EPIC token status : ' . $token['status']);
-    error_log('EPIC token body   : ' . json_encode($token['data']));
+    error_log('EPIC token body : ' . json_encode($token['data']));
 
     if ($token['status'] !== 200 || $token['data'] === null) {
         return ['ok' => false, 'error' => 'Échange du code Epic échoué.'];
