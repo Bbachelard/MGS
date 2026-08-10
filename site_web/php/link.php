@@ -43,8 +43,7 @@ if (!mgs_provider_call($slug, 'should_complete_link')) {
 
     $state = bin2hex(random_bytes(16));
     $_SESSION['link_state']    = $state;
-    $_SESSION['link_platform'] = $slug;
-    unset($_SESSION['link_consent_tries']);   // nouvelle liaison = compteur remis à zéro
+    $_SESSION['link_platform'] = $slug;   
 
     $returnUrl = $siteUrl . '/php/link.php?platform=' . $slug . '&state=' . $state;
 
@@ -60,7 +59,6 @@ if ($state === ''
     || !isset($_SESSION['link_state'])
     || !hash_equals($_SESSION['link_state'], $state)
     || ($_SESSION['link_platform'] ?? '') !== $slug) {
-    unset($_SESSION['link_state'], $_SESSION['link_platform'], $_SESSION['link_consent_tries']);
     mgs_link_redirect($loggedUrl . '?error=state&platform=' . $slug);
 }
 
@@ -75,19 +73,8 @@ if (!$result['ok']) {
     // Action corrective Epic : on renvoie l'utilisateur donner son accord.
     // Le state est remis en session car Epic reviendra avec un nouveau code.
     if (($result['reason'] ?? '') === 'consent' && !empty($result['continuationUrl'])) {
-
-        $essais = (int)($_SESSION['link_consent_tries'] ?? 0);
-
-        if ($essais < 2) {                       // garde-fou anti-boucle
-            $_SESSION['link_consent_tries'] = $essais + 1;
-            $_SESSION['link_state']         = $state;
-            $_SESSION['link_platform']      = $slug;
-
-            mgs_link_redirect((string)$result['continuationUrl']);
-        }
-
-        unset($_SESSION['link_consent_tries']);
-        mgs_link_redirect($loggedUrl . '?error=auth&platform=' . $slug . '&reason=consent_boucle');
+        $_SESSION['link_consent_url'] = (string)$result['continuationUrl'];
+        mgs_link_redirect($loggedUrl . '?error=consent&platform=' . $slug);
     }
 
     mgs_link_redirect(
@@ -103,5 +90,4 @@ if (!$ajout['ok']) {
     mgs_link_redirect($loggedUrl . '?error=' . urlencode($ajout['code']) . '&platform=' . $slug);
 }
 
-unset($_SESSION['link_consent_tries']);
 mgs_link_redirect($loggedUrl . '?linked=' . $slug);

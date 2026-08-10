@@ -27,9 +27,16 @@ if ($linked !== null) {
         'auth'                   => "L'authentification {$label} a échoué. Réessaie dans un instant.",
         'state'                  => "Session de liaison expirée. Relance la liaison depuis cette page.",
         'platform_indisponible'  => "Cette plateforme n'est pas encore disponible.",
+        'consent'                => "Une autorisation supplémentaire est requise côté Epic.",
     ];
-     $banner = ['type' => 'error', 'text' => $messages[$_GET['error']] ?? "Une erreur est survenue."];
+    $banner = ['type' => 'error', 'text' => $messages[$_GET['error']] ?? "Une erreur est survenue."];
 
+    if (($_GET['error'] ?? '') === 'consent' && !empty($_SESSION['link_consent_url'])) {
+    $banner['text'] .= ' Ouvre cette page, valide, ferme l\'onglet puis relance la liaison : ';
+    $banner['html']  = '<a href="' . htmlspecialchars($_SESSION['link_consent_url'], ENT_QUOTES)
+                     . '" target="_blank" rel="noopener">Donner mon autorisation</a>';
+    unset($_SESSION['link_consent_url']);
+}
 }
 ?>
 <!DOCTYPE html>
@@ -86,6 +93,7 @@ if ($linked !== null) {
 
         <?php if ($banner): ?>
             <div class="banner banner--<?= $banner['type'] ?>"><?= htmlspecialchars($banner['text']) ?></div>
+            <?= htmlspecialchars($banner['text']) ?><?= $banner['html'] ?? '' ?>
         <?php endif; ?>
 
         <div id="platform-hub" class="platform-hub"></div>
