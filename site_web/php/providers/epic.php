@@ -18,6 +18,22 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../platforms.php';
 
+function epic_log(string $message): void
+{
+    $dir  = __DIR__ . '/../../cache';
+    $file = $dir . '/epic-debug.log';
+
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+
+    $ligne = date('Y-m-d H:i:s') . ' ' . $message . "\n";
+
+    if (@file_put_contents($file, $ligne, FILE_APPEND | LOCK_EX) === false) {
+        error_log('EPIC ' . $message);   // au moins ça partira dans le log PHP-FPM
+    }
+}
+
 const EPIC_AUTHORIZE_URL = 'https://www.epicgames.com/id/authorize';
 const EPIC_TOKEN_URL     = 'https://api.epicgames.dev/epic/oauth/v2/token';
 const EPIC_REVOKE_URL    = 'https://api.epicgames.dev/epic/oauth/v2/revoke';
@@ -44,11 +60,17 @@ function epic_http_get(string $url, array $headers = []): array
 
     $body   = curl_exec($ch);
     $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlEr = curl_error($ch);
     curl_close($ch);
 
     $data = json_decode((string)$body, true);
 
-    return ['status' => $status, 'data' => is_array($data) ? $data : null];
+    return [
+        'status'    => $status,
+        'data'      => is_array($data) ? $data : null,
+        'raw'       => (string)$body,
+        'curlError' => $curlEr,
+    ];
 }
 
 /**
@@ -78,11 +100,17 @@ function epic_http_post_form(string $url, array $params, ?array $auth = null): a
 
     $body   = curl_exec($ch);
     $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlEr = curl_error($ch);
     curl_close($ch);
 
     $data = json_decode((string)$body, true);
 
-    return ['status' => $status, 'data' => is_array($data) ? $data : null];
+    return [
+        'status'    => $status,
+        'data'      => is_array($data) ? $data : null,
+        'raw'       => (string)$body,
+        'curlError' => $curlEr,
+    ];
 }
 
 /* ------------------------------------------------------------------ */
@@ -111,59 +139,64 @@ function epic_begin_link(array $cfg, string $returnUrl): string
         'state'         => (string)($_SESSION['link_state'] ?? ''),
     ]);
 }
-
 function epic_complete_link(array $cfg, string $returnUrl): array
 {
-    file_put_contents('/tmp/epic-debug.log',
-        date('H:i:s')
-        . " get="        . json_encode($_GET)
-        . " id_len="     . strlen((string)($cfg['client_id'] ?? ''))
-        . " secret_len=" . strlen((string)($cfg['client_secret'] ?? ''))
-        . " redirect=["  . ($cfg['redirect_uri'] ?? 'VIDE') . "]\n",
-        FILE_APPEND
-    );
+    epic_log('RETOUR get=' . json_encode($_GET)
+        . ' id_len='        . strlen((string)($cfg['client_id'] ?? ''))
+        . ' secret_len='    . strlen((string)($cfg['client_secret'] ?? ''))
+        . ' deployment_id=[' . ($cfg['deployment_id'] ?? 'VIDE') . ']'
+        . ' redirect=['     . ($cfg['redirect_uri'] ?? 'VIDE') . ']');
+
     if (isset($_GET['error'])) {
-        return ['ok' => false, 'error' => 'Autorisation refusée côté Epic.'];
+        epic_log('DENIED ' . json_encode($_GET));
+        return ['ok' => false, 'reason' => 'denied', 'error' => 'Autorisation refusée côté Epic.'];
     }
 
     $code         = trim((string)($_GET['code'] ?? ''));
     $clientId     = (string)($cfg['client_id'] ?? '');
     $clientSecret = (string)($cfg['client_secret'] ?? '');
+    $redirectUri  = (string)($cfg['redirect_uri'] ?? '');
+    $deploymentId = (string)($cfg['deployment_id'] ?? '');
+    $scope        = (string)($cfg['scope'] ?? '') !== '' ? (string)$cfg['scope'] : 'basic_profile';
 
     if ($code === '' || $clientId === '' || $clientSecret === '') {
-        return ['ok' => false, 'error' => 'Configuration Epic incomplète.'];
+        return ['ok' => false, 'reason' => 'config', 'error' => 'Configuration Epic incomplète.'];
     }
 
-    $token = epic_http_post_form(
-        EPIC_TOKEN_URL,
-        [
-            'grant_type'    => 'authorization_code',
-            'code'          => $code,
-            'redirect_uri'  => (string)($cfg['redirect_uri'] ?? ''),
-            'scope'         => (string)($cfg['scope'] ?? 'basic_profile'),
-            'deployment_id' => (string)($cfg['deployment_id'] ?? ''),
-            ],
-        ['basic', $clientId, $clientSecret]
-    );
-    error_log('EPIC token status : ' . $token['status']);
-    error_log('EPIC token body : ' . json_encode($token['data']));
+    $params = [
+        'grant_type'   => 'authorization_code',
+        'code'         => $code,
+        'redirect_uri' => $redirectUri,
+        'scope'        => $scope,
+    ];
+
+    // Le endpoint v2 attend le deployment_id ; on ne l'envoie que s'il est renseigné.
+    if ($deploymentId !== '') {
+        $params['deployment_id'] = $deploymentId;
+    }
+
+    $token = epic_http_post_form(EPIC_TOKEN_URL, $params, ['basic', $clientId, $clientSecret]);
+
+    epic_log('TOKEN status=' . $token['status']
+        . ' curl=['  . ($token['curlError'] ?? '') . ']'
+        . ' body='   . substr((string)($token['raw'] ?? ''), 0, 800));
 
     if ($token['status'] !== 200 || $token['data'] === null) {
-        return ['ok' => false, 'error' => 'Échange du code Epic échoué.'];
+        return ['ok' => false, 'reason' => 'token', 'error' => 'Échange du code Epic échoué.'];
     }
 
     $accessToken = (string)($token['data']['access_token'] ?? '');
     $accountId   = (string)($token['data']['account_id']   ?? '');
     $displayName = (string)($token['data']['display_name'] ?? '');
 
-    // Repli sur userInfo si le token ne porte pas déjà l'identité
     if (($accountId === '' || $displayName === '') && $accessToken !== '') {
         $info = epic_http_get(EPIC_USERINFO_URL, ['Authorization: Bearer ' . $accessToken]);
 
+        epic_log('USERINFO status=' . $info['status']
+            . ' body=' . substr((string)($info['raw'] ?? ''), 0, 400));
+
         if ($info['status'] === 200 && $info['data'] !== null) {
-            $accountId = $accountId !== ''
-                ? $accountId
-                : (string)($info['data']['sub'] ?? '');
+            $accountId = $accountId !== '' ? $accountId : (string)($info['data']['sub'] ?? '');
 
             $displayName = (string)(
                 $info['data']['preferred_username']
@@ -174,14 +207,13 @@ function epic_complete_link(array $cfg, string $returnUrl): array
     }
 
     if ($accountId === '') {
-        return ['ok' => false, 'error' => 'Identifiant Epic introuvable.'];
+        return ['ok' => false, 'reason' => 'noid', 'error' => 'Identifiant Epic introuvable.'];
     }
 
     if ($displayName !== '') {
         epic_cache_pseudo($accountId, $displayName);
     }
 
-    // On n'a plus besoin du token : autant ne pas le laisser vivre.
     if ($accessToken !== '') {
         epic_http_post_form(
             EPIC_REVOKE_URL,
@@ -189,6 +221,8 @@ function epic_complete_link(array $cfg, string $returnUrl): array
             ['basic', $clientId, $clientSecret]
         );
     }
+
+    epic_log('OK accountId=' . $accountId);
 
     return ['ok' => true, 'accountId' => $accountId];
 }

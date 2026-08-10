@@ -3,11 +3,14 @@ declare(strict_types=1);
 
 session_start();
 
-file_put_contents('/tmp/epic-debug.log',
-    date('H:i:s') . " ENTREE get=" . json_encode($_GET) . "\n", FILE_APPEND);
+
 
 require_once __DIR__ . '/platforms.php';
 require_once __DIR__ . '/links-model.php';
+
+if (mgs_load_provider('epic')) {
+    epic_log('ENTREE get=' . json_encode($_GET) . ' sid=' . session_id());
+}
 
 $config = require __DIR__ . '/../config.php';
 
@@ -71,7 +74,10 @@ $returnUrl = $siteUrl . '/php/link.php?platform=' . $slug . '&state=' . $state;
 $result    = mgs_provider_call($slug, 'complete_link', $config['PLATFORMS'][$slug] ?? [], $returnUrl);
 
 if (!$result['ok']) {
-    mgs_link_redirect($loggedUrl . '?error=auth&platform=' . $slug);
+    mgs_link_redirect(
+        $loggedUrl . '?error=auth&platform=' . $slug
+        . '&reason=' . urlencode((string)($result['reason'] ?? 'inconnu'))
+    );
 }
 
 $ajout = mgs_add_link($conn, $userId, $slug, (string)$result['accountId']);

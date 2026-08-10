@@ -28,7 +28,11 @@ if ($linked !== null) {
         'state'                  => "Session de liaison expirée. Relance la liaison depuis cette page.",
         'platform_indisponible'  => "Cette plateforme n'est pas encore disponible.",
     ];
-    $banner = ['type' => 'error', 'text' => $messages[$_GET['error']] ?? "Une erreur est survenue."];
+     $banner = ['type' => 'error', 'text' => $messages[$_GET['error']] ?? "Une erreur est survenue."];
+
+    if (isset($_GET['reason'])) {   // temporaire, à retirer une fois le bug corrigé
+        $banner['text'] .= ' [' . htmlspecialchars((string)$_GET['reason']) . ']';
+    }
 }
 ?>
 <!DOCTYPE html>
