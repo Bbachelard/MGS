@@ -122,3 +122,24 @@
     box-shadow: 0 0 0 2px rgba(42, 42, 51, 1), 0 0 0 4px rgba(255, 255, 255, 0.6);
 }
 
+.forgot-link {
+    margin: 12px 0 0;
+    text-align: center;
+}
+
+.forgot-link a {
+    color: rgb(124, 92, 255);
+    font-size: 0.8em;
+    text-decoration: none;
+}
+
+.forgot-link a:hover {
+    text-decoration: underline;
+}
+
+.reset-success {
+    color: #7fdc7f;
+    font-size: 0.85em;
+    text-align: center;
+    margin: 0 0 16px;
+}

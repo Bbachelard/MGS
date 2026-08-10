@@ -58,6 +58,7 @@
                     <input class="button" type="submit" value="Se connecter">
                     <a href="https://my-gamers-stats.com/signup/" class="button-2">S'inscrire</a>
                 </div>
+                <p class="forgot-link"><a href="./forgot-password.php">Mot de passe oublié ?</a></p>
             </div>
             
         </form>
