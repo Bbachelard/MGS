@@ -454,11 +454,18 @@ function riot_rank_percentile(?array $entry): ?float
  * de Riot changent à chaque refonte du client, on ne s'y accroche pas.
  * Fichiers attendus : content/img/ranks/lol-diamond.png, lol-gold.png, etc.
  */
+
+const RIOT_TIERS_AVEC_ICONE = [
+    'iron', 'bronze', 'silver', 'gold', 'platinum',
+    'emerald', 'diamond', 'master', 'grandmaster', 'challenger',
+];
 function riot_rank_icon(string $tier): string
 {
     $tier = strtolower(trim($tier));
 
-    return $tier === '' ? '' : '/content/image/ranks/lol-' . $tier . '.png';
+    return in_array($tier, RIOT_TIERS_AVEC_ICONE, true)
+        ? '/content/image/ranks/lol-' . $tier . '.png'
+        : '';   // hub-resume.js gère déjà l'absence d'icône
 }
 
 /** Entrée de rang normalisée, consommée telle quelle par hub-resume.js. */
