@@ -135,6 +135,8 @@ function epic_complete_link(array $cfg, string $returnUrl): array
         ],
         ['basic', $clientId, $clientSecret]
     );
+    error_log('EPIC token status : ' . $token['status']);
+    error_log('EPIC token body   : ' . json_encode($token['data']));
 
     if ($token['status'] !== 200 || $token['data'] === null) {
         return ['ok' => false, 'error' => 'Échange du code Epic échoué.'];
