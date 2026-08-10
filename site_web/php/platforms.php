@@ -40,10 +40,10 @@ function mgs_platforms(): array
             'slug'       => 'epic',
             'label'      => 'Epic Games',
             'icon'       => '/content/image/Epic_icon.webp',
-            'enabled'    => false,
-            'linkable'   => false,
+            'enabled'    => true,   // était false
+            'linkable'   => true,   // était false
             'verifiable' => false,
-            'searchable' => false,
+            'searchable' => false,  // aucune recherche par pseudo côté Epic
             'aliases'    => ['epic', 'epic games', 'epicgames'],
         ],
     ];

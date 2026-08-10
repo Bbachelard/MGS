@@ -21,7 +21,7 @@ if (!isset($_SESSION['user_id'])) {
     mgs_link_redirect($siteUrl . '/connexion/index.php?error=session');
 }
 
-$slug     = mgs_resolve_platform($_GET['platform'] ?? '');
+$slug = mgs_resolve_platform($_GET['platform'] ?? $_SESSION['link_platform'] ?? '');
 $platform = mgs_platform($slug);
 
 if ($slug === null || !$platform['linkable'] || !mgs_load_provider($slug)) {
