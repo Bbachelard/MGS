@@ -10,6 +10,14 @@ $config = require __DIR__ . '/../config.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
+/* ==================================================================
+ *  Désigne un compte comme principal pour sa plateforme.
+ *
+ *  POST linkId=<id de platform_links>
+ *
+ *  Le compte principal est celui dont l'avatar part dans la navbar.
+ * ================================================================== */
+
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
     echo json_encode(['error' => 'Session expirée, reconnecte-toi.']);
@@ -22,17 +30,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-/* On délie désormais une LIAISON précise, plus une plateforme entière :
-   avec plusieurs comptes Riot, "platform=riot" ne désignerait plus rien. */
 $linkId = (int)($_POST['linkId'] ?? 0);
 
 if ($linkId <= 0) {
     http_response_code(400);
-    echo json_encode(['error' => 'Compte à délier non précisé.'], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['error' => 'Compte non précisé.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-$result = mgs_delete_link($conn, (int)$_SESSION['user_id'], $linkId);
+$result = mgs_set_primary($conn, (int)$_SESSION['user_id'], $linkId);
 
 if (!$result['ok']) {
     http_response_code(404);

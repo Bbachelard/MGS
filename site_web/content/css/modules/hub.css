@@ -839,3 +839,61 @@
         text-align: left;
     }
 }
+
+/* ============================================================
+   PATCH — à coller À LA FIN de content/css/modules/hub.css
+   Multi-comptes : compte principal + pastille "ajouter"
+   ============================================================ */
+
+/* Le compte principal (avatar de la navbar) se distingue par un liseré. */
+.account-chip--primary {
+    border-color: #7c5cff;
+    box-shadow: 0 0 0 1px rgba(124, 92, 255, 0.25);
+}
+
+/* Étoile "définir comme compte principal".
+   Décalée à gauche du ✕ pour ne pas se chevaucher. */
+.chip-primary {
+    position: absolute;
+    top: 6px;
+    right: 30px;
+    padding: 2px 4px;
+    font-size: 14px;
+    line-height: 1;
+    color: #666;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.chip-primary:hover {
+    color: #b3a0ff;
+}
+
+.chip-primary.is-active {
+    color: #7c5cff;
+    cursor: default;
+}
+
+.chip-primary:disabled {
+    opacity: 1;      /* l'étoile pleine reste lisible */
+    cursor: default;
+}
+
+/* Pastille "+ Ajouter un compte" : volontairement plus discrète
+   que les pastilles de comptes réels. */
+.account-chip--add {
+    background: rgba(42, 42, 51, 0.25);
+    border-style: dashed;
+    border-color: #3a3a45;
+}
+
+.account-chip--add .chip-icon {
+    opacity: 0.4;
+}
+
+.account-chip--add .chip-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #8f8fa5;
+}

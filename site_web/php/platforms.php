@@ -24,6 +24,7 @@ function mgs_platforms(): array
             'linkable'   => true,
             'verifiable' => false,
             'searchable' => true,
+            'max_accounts' => 1,
             'aliases'    => ['steam'],
         ],
         'riot' => [
@@ -34,16 +35,18 @@ function mgs_platforms(): array
             'linkable'   => false, // passera à true le jour où RSO est accordé
             'verifiable' => true,  // liaison par preuve de propriété (icône)
             'searchable' => true,
+            'max_accounts' => 5,
             'aliases'    => ['riot', 'riot games', 'riotgames'],
         ],
         'epic' => [
             'slug'       => 'epic',
             'label'      => 'Epic Games',
             'icon'       => '/content/image/Epic_icon.webp',
-            'enabled'    => true,   // était false
-            'linkable'   => true,   // était false
+            'enabled'    => true,   
+            'linkable'   => true,   
             'verifiable' => false,
             'searchable' => false,  // aucune recherche par pseudo côté Epic
+            'max_accounts' => 1,
             'aliases'    => ['epic', 'epic games', 'epicgames'],
         ],
     ];
@@ -59,6 +62,15 @@ function mgs_platform(?string $slug): ?array
     return mgs_platforms()[$slug] ?? null;
 }
 
+/**
+ * Nombre de comptes autorisés sur une plateforme.
+ * Défaut à 1 : une plateforme ajoutée sans y penser reste mono-compte.
+ */
+function mgs_max_accounts(?string $slug): int
+{
+    $platform = mgs_platform($slug);
+    return max(1, (int)($platform['max_accounts'] ?? 1));
+}
 /**
  * Accepte "Steam", "steam", "Epic Games"... et renvoie le slug interne.
  */

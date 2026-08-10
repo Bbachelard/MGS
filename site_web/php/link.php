@@ -33,6 +33,12 @@ $userId = (int)$_SESSION['user_id'];
 /* --- Aller : on part vers la plateforme --- */
 if (!mgs_provider_call($slug, 'should_complete_link')) {
 
+    // Quota vérifié AVANT le voyage : inutile d'envoyer l'utilisateur
+    // s'authentifier chez Steam pour lui dire non au retour.
+    if (mgs_count_accounts($conn, $userId, $slug) >= mgs_max_accounts($slug)) {
+        mgs_link_redirect($loggedUrl . '?error=max&platform=' . $slug);
+    }
+
     $state = bin2hex(random_bytes(16));
     $_SESSION['link_state']    = $state;
     $_SESSION['link_platform'] = $slug;
@@ -65,13 +71,10 @@ if (!$result['ok']) {
     mgs_link_redirect($loggedUrl . '?error=auth&platform=' . $slug);
 }
 
-$accountId = (string)$result['accountId'];
-$owner     = mgs_get_link_owner($conn, $slug, $accountId);
+$ajout = mgs_add_link($conn, $userId, $slug, (string)$result['accountId']);
 
-if ($owner !== null && $owner !== $userId) {
-    mgs_link_redirect($loggedUrl . '?error=deja_lie&platform=' . $slug);
+if (!$ajout['ok']) {
+    mgs_link_redirect($loggedUrl . '?error=' . urlencode($ajout['code']) . '&platform=' . $slug);
 }
-
-mgs_save_link($conn, $userId, $slug, $accountId);
 
 mgs_link_redirect($loggedUrl . '?linked=' . $slug);

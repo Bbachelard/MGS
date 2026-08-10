@@ -38,20 +38,45 @@ $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-$links = mgs_get_user_links($conn, $targetId);
+$comptes = mgs_get_user_accounts($conn, $targetId);
 
 $platforms = [];
 
 foreach (mgs_platforms() as $slug => $platform) {
+    $liste = $comptes[$slug] ?? [];
+    $max   = mgs_max_accounts($slug);
+
     $platforms[] = [
-        'slug'       => $slug,
-        'label'      => $platform['label'],
-        'icon'       => $platform['icon'],
-        'enabled'    => $platform['enabled'],
-        'linkable'   => $platform['linkable'],
-        'verifiable' => !empty($platform['verifiable']),   // <-- ligne ajoutée
-        'accountId'  => $links[$slug],
-        'linked'     => $links[$slug] !== null,
+        'slug'        => $slug,
+        'label'       => $platform['label'],
+        'icon'        => $platform['icon'],
+        'enabled'     => $platform['enabled'],
+        'linkable'    => $platform['linkable'],
+        'verifiable'  => !empty($platform['verifiable']),
+        'maxAccounts' => $max,
+
+        // Un objet par compte lié, principal en tête.
+        'accounts'    => array_map(
+            static fn (array $c): array => [
+                'id'        => $c['id'],
+                'accountId' => $c['accountId'],
+                'isPrimary' => $c['isPrimary'],
+            ],
+            $liste
+        ),
+
+        'linked'      => $liste !== [],
+
+        // Champ historique : vaut le compte principal. Gardé pour que
+        // le reste du site (recherche, liens directs) ne casse pas.
+        'accountId'   => $liste[0]['accountId'] ?? null,
+
+        // Le bouton "ajouter" ne s'affiche que sur son propre profil
+        // et tant que le quota n'est pas atteint.
+        'canAdd'      => $isOwnProfile
+                         && $platform['enabled']
+                         && (!empty($platform['linkable']) || !empty($platform['verifiable']))
+                         && count($liste) < $max,
     ];
 }
 

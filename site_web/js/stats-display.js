@@ -151,92 +151,180 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+/* ============================================================
+   PATCH stats-display.js
 
-/** Bandeau des comptes : une pastille par plateforme. */
-function construireBandeauComptes(resultats, onDelier, options = {}) {
+   Remplace INTÉGRALEMENT l'ancienne fonction construireBandeauComptes()
+   (celle qui commence par le commentaire
+    "Bandeau des comptes : une pastille par plateforme.")
+   par tout ce qui suit. Le reste du fichier ne bouge pas.
+   ============================================================ */
+
+/**
+ * Bandeau des comptes : une pastille par COMPTE lié.
+ *
+ * @param comptes      entrées { platform, account, data, error }
+ * @param plateformes  liste brute de session-status.php (pour "ajouter")
+ * @param actions      { onDelier, onPrincipal }
+ */
+function construireBandeauComptes(comptes, plateformes, actions = {}, options = {}) {
     const lectureSeule = options.lectureSeule === true;
 
     const bloc = document.createElement('div');
     bloc.className = 'hub-accounts';
 
-    resultats.forEach(r => {
-        const chip = document.createElement('div');
-        chip.className = 'account-chip';
-        chip.dataset.platform = r.platform.slug;
-
-        const icone = `<img class="chip-icon" src="${escapeHtml(r.platform.icon)}" alt="">`;
-
-        // --- Cas 1 : plateforme non liée ---
-        if (!r.platform.linked) {
-            chip.classList.add('account-chip--empty');
-
-            let action = `<span class="chip-soon">Bientôt</span>`;
-
-            if (lectureSeule) {
-                action = '';
-            } else if (r.platform.enabled && r.platform.linkable) {
-                action = `<a class="link-btn link-btn--sm"
-                             href="/php/link.php?platform=${encodeURIComponent(r.platform.slug)}">Lier</a>`;
-            } else if (r.platform.enabled && r.platform.verifiable) {
-                action = `<button class="link-btn link-btn--sm js-verify" type="button"
-                                  data-platform="${escapeHtml(r.platform.slug)}">Lier</button>`;
-            }
-
-            chip.innerHTML = `
-                ${icone}
-                <div class="chip-body">
-                    <span class="chip-name">${escapeHtml(r.platform.label)}</span>
-                    <span class="chip-sub">${lectureSeule ? 'Non lié' : 'Aucun compte lié'}</span>
-                    ${action}
-                </div>
-            `;
-            bloc.appendChild(chip);
-            return;
-        }
-
-        // --- Cas 2 : lié mais les stats ont échoué ---
-        if (r.error || !r.data) {
-            chip.classList.add('account-chip--error');
-            chip.innerHTML = `
-                ${icone}
-                <div class="chip-body">
-                    <span class="chip-name">${escapeHtml(r.platform.label)}</span>
-                    <span class="chip-sub chip-sub--error">${escapeHtml(r.error || 'Stats indisponibles.')}</span>
-                </div>
-            `;
-
-        // --- Cas 3 : lié, stats OK ---
-        } else {
-            const d = r.data;
-            const avatar = safeUrl(d.avatar);
-            const status = d.status || {};
-
-            chip.innerHTML = `
-                ${avatar
-                    ? `<img class="chip-avatar ${status.online ? 'online' : ''}" src="${avatar}"
-                            alt="" onclick="openImageModal(this.src)">`
-                    : icone}
-                <div class="chip-body">
-                    <span class="chip-name">${escapeHtml(d.displayName || r.platform.label)}</span>
-                    <span class="chip-sub">${escapeHtml(status.label || r.platform.label)}</span>
-                    ${d.activity ? `<span class="chip-game">🎮 ${escapeHtml(d.activity)}</span>` : ''}
-                </div>
-            `;
-        }
-
-        if (!lectureSeule) {
-            const btn = document.createElement('button');
-            btn.className = 'chip-unlink';
-            btn.title = `Délier ${r.platform.label}`;
-            btn.textContent = '✕';
-            btn.addEventListener('click', () => onDelier(r.platform, btn));
-            chip.appendChild(btn);
-        }
-
-        bloc.appendChild(chip);
+    comptes.forEach(r => {
+        bloc.appendChild(
+            r.account
+                ? chipCompte(r, actions, lectureSeule)
+                : chipPlateformeVide(r.platform, lectureSeule)
+        );
     });
 
+    // Pastille "+" pour les plateformes qui acceptent encore un compte
+    // et en ont déjà au moins un (sinon la pastille "Lier" suffit).
+    if (!lectureSeule) {
+        (plateformes || []).forEach(p => {
+            if (p.canAdd && (p.accounts || []).length > 0) {
+                bloc.appendChild(chipAjouter(p));
+            }
+        });
+    }
+
     return bloc;
+}
+
+/** Plateforme sans aucun compte lié. */
+function chipPlateformeVide(platform, lectureSeule) {
+    const chip = document.createElement('div');
+    chip.className = 'account-chip account-chip--empty';
+    chip.dataset.platform = platform.slug;
+
+    const icone = `<img class="chip-icon" src="${escapeHtml(platform.icon)}" alt="">`;
+
+    let action = `<span class="chip-soon">Bientôt</span>`;
+
+    if (lectureSeule) {
+        action = '';
+    } else if (platform.enabled && platform.linkable) {
+        action = `<a class="link-btn link-btn--sm"
+                     href="/php/link.php?platform=${encodeURIComponent(platform.slug)}">Lier</a>`;
+    } else if (platform.enabled && platform.verifiable) {
+        action = `<button class="link-btn link-btn--sm js-verify" type="button"
+                          data-platform="${escapeHtml(platform.slug)}">Lier</button>`;
+    }
+
+    chip.innerHTML = `
+        ${icone}
+        <div class="chip-body">
+            <span class="chip-name">${escapeHtml(platform.label)}</span>
+            <span class="chip-sub">${lectureSeule ? 'Non lié' : 'Aucun compte lié'}</span>
+            ${action}
+        </div>
+    `;
+
+    return chip;
+}
+
+/** Pastille d'un compte lié. */
+function chipCompte(r, actions, lectureSeule) {
+    const chip = document.createElement('div');
+    chip.className = 'account-chip';
+    chip.dataset.platform = r.platform.slug;
+    chip.dataset.linkId   = r.account.id;
+
+    if (r.account.isPrimary) {
+        chip.classList.add('account-chip--primary');
+    }
+
+    const icone = `<img class="chip-icon" src="${escapeHtml(r.platform.icon)}" alt="">`;
+
+    // --- Lié mais les stats ont échoué ---
+    if (r.error || !r.data) {
+        chip.classList.add('account-chip--error');
+        chip.innerHTML = `
+            ${icone}
+            <div class="chip-body">
+                <span class="chip-name">${escapeHtml(r.account.displayName || r.platform.label)}</span>
+                <span class="chip-sub chip-sub--error">${escapeHtml(r.error || 'Stats indisponibles.')}</span>
+            </div>
+        `;
+
+    // --- Lié, stats OK ---
+    } else {
+        const d = r.data;
+        const avatar = safeUrl(d.avatar);
+        const status = d.status || {};
+
+        chip.innerHTML = `
+            ${avatar
+                ? `<img class="chip-avatar ${status.online ? 'online' : ''}" src="${avatar}"
+                        alt="" onclick="openImageModal(this.src)">`
+                : icone}
+            <div class="chip-body">
+                <span class="chip-name">${escapeHtml(d.displayName || r.platform.label)}</span>
+                <span class="chip-sub">${escapeHtml(status.label || r.platform.label)}</span>
+                ${d.activity ? `<span class="chip-game">🎮 ${escapeHtml(d.activity)}</span>` : ''}
+            </div>
+        `;
+    }
+
+    if (!lectureSeule) {
+        // Étoile : compte principal (avatar de la navbar).
+        // Affichée seulement s'il y a un choix à faire.
+        const nbComptes = (r.platform.accounts || []).length;
+
+        if (nbComptes > 1 && typeof actions.onPrincipal === 'function') {
+            const etoile = document.createElement('button');
+            etoile.className = 'chip-primary' + (r.account.isPrimary ? ' is-active' : '');
+            etoile.type = 'button';
+            etoile.textContent = r.account.isPrimary ? '★' : '☆';
+            etoile.title = r.account.isPrimary
+                ? 'Compte principal'
+                : 'Définir comme compte principal';
+            etoile.disabled = r.account.isPrimary;
+            etoile.addEventListener('click', () => actions.onPrincipal(r, etoile));
+            chip.appendChild(etoile);
+        }
+
+        if (typeof actions.onDelier === 'function') {
+            const btn = document.createElement('button');
+            btn.className = 'chip-unlink';
+            btn.type = 'button';
+            btn.title = `Délier ${r.account.displayName || r.platform.label}`;
+            btn.textContent = '✕';
+            btn.addEventListener('click', () => actions.onDelier(r, btn));
+            chip.appendChild(btn);
+        }
+    }
+
+    return chip;
+}
+
+/** Pastille "+ Ajouter un compte" pour une plateforme déjà liée. */
+function chipAjouter(platform) {
+    const chip = document.createElement('div');
+    chip.className = 'account-chip account-chip--add';
+    chip.dataset.platform = platform.slug;
+
+    const restants = platform.maxAccounts - (platform.accounts || []).length;
+
+    const action = platform.linkable
+        ? `<a class="link-btn link-btn--sm"
+              href="/php/link.php?platform=${encodeURIComponent(platform.slug)}">+ Ajouter</a>`
+        : `<button class="link-btn link-btn--sm js-verify" type="button"
+                   data-platform="${escapeHtml(platform.slug)}">+ Ajouter</button>`;
+
+    chip.innerHTML = `
+        <img class="chip-icon" src="${escapeHtml(platform.icon)}" alt="">
+        <div class="chip-body">
+            <span class="chip-name">Autre compte ${escapeHtml(platform.label)}</span>
+            <span class="chip-sub">${restants} emplacement${restants > 1 ? 's' : ''} restant${restants > 1 ? 's' : ''}</span>
+            ${action}
+        </div>
+    `;
+
+    return chip;
 }
 
 /** Toutes les stats détaillées, groupées par plateforme. */

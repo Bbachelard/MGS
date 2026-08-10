@@ -118,6 +118,19 @@ if ($action === 'start') {
         mgs_verify_error(409, 'Ce compte ' . $platform['label'] . ' est déjà lié à un autre compte MGS.');
     }
 
+    // Le compte est déjà dans SON profil : rien à vérifier.
+    if (mgs_user_owns_account($conn, $userId, $slug, $accountId)) {
+        mgs_verify_error(409, 'Ce compte ' . $platform['label'] . ' est déjà dans ton profil.');
+    }
+
+    // Quota contrôlé ici : inutile de faire changer une icône de profil
+    // à quelqu'un pour lui refuser l'enregistrement 10 minutes plus tard.
+    $max = mgs_max_accounts($slug);
+
+    if (mgs_count_accounts($conn, $userId, $slug) >= $max) {
+        mgs_verify_error(409, 'Limite atteinte : ' . $max . ' comptes ' . $platform['label'] . ' maximum.');
+    }
+
     $icons = mgs_provider_call($slug, 'verification_icons', $cfg);
 
     if (!$icons) {
@@ -241,8 +254,11 @@ if ($action === 'confirm') {
         mgs_verify_error(409, "Ce compte vient d'être lié à un autre compte MGS.");
     }
 
-    if (!mgs_save_link($conn, $userId, $slug, (string)$pending['accountId'])) {
-        mgs_verify_error(500, 'Enregistrement impossible, réessaie.');
+    $ajout = mgs_add_link($conn, $userId, $slug, (string)$pending['accountId']);
+
+    if (!$ajout['ok']) {
+        unset($_SESSION['verify']);
+        mgs_verify_error(409, $ajout['error']);
     }
 
     unset($_SESSION['verify']);

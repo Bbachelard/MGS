@@ -49,14 +49,27 @@ function hubDate(iso) {
         : d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 }
 
+/* ============================================================
+   PATCH hub-resume.js
+
+   Remplace INTÉGRALEMENT deux fonctions existantes :
+     - hubAgreger()
+     - hubCompteurs()
+
+   Tout le reste du fichier (hubHero, hubCarteJeuPrincipal,
+   hubCarteRang, hubBrancherRangs, hubCarteRecent, construireResume)
+   ne bouge pas : la structure produite est identique, seule la
+   façon de la remplir change.
+   ============================================================ */
+
 /* ------------------------------------------------------------
-   Agrégation des metrics de toutes les plateformes
+   Agrégation — désormais une entrée PAR COMPTE, plus par plateforme
    ------------------------------------------------------------ */
 
 function hubAgreger(resultats) {
     const agg = {
         comptesLies:   0,
-        comptesTotal:  resultats.length,
+        comptesTotal:  0,
         totalHours:    0,
         recentHours:   0,
         yearHours:     0,
@@ -73,8 +86,18 @@ function hubAgreger(resultats) {
         recentTop:     [],
     };
 
+    // Les heures sont cumulées PAR PLATEFORME, pas par compte : la barre
+    // du hero doit montrer 3 segments (Steam / Riot / Epic), pas un
+    // segment par smurf.
+    const parts      = new Map();
+    const inconnues  = new Set();
+    const topGames   = new Map();
+    const recentJeux = new Map();
+
+    agg.comptesTotal = new Set(resultats.map(r => r.platform.slug)).size;
+
     resultats.forEach(r => {
-        if (r.platform.linked) agg.comptesLies++;
+        if (r.account) agg.comptesLies++;
 
         const m = r.data && r.data.metrics;
         if (!m) return;
@@ -98,47 +121,120 @@ function hubAgreger(resultats) {
         }
 
         if ((m.totalHours || 0) > 0) {
-            agg.totalHours += m.totalHours;
-            agg.parts.push({
-                slug:   r.platform.slug,
+            const cle = r.platform.slug;
+            const p = parts.get(cle) || {
+                slug:   cle,
                 label:  r.platform.label,
-                hours:  m.totalHours,
-                estime: !!m.hoursEstimated,
-            });
+                hours:  0,
+                estime: false,
+            };
+            p.hours += m.totalHours;
+            p.estime = p.estime || !!m.hoursEstimated;
+            parts.set(cle, p);
         } else if (m.hoursUnknown || m.hoursEstimated) {
-            agg.inconnues.push(r.platform.label);
+            inconnues.add(r.platform.label);
         }
 
-        if (m.topGame && (!agg.topGame || m.topGame.hours > agg.topGame.hours)) {
-            agg.topGame = m.topGame;
+        /* Jeu principal : deux comptes Riot jouent au MÊME jeu, leurs
+           heures s'additionnent au lieu de se faire concurrence. */
+        if (m.topGame && m.topGame.name) {
+            const cle = r.platform.slug + '|' + m.topGame.name;
+            const jeu = topGames.get(cle);
+
+            if (jeu) {
+                jeu.hours += m.topGame.hours || 0;
+            } else {
+                topGames.set(cle, Object.assign({}, m.topGame));
+            }
         }
 
-        // Tous les rangs de toutes les plateformes, pas seulement le premier.
+        /* Rangs : on empile ceux de TOUS les comptes. hubCarteRang les
+           affiche déjà l'un après l'autre, triés du meilleur au moins bon.
+           On glisse le nom du compte dans le libellé de la file pour
+           distinguer le main du smurf sans toucher au rendu. */
+        const nbComptes = (r.platform.accounts || []).length;
+        const nomCompte = r.account && r.account.displayName ? r.account.displayName : null;
+
         const rangs = Array.isArray(m.ranks)
             ? m.ranks
             : (m.mainRank ? [m.mainRank] : []);
 
         rangs.forEach(rang => {
             if (!rang) return;
-            agg.ranks.push(Object.assign({
+
+            const copie = Object.assign({
                 platformLabel: r.platform.label,
                 slug:          r.platform.slug,
-            }, rang));
+                compte:        nomCompte,
+            }, rang);
+
+            if (nbComptes > 1 && nomCompte) {
+                copie.queue = copie.queue
+                    ? `${copie.queue} · ${nomCompte}`
+                    : nomCompte;
+            }
+
+            agg.ranks.push(copie);
         });
 
-        (m.recentTop || []).forEach(jeu => agg.recentTop.push(jeu));
+        // Jeux récents : même logique de fusion par nom.
+        (m.recentTop || []).forEach(jeu => {
+            if (!jeu || !jeu.name) return;
+            const existant = recentJeux.get(jeu.name);
+
+            if (existant) {
+                existant.hours += jeu.hours || 0;
+            } else {
+                recentJeux.set(jeu.name, Object.assign({}, jeu));
+            }
+        });
     });
 
-    agg.parts.sort((a, b) => b.hours - a.hours);
+    agg.parts = Array.from(parts.values()).sort((a, b) => b.hours - a.hours);
+    agg.parts.forEach(p => { agg.totalHours += p.hours; });
+
+    agg.inconnues = Array.from(inconnues);
+
+    agg.topGame = Array.from(topGames.values())
+        .sort((a, b) => (b.hours || 0) - (a.hours || 0))[0] || null;
 
     // Tri sur le percentile, pas sur le tier brut : un Diamant LoL (top 3 %)
     // et un Diamant CS2 (top 15 %) ne valent pas la même chose.
     agg.ranks.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
 
-    agg.recentTop.sort((a, b) => b.hours - a.hours);
-    agg.recentTop = agg.recentTop.slice(0, 3);
+    agg.recentTop = Array.from(recentJeux.values())
+        .sort((a, b) => b.hours - a.hours)
+        .slice(0, 3);
 
     return agg;
+}
+
+/* ------------------------------------------------------------
+   Étage 3 — compteurs secondaires
+   ------------------------------------------------------------ */
+
+function hubCompteurs(agg) {
+    const moyenne = agg.playedGames > 0 ? agg.totalHours / agg.playedGames : 0;
+
+    // "2 / 3" n'a plus de sens quand une plateforme porte plusieurs
+    // comptes : on affiche le nombre de comptes réellement liés.
+    const boites = [
+        [hubNombre(agg.games),         "Jeux possédés"],
+        [hubNombre(agg.playedGames),   "Jeux lancés"],
+        [hubNombre(moyenne, 1) + " h", "Moyenne / jeu"],
+        [hubNombre(agg.comptesLies),   agg.comptesLies > 1 ? "Comptes liés" : "Compte lié"],
+    ];
+
+    return `
+        <section class="hub-counters">
+            ${boites.map(([valeur, label]) => `
+                <div class="summary-box">
+                    <span class="summary-value">${valeur}</span>
+                    <span class="summary-label">${label}</span>
+                </div>
+            `).join("")}
+        </section>
+    `;
 }
 
 /* ------------------------------------------------------------

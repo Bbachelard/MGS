@@ -42,11 +42,21 @@ if (!$platform['enabled'] || !mgs_load_provider($slug) || !mgs_provider_supports
     mgs_games_error(501, 'Bibliothèque indisponible pour ' . $platform['label'] . '.');
 }
 
-// accountId lu en base, jamais depuis l'URL : sinon n'importe qui pourrait
-// faire scanner la bibliothèque d'un tiers via notre serveur et notre clé API.
-$accountId = mgs_get_link($conn, $targetId, $slug);
+/* Avec plusieurs comptes possibles, le client peut préciser lequel il veut.
+   Mais l'accountId reçu est TOUJOURS recoupé avec la base : sans ça,
+   n'importe qui ferait scanner la bibliothèque d'un tiers via notre serveur
+   et notre clé API. Sans paramètre, on retombe sur le compte principal. */
+$accountId = trim((string)($_GET['accountId'] ?? ''));
 
-if ($accountId === null) {
+if ($accountId !== '') {
+    if (!mgs_user_owns_account($conn, $targetId, $slug, $accountId)) {
+        mgs_games_error(403, 'Ce compte ne fait pas partie de ce profil.');
+    }
+} else {
+    $accountId = mgs_get_primary_account($conn, $targetId, $slug);
+}
+
+if ($accountId === null || $accountId === '') {
     mgs_games_error(404, 'Aucun compte ' . $platform['label'] . ' lié.');
 }
 
@@ -57,8 +67,9 @@ if (!$result['ok']) {
 }
 
 echo json_encode([
-    'platform' => $slug,
-    'label'    => $platform['label'],
-    'games'    => $result['games'],
-    'totals'   => $result['totals'],
+    'platform'  => $slug,
+    'label'     => $platform['label'],
+    'accountId' => $accountId,
+    'games'     => $result['games'],
+    'totals'    => $result['totals'],
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

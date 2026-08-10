@@ -155,9 +155,9 @@ $friendUsername = htmlspecialchars((string) $friend['username'], ENT_QUOTES, 'UT
         isOwnProfile: false
     };
 </script>
-<script src="../js/stats-display.js?v=7"></script>
-<script src="../js/hub-resume.js?v=4"></script>
+<script src="../js/stats-display.js?v=8"></script>
+<script src="../js/hub-resume.js?v=5"></script>
 <script src="../js/games-table.js?v=2"></script>
-<script src="../js/profile-stats.js?v=7"></script>
+<script src="../js/profile-stats.js?v=8"></script>
 </body>
 </html>
