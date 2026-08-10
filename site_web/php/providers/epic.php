@@ -18,19 +18,19 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../platforms.php';
 
+/** Log de diagnostic : toujours sur stdout du conteneur, fichier en bonus. */
 function epic_log(string $message): void
 {
-    $dir  = __DIR__ . '/../../cache';
-    $file = $dir . '/epic-debug.log';
+    error_log('EPIC ' . $message);   // visible via : docker compose logs
 
-    if (!is_dir($dir)) {
-        @mkdir($dir, 0775, true);
-    }
+    $dir = __DIR__ . '/../../cache';
 
-    $ligne = date('Y-m-d H:i:s') . ' ' . $message . "\n";
-
-    if (@file_put_contents($file, $ligne, FILE_APPEND | LOCK_EX) === false) {
-        error_log('EPIC ' . $message);   // au moins ça partira dans le log PHP-FPM
+    if (is_dir($dir) && is_writable($dir)) {
+        @file_put_contents(
+            $dir . '/epic-debug.log',
+            date('Y-m-d H:i:s') . ' ' . $message . "\n",
+            FILE_APPEND | LOCK_EX
+        );
     }
 }
 
