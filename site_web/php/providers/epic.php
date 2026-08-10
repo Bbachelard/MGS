@@ -182,11 +182,24 @@ function epic_complete_link(array $cfg, string $returnUrl): array
         . ' body='   . substr((string)($token['raw'] ?? ''), 0, 800));
 
     if ($token['status'] !== 200 || $token['data'] === null) {
-        return [
-            'ok'     => false,
-            'reason' => 'token',
-            'error'  => 'Échange du code Epic échoué.',
-        ];
+
+        // Epic demande une action de l'utilisateur (consentement aux scopes,
+        // acceptation d'un EULA...). On l'y envoie, il reviendra avec un code neuf.
+        $action       = (string)($token['data']['correctiveAction'] ?? '');
+        $continuation = (string)($token['data']['continuationUrl']  ?? '');
+
+        if ($action !== '' && $continuation !== '' && filter_var($continuation, FILTER_VALIDATE_URL)) {
+            epic_log('CORRECTIVE action=' . $action . ' url=' . $continuation);
+
+            return [
+                'ok'              => false,
+                'reason'          => 'consent',
+                'continuationUrl' => $continuation,
+                'error'           => 'Consentement Epic requis.',
+            ];
+        }
+
+        return ['ok' => false, 'reason' => 'token', 'error' => 'Échange du code Epic échoué.'];
     }
 
     $accessToken = (string)($token['data']['access_token'] ?? '');
