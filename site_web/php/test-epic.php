@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 mysqli_report(MYSQLI_REPORT_OFF);          // évite le fatal si la base n'est pas joignable en CLI
 
-$path   = __DIR__ . '/../config.php';
+$path   = $argv[1] ?? __DIR__ . '/../config.php';
 $config = require $path;
 $cfg    = $config['PLATFORMS']['epic'] ?? [];
 
