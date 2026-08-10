@@ -1,6 +1,6 @@
-
 {
     "require": {
-        "xpaw/steam-openid": "^4.0"
+        "xpaw/steam-openid": "^4.0",
+        "phpmailer/phpmailer": "^6.9"
     }
 }
