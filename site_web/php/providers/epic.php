@@ -185,8 +185,6 @@ function epic_complete_link(array $cfg, string $returnUrl): array
         return [
             'ok'     => false,
             'reason' => 'token',
-            'detail' => 'http=' . $token['status']
-                        . ' body=' . substr((string)($token['raw'] ?? ''), 0, 300),
             'error'  => 'Échange du code Epic échoué.',
         ];
     }

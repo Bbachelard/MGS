@@ -30,12 +30,6 @@ if ($linked !== null) {
     ];
      $banner = ['type' => 'error', 'text' => $messages[$_GET['error']] ?? "Une erreur est survenue."];
 
-    if (isset($_GET['reason'])) {   // temporaire, à retirer une fois le bug corrigé
-        $banner['text'] .= ' [' . htmlspecialchars((string)$_GET['reason']) . ']';
-    }
-    if (isset($_GET['detail'])) {   // temporaire
-        $banner['text'] .= ' — ' . htmlspecialchars((string)$_GET['detail']);
-    }
 }
 ?>
 <!DOCTYPE html>
