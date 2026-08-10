@@ -114,6 +114,14 @@ function epic_begin_link(array $cfg, string $returnUrl): string
 
 function epic_complete_link(array $cfg, string $returnUrl): array
 {
+    file_put_contents('/tmp/epic-debug.log',
+        date('H:i:s')
+        . " get="        . json_encode($_GET)
+        . " id_len="     . strlen((string)($cfg['client_id'] ?? ''))
+        . " secret_len=" . strlen((string)($cfg['client_secret'] ?? ''))
+        . " redirect=["  . ($cfg['redirect_uri'] ?? 'VIDE') . "]\n",
+        FILE_APPEND
+    );
     if (isset($_GET['error'])) {
         return ['ok' => false, 'error' => 'Autorisation refusée côté Epic.'];
     }
@@ -134,11 +142,6 @@ function epic_complete_link(array $cfg, string $returnUrl): array
             'redirect_uri' => (string)($cfg['redirect_uri'] ?? ''),
         ],
         ['basic', $clientId, $clientSecret]
-    );
-    file_put_contents(
-        '/tmp/epic-debug.log',
-        date('H:i:s') . " status={$token['status']} body=" . json_encode($token['data']) . "\n",
-        FILE_APPEND
     );
     error_log('EPIC token status : ' . $token['status']);
     error_log('EPIC token body   : ' . json_encode($token['data']));
