@@ -182,7 +182,13 @@ function epic_complete_link(array $cfg, string $returnUrl): array
         . ' body='   . substr((string)($token['raw'] ?? ''), 0, 800));
 
     if ($token['status'] !== 200 || $token['data'] === null) {
-        return ['ok' => false, 'reason' => 'token', 'error' => 'Échange du code Epic échoué.'];
+        return [
+            'ok'     => false,
+            'reason' => 'token',
+            'detail' => 'http=' . $token['status']
+                        . ' body=' . substr((string)($token['raw'] ?? ''), 0, 300),
+            'error'  => 'Échange du code Epic échoué.',
+        ];
     }
 
     $accessToken = (string)($token['data']['access_token'] ?? '');

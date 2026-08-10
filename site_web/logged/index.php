@@ -33,6 +33,9 @@ if ($linked !== null) {
     if (isset($_GET['reason'])) {   // temporaire, à retirer une fois le bug corrigé
         $banner['text'] .= ' [' . htmlspecialchars((string)$_GET['reason']) . ']';
     }
+    if (isset($_GET['detail'])) {   // temporaire
+        $banner['text'] .= ' — ' . htmlspecialchars((string)$_GET['detail']);
+    }
 }
 ?>
 <!DOCTYPE html>
