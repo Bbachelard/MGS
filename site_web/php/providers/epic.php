@@ -135,6 +135,11 @@ function epic_complete_link(array $cfg, string $returnUrl): array
         ],
         ['basic', $clientId, $clientSecret]
     );
+    file_put_contents(
+        '/tmp/epic-debug.log',
+        date('H:i:s') . " status={$token['status']} body=" . json_encode($token['data']) . "\n",
+        FILE_APPEND
+    );
     error_log('EPIC token status : ' . $token['status']);
     error_log('EPIC token body   : ' . json_encode($token['data']));
 
