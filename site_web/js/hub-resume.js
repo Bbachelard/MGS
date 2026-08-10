@@ -164,50 +164,57 @@ function hubHero(agg) {
         ? `<span class="hero-leg hero-leg--muted">${escapeHtml(agg.inconnues.join(", "))} : estimation indisponible</span>`
         : "";
 
-    const stats = [];
+    /* --- Colonne de droite, façon "Account Value" --- */
+    const cotes = [];
 
     if (agg.yearHours > 0) {
-        stats.push([
-            `${hubNombre(agg.yearHours)} h`,
-            agg.yearPartiel && agg.yearSince
-                ? `Joué depuis le ${hubDate(agg.yearSince)}`
-                : "Joué cette année",
-        ]);
+        cotes.push(`
+            <div class="hero-side-stat">
+                <span class="hero-side-label">Cette année</span>
+                <span class="hero-side-value">${hubNombre(agg.yearHours)} h</span>
+                <span class="hero-side-note">${
+                    agg.yearPartiel && agg.yearSince
+                        ? `mesuré depuis le ${escapeHtml(hubDate(agg.yearSince))}`
+                        : "depuis le 1er janvier"
+                }</span>
+            </div>
+        `);
     }
 
     if (agg.libraryValue > 0) {
-        const mesure = agg.libraryMesure;
-        const detail = mesure.total > 0 && mesure.mesures < mesure.total
-            ? `Valeur estimée · ${hubNombre(mesure.mesures)} prix sur ${hubNombre(mesure.total)}`
-            : "Valeur de la bibliothèque";
+        const m = agg.libraryMesure;
+        const note = (m.total > 0 && m.mesures < m.total)
+            ? `${hubNombre(m.mesures)} prix relevés sur ${hubNombre(m.total)}`
+            : "prix boutique actuels";
 
-        stats.push([`≈ ${hubNombre(hubArrondiLarge(agg.libraryValue))} €`, detail]);
+        cotes.push(`
+            <div class="hero-side-stat">
+                <span class="hero-side-label">Valeur estimée</span>
+                <span class="hero-side-value hero-side-value--money">≈ ${hubNombre(hubArrondiLarge(agg.libraryValue))} €</span>
+                <span class="hero-side-note">${note}</span>
+            </div>
+        `);
     }
 
-    const bloc = stats.length ? `
-        <div class="hero-stats">
-            ${stats.map(([valeur, label]) => `
-                <div class="hero-stat">
-                    <span class="hero-stat-value">${valeur}</span>
-                    <span class="hero-stat-label">${escapeHtml(label)}</span>
-                </div>
-            `).join("")}
-        </div>
-    ` : "";
+    const cote = cotes.length
+        ? `<aside class="hero-side">${cotes.join("")}</aside>`
+        : "";
 
     return `
         <section class="hub-hero">
-            <span class="hero-label">Temps de jeu cumulé</span>
+            <div class="hero-main">
+                <span class="hero-label">Temps de jeu cumulé</span>
 
-            <div class="hero-line">
-                <span class="hero-value">${hubNombre(agg.totalHours)} h</span>
-                <span class="hero-unit">heures</span>
-                <span class="hero-aside">soit ${hubNombre(jours)} jours non-stop</span>
+                <div class="hero-line">
+                    <span class="hero-value">${hubNombre(agg.totalHours)} h</span>
+                    <span class="hero-unit">heures</span>
+                    <span class="hero-aside">soit ${hubNombre(jours)} jours non-stop</span>
+                </div>
+
+                <div class="hero-bar">${segments}</div>
+                <div class="hero-legend">${legende}${inconnues}</div>
             </div>
-
-            <div class="hero-bar">${segments}</div>
-            <div class="hero-legend">${legende}${inconnues}</div>
-            ${bloc}
+            ${cote}
         </section>
     `;
 }
@@ -223,11 +230,11 @@ function hubCarteJeuPrincipal(agg) {
         ? Math.round((agg.topGame.hours / agg.totalHours) * 100)
         : 0;
 
-    const visuel = agg.topGame.image
+      const visuel = agg.topGame.image
         ? `<img src="${escapeHtml(agg.topGame.image)}" alt=""
-                loading="lazy" onerror="this.remove()">`
+                loading="lazy" decoding="async"
+                onerror="this.parentElement.remove()">`
         : "";
-
     // Les heures Riot sont déduites des points de maîtrise : on le signale.
     const prefixe = agg.topGame.estimated ? "≈ " : "";
 

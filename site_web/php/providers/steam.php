@@ -132,6 +132,11 @@ function steam_library_value(array $ownedGames): array
     $appels    = 0;
     $modifie   = false;
 
+    // 1er passage : on ne garde que ce qui est déjà en cache
+    $connus      = [];
+    $aInterroger = [];
+    $manquants   = 0;
+
     foreach ($ownedGames as $game) {
         $appId  = (int)($game['appid'] ?? 0);
         $entree = $cache[$appId] ?? null;
@@ -141,23 +146,36 @@ function steam_library_value(array $ownedGames): array
             continue;
         }
 
-        if ($appels < STEAM_PRIX_PAR_APPEL) {
-            $appels++;
-            $prix = steam_prix_app($appId);
-
-            if ($prix !== null) {
-                $cache[$appId] = ['p' => $prix, 't' => time()];
-                $modifie  = true;
-                $connus[] = $prix;
-                continue;
-            }
+        if (count($aInterroger) < STEAM_PRIX_PAR_APPEL) {
+            $aInterroger[$appId] = 'https://store.steampowered.com/api/appdetails'
+                                 . '?appids=' . $appId . '&cc=fr&l=fr&filters=price_overview';
+            continue;
         }
 
         $manquants++;
     }
 
+    // 2e passage : tout le lot en parallèle, ~1 aller-retour au lieu de 25
+    $modifie = false;
+
+    foreach (mgs_http_get_json_multi($aInterroger) as $appId => $data) {
+        $bloc = is_array($data) ? ($data[$appId] ?? null) : null;
+
+        if (!is_array($bloc) || ($bloc['success'] ?? false) !== true) {
+            $manquants++;
+            continue;
+        }
+
+        $centimes = $bloc['data']['price_overview']['initial'] ?? null;
+        $prix     = $centimes === null ? 0.0 : $centimes / 100;
+
+        $cache[(int)$appId] = ['p' => $prix, 't' => time()];
+        $connus[]           = $prix;
+        $modifie            = true;
+    }
+
     if ($modifie) {
-        @file_put_contents($fichier, json_encode($cache));
+        @file_put_contents($fichier, json_encode($cache), LOCK_EX);
     }
 
     $moyenne = $connus ? array_sum($connus) / count($connus) : 0.0;

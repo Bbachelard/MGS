@@ -48,10 +48,38 @@ if ($accountId === '') {
     $accountId = $resolved['accountId'];
 }
 
+/* --- Cache disque : les stats ne bougent pas à la minute, inutile de
+       rappeler Steam / Riot à chaque affichage de page. --- */
+const MGS_API_CACHE_TTL = 600;   // 10 minutes
+
+$cacheDir = __DIR__ . '/../cache/api';
+
+if (!is_dir($cacheDir)) {
+    @mkdir($cacheDir, 0775, true);
+}
+
+$cacheFile = $cacheDir . '/' . $slug . '-' . sha1($accountId) . '.json';
+
+// ?refresh=1 pour forcer un rafraîchissement (bouton "actualiser")
+if (!isset($_GET['refresh'])
+    && is_file($cacheFile)
+    && (time() - filemtime($cacheFile)) < MGS_API_CACHE_TTL) {
+
+    header('X-MGS-Cache: hit');
+    readfile($cacheFile);
+    exit;
+}
+
+
 $stats = mgs_provider_call($slug, 'fetch_stats', $config['PLATFORMS'][$slug] ?? [], $accountId);
 
 if (!$stats['ok']) {
     mgs_json_error($stats['status'] ?? 502, $stats['error']);
 }
 
-echo json_encode($stats['card'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$json = json_encode($stats['card'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+@file_put_contents($cacheFile, $json, LOCK_EX);
+
+header('X-MGS-Cache: miss');
+echo $json;
