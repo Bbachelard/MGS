@@ -16,8 +16,12 @@ function mgs_send_password_reset_email(string $toEmail, string $toUsername, stri
 
     $mail = new PHPMailer(true);
     $mail->SMTPDebug = 2;
-    $mail->Debugoutput = 'html';
-    
+    //$mail->Debugoutput = 'html';
+
+    $mail->Debugoutput = function ($str, $level) {
+        error_log("SMTP DEBUG [$level] $str");
+    };
+
     $mail->isSMTP();
     $mail->Host       = $smtp_host;
     $mail->Port       = $smtp_port;
