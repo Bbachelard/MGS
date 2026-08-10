@@ -257,7 +257,11 @@ if ($action === 'confirm') {
     $ajout = mgs_add_link($conn, $userId, $slug, (string)$pending['accountId']);
 
     if (!$ajout['ok']) {
-        unset($_SESSION['verify']);
+        // Sur un échec définitif seulement, on libère le défi. Une erreur
+        // technique ne doit pas coûter un nouveau changement d'icône.
+        if (in_array($ajout['code'] ?? '', ['deja_lie', 'deja_present', 'max'], true)) {
+            unset($_SESSION['verify']);
+        }
         mgs_verify_error(409, $ajout['error']);
     }
 

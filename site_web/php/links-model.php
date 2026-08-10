@@ -184,14 +184,26 @@ function mgs_add_link(mysqli $conn, int $userId, string $platform, string $accou
         $id = (int)$conn->insert_id;
         $stmt->close();
     } catch (mysqli_sql_exception $e) {
-        // 1062 : quelqu'un a lié ce compte entre notre contrôle et l'insert.
         if ((int)$e->getCode() === 1062) {
+            // Deux index uniques peuvent déclencher un 1062, et ils n'ont
+            // pas du tout le même sens. On distingue sur le message MySQL.
+            if (str_contains($e->getMessage(), 'uq_user_platform')) {
+                return [
+                    'ok'    => false,
+                    'code'  => 'migration',
+                    'error' => 'Migration incomplète : l\'index uq_user_platform est toujours '
+                               . 'présent sur platform_links, il interdit le multi-comptes.',
+                ];
+            }
+
             return [
                 'ok'    => false,
                 'code'  => 'deja_lie',
                 'error' => 'Ce compte ' . $info['label'] . ' vient d\'être lié ailleurs.',
             ];
         }
+
+        error_log('mgs_add_link: ' . $e->getMessage());
         return ['ok' => false, 'code' => 'sql', 'error' => 'Enregistrement impossible, réessaie.'];
     }
 
