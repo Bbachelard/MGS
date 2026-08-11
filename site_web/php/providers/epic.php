@@ -131,13 +131,18 @@ function epic_should_complete_link(): bool
  */
 function epic_begin_link(array $cfg, string $returnUrl): string
 {
-    return EPIC_AUTHORIZE_URL . '?' . http_build_query([
+    $url = EPIC_AUTHORIZE_URL . '?' . http_build_query([
         'client_id'     => (string)($cfg['client_id'] ?? ''),
         'response_type' => 'code',
         'scope'         => (string)($cfg['scope'] ?? 'basic_profile'),
         'redirect_uri'  => (string)($cfg['redirect_uri'] ?? ''),
         'state'         => (string)($_SESSION['link_state'] ?? ''),
+        'prompt'        => 'consent',   // force l'écran de consentement
     ]);
+
+    epic_log('AUTHORIZE url=' . $url);
+
+    return $url;
 }
 function epic_complete_link(array $cfg, string $returnUrl): array
 {
@@ -186,15 +191,16 @@ function epic_complete_link(array $cfg, string $returnUrl): array
         // Epic demande une action de l'utilisateur (consentement aux scopes,
         // acceptation d'un EULA...). On l'y envoie, il reviendra avec un code neuf.
         $action       = (string)($token['data']['correctiveAction'] ?? '');
-        $continuation = (string)($token['data']['continuationUrl']  ?? '');
+        $continuation = (string)($token['data']['continuation']     ?? '');
 
-        if ($action !== '' && $continuation !== '' && filter_var($continuation, FILTER_VALIDATE_URL)) {
-            epic_log('CORRECTIVE action=' . $action . ' url=' . $continuation);
+        if ($action !== '' && $continuation !== '') {
+            epic_log('CORRECTIVE action=' . $action . ' continuation=' . $continuation);
 
             return [
                 'ok'              => false,
                 'reason'          => 'consent',
-                'continuationUrl' => $continuation,
+                'continuationUrl' => 'https://www.epicgames.com/id/login?continuation='
+                                     . rawurlencode($continuation),
                 'error'           => 'Consentement Epic requis.',
             ];
         }
