@@ -21,8 +21,12 @@ function mgs_send_password_reset_email(string $toEmail, string $toUsername, stri
     $mail->Debugoutput = function ($str, $level) {
         error_log("SMTP DEBUG [$level] $str");
     };
-
+    
     $mail->isSMTP();
+
+    $mail->Timeout = 10;
+    $mail->Timelimit = 10;
+    
     $mail->Host       = $smtp_host;
     $mail->Port       = $smtp_port;
     $mail->SMTPAuth   = true;
