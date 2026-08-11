@@ -25,6 +25,40 @@ function hubCouleur(slug) {
     return HUB_COULEURS[slug] || "#7c5cff";
 }
 
+/* HEX -> HSL, pour pouvoir décliner une teinte sans coder 12 constantes. */
+function hubHexHsl(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = ((n >> 16) & 255) / 255,
+          g = ((n >> 8)  & 255) / 255,
+          b = (n & 255) / 255;
+
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const l = (max + min) / 2, d = max - min;
+
+    if (d === 0) return { h: 0, s: 0, l: l * 100 };
+
+    const s = d / (1 - Math.abs(2 * l - 1));
+    let h;
+    if (max === r)      h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else                h = (r - g) / d + 4;
+
+    return { h: (Math.round(h * 60) + 360) % 360, s: s * 100, l: l * 100 };
+}
+
+/* Même teinte que la plateforme, luminosité alternée autour de la base :
+   2 comptes restent très contrastés, 5 tiennent encore. */
+function hubNuance(slug, rang = 0, total = 1) {
+    const base = hubCouleur(slug);
+    if (total <= 1 || rang === 0) return base;
+
+    const { h, s, l } = hubHexHsl(base);
+    const ecart = Math.ceil(rang / 2) * 13 * (rang % 2 === 1 ? 1 : -1);
+    const lum   = Math.min(82, Math.max(26, l + ecart));
+
+    return `hsl(${h} ${Math.round(s)}% ${Math.round(lum)}%)`;
+}
+
 function hubNombre(valeur, decimales = 0) {
     return Number(valeur || 0).toLocaleString("fr-FR", {
         minimumFractionDigits: decimales,
@@ -84,6 +118,7 @@ function hubAgreger(resultats) {
         topGame:       null,
         ranks:         [],
         recentTop:     [],
+        heuresPayantes: 0,
     };
 
     // Les heures sont cumulées PAR PLATEFORME, pas par compte : la barre
@@ -115,16 +150,21 @@ function hubAgreger(resultats) {
         if (m.yearPartial) agg.yearPartiel = true;
 
         agg.libraryValue += m.libraryValue || 0;
+        if ((m.libraryValue || 0) > 0) agg.heuresPayantes += m.totalHours || 0;
         if (m.libraryMeasured) {
             agg.libraryMesure.mesures += m.libraryMeasured.measured || 0;
             agg.libraryMesure.total   += m.libraryMeasured.total    || 0;
         }
 
         if ((m.totalHours || 0) > 0) {
-            const cle = r.platform.slug;
+            // Une entrée par COMPTE : c'est ce que la barre doit montrer.
+            const cle = r.platform.slug + '|' +
+                        (r.account ? String(r.account.id ?? r.account.accountId) : '-');
+
             const p = parts.get(cle) || {
-                slug:   cle,
+                slug:   r.platform.slug,
                 label:  r.platform.label,
+                compte: (r.account && r.account.displayName) || null,
                 hours:  0,
                 estime: false,
             };
@@ -190,7 +230,22 @@ function hubAgreger(resultats) {
         });
     });
 
-    agg.parts = Array.from(parts.values()).sort((a, b) => b.hours - a.hours);
+    /* Les comptes d'une même plateforme doivent être COLLÉS dans la barre,
+       sinon les nuances de rouge se retrouvent séparées par du bleu. */
+    const totalPlateforme = new Map();
+    parts.forEach(p => totalPlateforme.set(p.slug, (totalPlateforme.get(p.slug) || 0) + p.hours));
+
+    agg.parts = Array.from(parts.values()).sort((a, b) =>
+        (totalPlateforme.get(b.slug) - totalPlateforme.get(a.slug)) || (b.hours - a.hours)
+    );
+
+    // rang = position du compte dans sa plateforme (-> nuance)
+    const rangs = new Map();
+    agg.parts.forEach(p => {
+        p.rang = rangs.get(p.slug) || 0;
+        rangs.set(p.slug, p.rang + 1);
+    });
+    agg.parts.forEach(p => { p.total = rangs.get(p.slug); });
     agg.parts.forEach(p => { agg.totalHours += p.hours; });
 
     agg.inconnues = Array.from(inconnues);
@@ -246,15 +301,22 @@ function hubHero(agg) {
 
     const segments = agg.parts.map(p => {
         const pct = agg.totalHours > 0 ? (p.hours / agg.totalHours) * 100 : 0;
+        const nom = p.compte ? `${p.label} — ${p.compte}` : p.label;
         return `<span class="hero-seg"
-                      style="width:${pct.toFixed(2)}%;background:${hubCouleur(p.slug)};${p.estime ? "opacity:.6;" : ""}"></span>`;
+                      title="${escapeHtml(nom)} : ${hubNombre(p.hours)} h"
+                      style="width:${pct.toFixed(2)}%;background:${hubNuance(p.slug, p.rang, p.total)};${p.estime ? "opacity:.75;" : ""}"></span>`;
     }).join("");
 
-    const legende = agg.parts.map(p => `
-        <span class="hero-leg">
-            <i style="background:${hubCouleur(p.slug)}"></i>${escapeHtml(p.label)} ${p.estime ? "≈ " : ""}${hubNombre(p.hours)} h
-        </span>
-    `).join("");
+    const legende = agg.parts.map(p => {
+        const multi = p.total > 1 && p.compte;
+        const texte = multi
+            ? `<b>${escapeHtml(p.compte)}</b> <em>${escapeHtml(p.label)}</em>`
+            : escapeHtml(p.label);
+
+        return `<span class="hero-leg">
+                    <i style="background:${hubNuance(p.slug, p.rang, p.total)}"></i>${texte} ${p.estime ? "≈ " : ""}${hubNombre(p.hours)} h
+                </span>`;
+    }).join("");
 
     const inconnues = agg.inconnues.length
         ? `<span class="hero-leg hero-leg--muted">${escapeHtml(agg.inconnues.join(", "))} : estimation indisponible</span>`
@@ -277,17 +339,14 @@ function hubHero(agg) {
         `);
     }
 
-    if (agg.libraryValue > 0) {
-        const m = agg.libraryMesure;
-        const note = (m.total > 0 && m.mesures < m.total)
-            ? `${hubNombre(m.mesures)} prix relevés sur ${hubNombre(m.total)}`
-            : "prix boutique actuels";
+    if (agg.libraryValue > 0 && agg.heuresPayantes > 0) {
+        const parHeure = agg.libraryValue / agg.heuresPayantes;
 
         cotes.push(`
             <div class="hero-side-stat">
-                <span class="hero-side-label">Valeur estimée</span>
-                <span class="hero-side-value hero-side-value--money">≈ ${hubNombre(hubArrondiLarge(agg.libraryValue))} €</span>
-                <span class="hero-side-note">${note}</span>
+                <span class="hero-side-label">Prix de l'heure</span>
+                <span class="hero-side-value hero-side-value--money">${hubNombre(parHeure, 2)} €</span>
+                <span class="hero-side-note">${hubNombre(hubArrondiLarge(agg.libraryValue))} € de jeux · ${hubNombre(agg.heuresPayantes)} h jouées</span>
             </div>
         `);
     }

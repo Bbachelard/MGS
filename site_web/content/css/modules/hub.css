@@ -467,6 +467,8 @@
     margin-right: 6px;
     border-radius: 2px;
 }
+.hero-leg b  { font-weight: 600; color: #c9c9dc; }
+.hero-leg em { font-style: normal; color: #6f6f85; }
 
 .hero-leg--muted {
     color: #5f5f70;

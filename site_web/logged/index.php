@@ -107,7 +107,7 @@ if ($linked !== null) {
     </main>
 
     <script src="../js/stats-display.js?v=8"></script>
-    <script src="../js/hub-resume.js?v=5"></script>
+    <script src="../js/hub-resume.js?v=6"></script>
     <script src="../js/link-verify.js?v=1"></script>
     <script src="../js/games-table.js?v=2"></script>
     <script src="../js/profile-stats.js?v=8"></script>
