@@ -25,7 +25,6 @@ function mgs_send_password_reset_email(string $toEmail, string $toUsername, stri
     $mail->isSMTP();
 
     $mail->Timeout = 10;
-    $mail->Timelimit = 10;
     
     $mail->Host       = $smtp_host;
     $mail->Port       = $smtp_port;
