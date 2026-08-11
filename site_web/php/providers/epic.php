@@ -379,14 +379,14 @@ function epic_fortnite_fetch(array $cfg, string $accountId): array
         return ['state' => 'nokey'];
     }
 
-    $res = epic_http_get(
-        EPIC_FN_STATS_URL . '?' . http_build_query([
-            'accountId'   => $accountId,
-            'accountType' => 'epic',
-            'timeWindow'  => 'lifetime',
-        ]),
-        ['Authorization: ' . $cle]   // pas de préfixe Bearer chez ce fournisseur
-    );
+   $res = epic_http_get(
+    EPIC_FN_STATS_URL . '/' . rawurlencode($accountId) . '?' . http_build_query([
+        'timeWindow' => 'lifetime',
+    ]),
+    ['Authorization: ' . $cle]
+);
+    if ($res['status'] === 401) { return ['state' => 'badkey']; }
+    if ($res['status'] === 400) { return ['state' => 'notfound']; }
 
     // 403 = le joueur n'a pas rendu ses stats publiques dans Fortnite.
     // C'est le cas le plus fréquent, il mérite son propre message.
@@ -404,29 +404,43 @@ function epic_fortnite_fetch(array $cfg, string $accountId): array
 
     $data = $res['data']['data'] ?? [];
 
+    /* Le pseudo voyage avec les stats. On le récupère ici, avant tout
+       retour anticipé : même quand les stats sont masquées, on sait
+       afficher un vrai nom sur la carte dégradée. */
+    $nomCompte = trim((string)($data['account']['name'] ?? ''));
+    $nomCompte = $nomCompte !== '' ? $nomCompte : null;
+
     // Le champ s'appelle "stats" dans le JSON brut ; certains wrappers
     // le renomment "inputs". On accepte les deux par sécurité.
     $tousInputs = $data['stats']['all'] ?? $data['inputs']['all'] ?? null;
 
     if (!is_array($tousInputs) || !is_array($tousInputs['overall'] ?? null)) {
         // Compte trouvé mais aucune partie exploitable
-        return ['state' => 'private'];
+        return ['state' => 'private', 'accountName' => $nomCompte];
     }
 
     $modes = ['overall' => epic_fortnite_mode($tousInputs['overall'], 'Toutes parties')];
 
-    foreach (['solo' => 'Solo', 'duo' => 'Duo', 'squad' => 'Escouade'] as $slugMode => $label) {
+    $libelles = [
+        'solo'  => 'Solo',
+        'duo'   => 'Duo',
+        'trio'  => 'Trio',
+        'squad' => 'Escouade',
+    ];
+
+    foreach ($libelles as $slugMode => $label) {
         if (is_array($tousInputs[$slugMode] ?? null)) {
             $modes[$slugMode] = epic_fortnite_mode($tousInputs[$slugMode], $label);
         }
     }
 
     return [
-        'state'      => 'ok',
-        'modes'      => $modes,
-        'battlePass' => isset($data['battlePass']['level'])
-                        ? (int)$data['battlePass']['level']
-                        : null,
+        'state'       => 'ok',
+        'modes'       => $modes,
+        'accountName' => $nomCompte,
+        'battlePass'  => isset($data['battlePass']['level'])
+                         ? (int)$data['battlePass']['level']
+                         : null,
     ];
 }
 
@@ -457,8 +471,20 @@ function epic_nb(float $valeur, int $decimales = 0): string
 
 function epic_fetch_stats(array $cfg, string $accountId): array
 {
-    $pseudo   = epic_resolve_pseudo($cfg, $accountId) ?? 'Compte Epic';
+    /* Fortnite d'abord : sa réponse porte déjà le pseudo. Appeler l'API
+       Account d'Epic avant, c'était un token client_credentials + une
+       requête HTTP à chaque affichage de carte, pour rien. */
     $fortnite = epic_fortnite_fetch($cfg, $accountId);
+
+    $pseudo = $fortnite['accountName'] ?? null;
+
+    if ($pseudo !== null) {
+        // On alimente quand même le cache : il servira les jours où
+        // Fortnite renvoie 'unavailable' et ne portera aucun nom.
+        epic_cache_pseudo($accountId, $pseudo);
+    } else {
+        $pseudo = epic_resolve_pseudo($cfg, $accountId) ?? 'Compte Epic';
+    }
 
     $base = [
         'platform'      => 'epic',
