@@ -133,7 +133,7 @@ if ($query !== '') {
   <body>
     <header class="navbar">
         <div class="logo"><a href="../index.html"><img src="../content/image/mgs_letters.png" width="100"></a></div>
-        <div class="login"><a href="./profile.php">Mon profil</a></div>
+        <div class="login"><a href="./index.php">Mon profil</a></div>
     </header>
 
     <main>
