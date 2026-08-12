@@ -47,7 +47,7 @@ if ($linked !== null) {
     <title>Mon profil — My gamers stats</title>
     <link rel="stylesheet" href="../content/css/stylesheet.css">
     <link rel="stylesheet" href="../content/css/styleLogin.css">
-    <link rel="stylesheet" href="../content/css/ajouts-stats.css">
+    <link rel="stylesheet" href="../content/css/ajouts-stats.css?v=1">
   </head>
   <body>
     <header class="navbar">
@@ -105,7 +105,7 @@ if ($linked !== null) {
             <img class="image-modal-content" id="imageModalContent">
         </div>
     </main>
-
+    <script src="../js/match-detail.js?v=1"></script>
     <script src="../js/stats-display.js?v=8"></script>
     <script src="../js/hub-resume.js?v=6"></script>
     <script src="../js/link-verify.js?v=1"></script>

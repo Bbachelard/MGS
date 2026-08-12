@@ -1,0 +1,784 @@
+/* ============================================================
+   MY GAMERS STATS — modules/riot-matches.css
+
+   Historique de parties dépliable + encadrés enrichis.
+   Reprend les tokens de player-card.css : mêmes fonds (#1f1f26 /
+   #1d1d24), mêmes bordures (#3a3a44), même bleu d'accent (#4b9fff).
+   ============================================================ */
+
+.mgs-matches,
+.info-box--rich {
+    --mgs-panel:  #1f1f26;
+    --mgs-sunken: #191920;
+    --mgs-line:   #3a3a44;
+    --mgs-hair:   rgba(255, 255, 255, 0.07);
+    --mgs-text:   #ececf2;
+    --mgs-dim:    #8d8d9c;
+    --mgs-accent: #4b9fff;
+    --mgs-win:    #4b9fff;
+    --mgs-loss:   #ff5b6e;
+    --mgs-draw:   #8d8d9c;
+    --mgs-gold:   #e0b04a;
+}
+
+
+/* =========================================================
+   ENCADRÉS DU HAUT DE CARTE
+========================================================= */
+
+.info-box--rich {
+    position: relative;
+    gap: 2px;
+    overflow: hidden;
+    background-color: var(--mgs-panel);
+    border: 1px solid var(--mgs-line);
+    border-radius: 9px;
+    padding: 11px 13px;
+}
+
+/* Filet coloré à gauche : porte le tier, la victoire, la défaite. */
+.info-box--rich::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--mgs-accent);
+    opacity: 0.85;
+}
+
+.info-box--win  { --mgs-accent: var(--mgs-win); }
+.info-box--loss { --mgs-accent: var(--mgs-loss); }
+.info-box--neutral { --mgs-accent: var(--mgs-draw); }
+
+.info-box--rich .info-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 3px;
+}
+
+.info-box--rich .info-media {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    color: var(--mgs-accent);
+}
+
+.info-box--rich .info-emblem {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+}
+
+.info-box--rich .info-media .mgs-i {
+    width: 15px;
+    height: 15px;
+}
+
+.info-box--rich .info-label {
+    margin-bottom: 0;
+    font-size: 10.5px;
+    letter-spacing: 0.6px;
+    color: var(--mgs-dim);
+}
+
+.info-box--rich .info-value {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--mgs-text);
+}
+
+.info-box--rich .info-sub {
+    font-size: 10.5px;
+    color: var(--mgs-dim);
+}
+
+.info-box--rich .info-hint {
+    align-self: flex-start;
+    margin-top: 4px;
+    padding: 1px 6px;
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--mgs-dim);
+    background: var(--mgs-sunken);
+    border: 1px solid var(--mgs-hair);
+    border-radius: 20px;
+}
+
+/* Jauge de winrate */
+.info-bar {
+    display: block;
+    height: 3px;
+    margin-top: 6px;
+    background: var(--mgs-sunken);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.info-bar i {
+    display: block;
+    height: 100%;
+    background: var(--mgs-accent);
+}
+
+/* Pastilles de forme récente */
+.info-dots {
+    display: flex;
+    gap: 3px;
+    margin-top: 6px;
+}
+
+.info-dots i {
+    width: 12px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--mgs-draw);
+}
+
+.info-dots i.is-win  { background: var(--mgs-win); }
+.info-dots i.is-loss { background: var(--mgs-loss); }
+.info-dots i.is-draw { background: #4a4a56; }
+
+
+/* =========================================================
+   BLOC HISTORIQUE
+========================================================= */
+
+.mgs-matches {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px 14px;
+    text-align: left;
+    background-color: var(--mgs-panel);
+    border: 1px solid var(--mgs-line);
+    border-radius: 9px;
+}
+
+.mgs-matches-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.mgs-matches-meta {
+    font-size: 11.5px;
+    color: var(--mgs-dim);
+}
+
+.mgs-matches-meta b {
+    font-weight: 700;
+}
+
+.mgs-matches-meta .is-win  { color: var(--mgs-win); }
+.mgs-matches-meta .is-loss { color: var(--mgs-loss); }
+
+.mgs-matches-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.mgs-empty {
+    margin: 6px 0 0;
+    font-size: 12.5px;
+    color: var(--mgs-dim);
+}
+
+
+/* =========================================================
+   LIGNE DE PARTIE
+========================================================= */
+
+.mgs-match {
+    position: relative;
+    overflow: hidden;
+    background: var(--mgs-sunken);
+    border: 1px solid var(--mgs-hair);
+    border-left: 3px solid var(--mgs-draw);
+    border-radius: 8px;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.mgs-match--win  { border-left-color: var(--mgs-win); }
+.mgs-match--loss { border-left-color: var(--mgs-loss); }
+
+.mgs-match:hover {
+    background: #1c1c24;
+}
+
+.mgs-match.is-open {
+    border-color: var(--mgs-line);
+    background: #1c1c24;
+}
+
+/* La ligne entière est un bouton : on annule le style natif. */
+.mgs-match-head {
+    display: grid;
+    grid-template-columns: 96px auto minmax(84px, 1fr) minmax(150px, 1.2fr) auto 22px;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 10px;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+.mgs-match-head:focus-visible {
+    outline: 2px solid var(--mgs-accent);
+    outline-offset: -2px;
+    border-radius: 6px;
+}
+
+.mgs-col {
+    display: flex;
+    min-width: 0;
+}
+
+/* --- Colonne 1 : mode, ancienneté, issue, durée --- */
+
+.mgs-col--meta {
+    flex-direction: column;
+    gap: 1px;
+}
+
+.mgs-queue {
+    overflow: hidden;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--mgs-text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mgs-ago,
+.mgs-duration {
+    font-size: 10.5px;
+    color: var(--mgs-dim);
+}
+
+.mgs-outcome {
+    margin-top: 2px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.mgs-match--win  .mgs-outcome { color: var(--mgs-win); }
+.mgs-match--loss .mgs-outcome { color: var(--mgs-loss); }
+.mgs-match--draw .mgs-outcome { color: var(--mgs-draw); }
+
+/* --- Colonne 2 : champion, sorts, runes --- */
+
+.mgs-col--champ {
+    align-items: center;
+    gap: 7px;
+}
+
+.mgs-portrait {
+    position: relative;
+    flex: 0 0 auto;
+    line-height: 0;
+}
+
+.mgs-champ {
+    display: block;
+    border-radius: 50%;
+    background: #24242e;
+}
+
+.mgs-champ--md { width: 42px; height: 42px; }
+.mgs-champ--sm { width: 28px; height: 28px; }
+
+.mgs-champ.is-broken {
+    background: #2c2c38;
+}
+
+.mgs-champ-level {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    min-width: 15px;
+    padding: 0 3px;
+    font-size: 9.5px;
+    font-weight: 700;
+    line-height: 15px;
+    text-align: center;
+    color: var(--mgs-text);
+    background: #101015;
+    border: 1px solid var(--mgs-line);
+    border-radius: 20px;
+}
+
+.mgs-loadout {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.mgs-spells,
+.mgs-runes {
+    display: flex;
+    gap: 2px;
+    line-height: 0;
+}
+
+.mgs-mini {
+    width: 17px;
+    height: 17px;
+    border-radius: 4px;
+    background: #24242e;
+    object-fit: cover;
+}
+
+.mgs-mini--rune {
+    border-radius: 50%;
+    background: #1a1a22;
+}
+
+.mgs-mini.is-empty {
+    display: inline-block;
+    background: #24242e;
+}
+
+/* --- Colonne 3 : KDA --- */
+
+.mgs-col--kda {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+}
+
+.mgs-kda {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--mgs-text);
+    white-space: nowrap;
+}
+
+.mgs-kda .is-deaths {
+    color: var(--mgs-loss);
+}
+
+.mgs-kda-ratio {
+    font-size: 10.5px;
+    color: var(--mgs-dim);
+    white-space: nowrap;
+}
+
+/* --- Colonne 4 : compteurs --- */
+
+.mgs-col--stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 10px;
+}
+
+.mgs-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #bcbcc8;
+    white-space: nowrap;
+}
+
+.mgs-stat em {
+    font-size: 10px;
+    font-style: normal;
+    color: var(--mgs-dim);
+}
+
+.mgs-stat .mgs-i {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 13px;
+    color: var(--mgs-dim);
+}
+
+/* --- Colonne 5 : objets --- */
+
+.mgs-items {
+    display: grid;
+    grid-template-columns: repeat(4, 22px);
+    gap: 2px;
+    line-height: 0;
+}
+
+.mgs-item {
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    background: #24242e;
+    object-fit: cover;
+}
+
+.mgs-item--empty {
+    display: inline-block;
+    background: #212129;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.mgs-item--trinket {
+    border-radius: 50%;
+}
+
+img.mgs-zoom {
+    cursor: zoom-in;
+}
+
+/* --- Chevron --- */
+
+.mgs-chevron {
+    display: flex;
+    justify-content: flex-end;
+    color: var(--mgs-dim);
+}
+
+.mgs-chevron .mgs-i {
+    width: 18px;
+    height: 18px;
+    transition: transform 0.18s ease;
+}
+
+.mgs-match.is-open .mgs-chevron .mgs-i {
+    transform: rotate(180deg);
+    color: var(--mgs-accent);
+}
+
+
+/* =========================================================
+   DÉTAIL DÉPLIÉ
+========================================================= */
+
+.mgs-match-detail {
+    padding: 2px 10px 12px;
+    border-top: 1px solid var(--mgs-hair);
+}
+
+.mgs-match-detail[hidden] {
+    display: none;
+}
+
+.mgs-scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+}
+
+.mgs-scoreboard {
+    width: 100%;
+    min-width: 620px;
+    margin-top: 10px;
+    border-collapse: collapse;
+    font-size: 11.5px;
+}
+
+.mgs-team-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    padding: 7px 8px;
+    text-align: left;
+    caption-side: top;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px 6px 0 0;
+}
+
+.mgs-team-name {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--mgs-text);
+}
+
+.mgs-scoreboard--win  .mgs-team-name { color: var(--mgs-win); }
+.mgs-scoreboard--loss .mgs-team-name { color: var(--mgs-loss); }
+
+.mgs-team-name .mgs-i {
+    width: 14px;
+    height: 14px;
+}
+
+.mgs-team-kda,
+.mgs-team-gold,
+.mgs-objectives {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--mgs-dim);
+}
+
+.mgs-objectives {
+    gap: 10px;
+}
+
+.mgs-objective {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.mgs-team-gold .mgs-i { color: var(--mgs-gold); }
+
+.mgs-team-kda .mgs-i,
+.mgs-team-gold .mgs-i,
+.mgs-objective .mgs-i {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 13px;
+}
+
+.mgs-scoreboard thead th {
+    padding: 5px 6px;
+    font-size: 9.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: left;
+    color: var(--mgs-dim);
+    border-bottom: 1px solid var(--mgs-hair);
+}
+
+.mgs-row td,
+.mgs-row th {
+    padding: 5px 6px;
+    font-weight: 400;
+    text-align: left;
+    vertical-align: middle;
+    color: #c9c9d4;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.mgs-row:last-child td,
+.mgs-row:last-child th {
+    border-bottom: 0;
+}
+
+/* Le joueur consulté ressort discrètement */
+.mgs-row.is-me td,
+.mgs-row.is-me th {
+    background: rgba(75, 159, 255, 0.07);
+}
+
+.mgs-cell-player {
+    min-width: 210px;
+}
+
+.mgs-player {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.mgs-cell-player .mgs-spells,
+.mgs-cell-player .mgs-runes {
+    flex-direction: column;
+}
+
+.mgs-cell-player .mgs-mini {
+    width: 14px;
+    height: 14px;
+}
+
+.mgs-player-id {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin-left: 3px;
+}
+
+.mgs-player-name {
+    overflow: hidden;
+    max-width: 130px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--mgs-text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mgs-player-name.is-me {
+    color: var(--mgs-accent);
+}
+
+.mgs-player-name em {
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 400;
+    color: var(--mgs-dim);
+}
+
+.mgs-player-role {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--mgs-dim);
+}
+
+.mgs-cell-kda b {
+    display: block;
+    font-size: 11.5px;
+    color: var(--mgs-text);
+}
+
+.mgs-cell-kda em,
+.mgs-cell-cs em {
+    display: block;
+    font-size: 9.5px;
+    font-style: normal;
+    color: var(--mgs-dim);
+}
+
+.mgs-cell-damage {
+    min-width: 120px;
+}
+
+.mgs-bar {
+    position: relative;
+    display: block;
+    height: 11px;
+    margin: 1px 0;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 2px;
+}
+
+.mgs-bar i {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+}
+
+.mgs-bar--damage i { background: rgba(255, 91, 110, 0.65); }
+.mgs-bar--taken  i { background: rgba(255, 255, 255, 0.22); }
+
+.mgs-bar em {
+    position: absolute;
+    top: 0;
+    left: 5px;
+    font-size: 9.5px;
+    font-style: normal;
+    line-height: 11px;
+    color: #e6e6ee;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+}
+
+.mgs-cell-items .mgs-items {
+    grid-template-columns: repeat(7, 20px);
+}
+
+.mgs-cell-items .mgs-item {
+    width: 20px;
+    height: 20px;
+}
+
+
+/* =========================================================
+   BOUTON « VOIR PLUS »
+========================================================= */
+
+.mgs-more {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 9px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mgs-dim);
+    background: var(--mgs-sunken);
+    border: 1px solid var(--mgs-hair);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.mgs-more:hover:not(:disabled) {
+    color: var(--mgs-accent);
+    border-color: rgba(75, 159, 255, 0.4);
+}
+
+.mgs-more:disabled {
+    cursor: progress;
+}
+
+.mgs-more.is-error {
+    color: var(--mgs-loss);
+    border-color: rgba(255, 91, 110, 0.4);
+}
+
+
+/* =========================================================
+   MOBILE
+
+   Sous 720 px on garde l'essentiel de la ligne (champion, KDA,
+   objets) et on renvoie les compteurs sous le KDA. Le tableau
+   détaillé, lui, scrolle horizontalement.
+========================================================= */
+
+@media (max-width: 720px) {
+
+    .mgs-match-head {
+        grid-template-columns: 1fr auto 20px;
+        grid-template-areas:
+            "meta  champ chev"
+            "kda   items items";
+        gap: 8px 10px;
+    }
+
+    .mgs-col--meta  { grid-area: meta; }
+    .mgs-col--champ { grid-area: champ; }
+    .mgs-col--kda   { grid-area: kda; }
+    .mgs-col--items { grid-area: items; justify-content: flex-end; }
+    .mgs-chevron    { grid-area: chev; }
+
+    /* Les 4 compteurs sont l'info la plus dispensable sur petit écran. */
+    .mgs-col--stats {
+        display: none;
+    }
+
+    .mgs-champ--md {
+        width: 36px;
+        height: 36px;
+    }
+
+    .mgs-items {
+        grid-template-columns: repeat(7, 20px);
+    }
+
+    .mgs-item {
+        width: 20px;
+        height: 20px;
+    }
+
+    .mgs-match-detail {
+        padding: 2px 6px 10px;
+    }
+}
+
+
+/* =========================================================
+   ACCESSIBILITÉ
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .mgs-match,
+    .mgs-more,
+    .mgs-chevron .mgs-i {
+        transition: none;
+    }
+}

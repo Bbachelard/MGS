@@ -25,27 +25,31 @@ function construireCarte(data) {
     const avatar = safeUrl(data.avatar);
     const status = data.status || {};
 
-    const highlights = (data.highlights || []).map(item => `
-        <div class="info-box">
-            <span class="info-label">${escapeHtml(item.label)}</span>
-            <span class="info-value">${escapeHtml(item.value ?? '-')}</span>
-        </div>
-    `).join('');
-
-    const sections = (data.sections || []).map(section => {
-        const items = (section.items || []).map(item => `
-            <li>${escapeHtml(item.name)} <span>${escapeHtml(item.value ?? '')}</span></li>
+    const highlights = typeof mgsHighlights === 'function'
+        ? mgsHighlights(data.highlights)
+        : (data.highlights || []).map(item => `
+            <div class="info-box">
+                <span class="info-label">${escapeHtml(item.label)}</span>
+                <span class="info-value">${escapeHtml(item.value ?? '-')}</span>
+            </div>
         `).join('');
 
-        return `
-            <div class="recent-games-box">
-                <span class="info-label">${escapeHtml(section.title)}</span>
-                <ul class="recent-games-list">
-                    ${items || `<li>${escapeHtml(section.empty || 'Aucune donnée')}</li>`}
-                </ul>
-            </div>
-        `;
-    }).join('');
+    const sections = typeof mgsSections === 'function'
+        ? mgsSections(data.sections)
+        : (data.sections || []).map(section => {
+            const items = (section.items || []).map(item => `
+                <li>${escapeHtml(item.name)} <span>${escapeHtml(item.value ?? '')}</span></li>
+            `).join('');
+
+            return `
+                <div class="recent-games-box">
+                    <span class="info-label">${escapeHtml(section.title)}</span>
+                    <ul class="recent-games-list">
+                        ${items || `<li>${escapeHtml(section.empty || 'Aucune donnée')}</li>`}
+                    </ul>
+                </div>
+            `;
+        }).join('');
 
     const links = (data.links || []).map(link => {
         const url = safeUrl(link.url);
@@ -336,26 +340,30 @@ function construireDetails(resultats) {
         if (!r.data) return;
         const d = r.data;
 
-        const highlights = (d.highlights || []).map(item => `
-            <div class="info-box">
-                <span class="info-label">${escapeHtml(item.label)}</span>
-                <span class="info-value">${escapeHtml(item.value ?? '-')}</span>
-            </div>
-        `).join('');
-
-        const sections = (d.sections || []).map(section => {
-            const items = (section.items || []).map(item => `
-                <li>${escapeHtml(item.name)} <span>${escapeHtml(item.value ?? '')}</span></li>
-            `).join('');
-            return `
-                <div class="recent-games-box">
-                    <span class="info-label">${escapeHtml(section.title)}</span>
-                    <ul class="recent-games-list">
-                        ${items || `<li>${escapeHtml(section.empty || 'Aucune donnée')}</li>`}
-                    </ul>
+        const highlights = typeof mgsHighlights === 'function'
+            ? mgsHighlights(d.highlights)
+            : (d.highlights || []).map(item => `
+                <div class="info-box">
+                    <span class="info-label">${escapeHtml(item.label)}</span>
+                    <span class="info-value">${escapeHtml(item.value ?? '-')}</span>
                 </div>
-            `;
-        }).join('');
+            `).join('');
+
+        const sections = typeof mgsSections === 'function'
+            ? mgsSections(d.sections)
+            : (d.sections || []).map(section => {
+                const items = (section.items || []).map(item => `
+                    <li>${escapeHtml(item.name)} <span>${escapeHtml(item.value ?? '')}</span></li>
+                `).join('');
+                return `
+                    <div class="recent-games-box">
+                        <span class="info-label">${escapeHtml(section.title)}</span>
+                        <ul class="recent-games-list">
+                            ${items || `<li>${escapeHtml(section.empty || 'Aucune donnée')}</li>`}
+                        </ul>
+                    </div>
+                `;
+            }).join('');
 
         const links = (d.links || []).map(l => {
             const url = safeUrl(l.url);
