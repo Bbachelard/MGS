@@ -605,7 +605,7 @@ function epic_fetch_stats(array $cfg, string $accountId): array
                 'topGame'     => [
                     'name'      => $modeFavori ? 'Fortnite — ' . $modeFavori['label'] : 'Fortnite',
                     'hours'     => round($heures),
-                    'image'     => '',   // ajouter un visuel local si souhaité
+                    'image'     => '/content/image/games/fortnite.jpg',  
                     'platform'  => 'Epic Games',
                     // Ne couvre que Fortnite : le hub affichera "≈"
                     'estimated' => true,

@@ -71,6 +71,9 @@ const RIOT_MASTERY_TOP = 3;
 const RIOT_MASTERY_EMBLEM =
     'https://raw.communitydragon.org/latest/game/assets/ux/mastery/legendarychampionmastery/masterycrest_level%d_minis.png';
 /* ---- Parties détaillées ------------------------------------------ */
+/** Emblèmes de rang (CommunityDragon), utilisés quand le PNG local manque. */
+const RIOT_RANK_EMBLEM =
+    'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-shared-components/global/default/%s.png';
 
 /** Parties chargées d'emblée avec la carte. */
 const RIOT_MATCHES_INITIAL = 3;
@@ -707,9 +710,17 @@ function riot_rank_icon(string $tier): string
 {
     $tier = strtolower(trim($tier));
 
-    return in_array($tier, RIOT_TIERS_AVEC_ICONE, true)
-        ? '/content/image/ranks/lol-' . $tier . '.png'
-        : '/content/image/ranks/lol-unranked.png';
+    if (!in_array($tier, RIOT_TIERS_AVEC_ICONE, true)) {
+        $tier = 'unranked';
+    }
+
+    $local = '/content/image/ranks/lol-' . $tier . '.png';
+
+    // Le fichier local gagne toujours : il permet de garder une charte
+    // maison. Sans lui, on sert l'emblème officiel plutôt qu'un 404.
+    return is_file(dirname(__DIR__, 2) . $local)
+        ? $local
+        : sprintf(RIOT_RANK_EMBLEM, $tier);
 }
 
 /** Couleur d'accent d'un tier. Gris neutre pour les non classés. */

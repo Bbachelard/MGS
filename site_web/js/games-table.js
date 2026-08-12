@@ -67,6 +67,9 @@ async function chargerBibliotheques(comptes, options = {}) {
 /** Un compte = un appel games.php, avec repli sur une ligne synthétique. */
 async function chargerLot(entree, options) {
     const slug = entree.platform.slug;
+    if (entree.platform.hasLibrary === false) {
+        return { games: ligneVirtuelle(entree), error: null };
+    }
 
     const params = new URLSearchParams({
         platform:  slug,
@@ -238,6 +241,15 @@ function formaterHeures(valeur) {
     if (valeur === 0) return `<span class="cell-muted">–</span>`;
     return valeur.toLocaleString("fr-FR", { minimumFractionDigits: 1 }) + "h";
 }
+/** Pastille de repli quand un jeu n'a pas de jaquette. */
+function initiales(nom) {
+    return String(nom || "?")
+        .split(/[\s:—-]+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(mot => mot[0].toUpperCase())
+        .join("");
+}
 
 function formaterDate(timestamp) {
     if (!timestamp) return `<span class="cell-muted">Jamais</span>`;
@@ -277,10 +289,13 @@ function dessinerTableau() {
                     : escapeHtml(meta.label)}
             </td>
             <td class="col-img">
-                ${jeu.image
-                    ? `<img src="${escapeHtml(jeu.image)}" alt="" loading="lazy"
-                            onerror="this.style.visibility='hidden'">`
-                    : ""}
+                <span class="game-thumb">
+                    <em>${escapeHtml(initiales(jeu.name))}</em>
+                    ${jeu.image
+                        ? `<img src="${escapeHtml(jeu.image)}" alt="" loading="lazy"
+                                onerror="this.remove()">`
+                        : ""}
+                </span>
             </td>
             <td class="col-name">
                 ${url

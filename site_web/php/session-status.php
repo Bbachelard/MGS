@@ -45,6 +45,9 @@ $platforms = [];
 foreach (mgs_platforms() as $slug => $platform) {
     $liste = $comptes[$slug] ?? [];
     $max   = mgs_max_accounts($slug);
+    $aBibliotheque = $platform['enabled']
+                     && mgs_load_provider($slug)
+                     && mgs_provider_supports($slug, 'fetch_games');
 
     $platforms[] = [
         'slug'        => $slug,
@@ -53,6 +56,7 @@ foreach (mgs_platforms() as $slug => $platform) {
         'enabled'     => $platform['enabled'],
         'linkable'    => $platform['linkable'],
         'verifiable'  => !empty($platform['verifiable']),
+        'hasLibrary'  => $aBibliotheque,
         'maxAccounts' => $max,
 
         // Un objet par compte lié, principal en tête.

@@ -148,6 +148,39 @@
     border-radius: 4px;
 }
 
+/* La vignette est un conteneur : si l'image meurt, les initiales restent. */
+.game-thumb {
+    position: relative;
+    display: block;
+    width: 92px;
+    height: 35px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #34343f, #22222a);
+    border-radius: 4px;
+}
+
+.game-thumb em {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #7b7b8d;
+}
+
+.game-thumb img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
 .col-name {
     white-space: normal;
     min-width: 220px;
