@@ -69,8 +69,7 @@ const RIOT_MASTERY_TOP = 3;
  * .../plugins/rcp-be-lol-collections/global/default/images/mastery/mastery-icon-level-%d.png
  */
 const RIOT_MASTERY_EMBLEM =
-    'https://raw.communitydragon.org/latest/game/assets/ux/mastery/mastery_icon_lvl%d.png';
-
+    'https://raw.communitydragon.org/latest/game/assets/ux/mastery/legendarychampionmastery/masterycrest_level%d_minis.png';
 /* ---- Parties détaillées ------------------------------------------ */
 
 /** Parties chargées d'emblée avec la carte. */
@@ -479,8 +478,9 @@ function riot_fetch_stats(array $cfg, string $accountId): array
             ],
             'metrics' => [
                 'accounts'       => 1,
-                'games'          => $total,
-                'playedGames'    => 0,
+                'games'          => 1,
+                'playedGames'    => ($total > 0 || $heuresEstimees > 0) ? 1 : 0,
+                'matches'        => $total,
                 'recentHours'    => round($recentSeconds / 3600, 1),
                 'totalHours'     => $heuresEstimees,
                 'hoursEstimated' => true,
@@ -515,10 +515,13 @@ function riot_fetch_stats(array $cfg, string $accountId): array
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
+
 /** Emblème du niveau de maîtrise. Les niveaux > 10 réutilisent le crest 10. */
 function riot_mastery_emblem(int $niveau): string
 {
-    return sprintf(RIOT_MASTERY_EMBLEM, max(1, min(10, $niveau)));
+    $niveau = $niveau >= 10 ? 10 : ($niveau >= 4 ? $niveau : 0);
+
+    return sprintf(RIOT_MASTERY_EMBLEM, $niveau);
 }
 
 /**

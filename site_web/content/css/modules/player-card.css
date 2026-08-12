@@ -69,46 +69,31 @@
     display: inline-flex;
     align-items: center;
     align-self: flex-start;
-    gap: 7px;
-    padding: 4px 12px 4px 5px;
-    border-radius: 20px;
-    background: rgba(124, 92, 255, 0.15);
-    border: 1px solid rgba(124, 92, 255, 0.5);
+    gap: 12px;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
     color: #b3a0ff;
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
 }
 
 .platform-tag-logo {
-    box-sizing: border-box;
-    width: 18px;
-    height: 18px;
-    padding: 2px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
     object-fit: contain;
-    background: rgba(0, 0, 0, 0.35);
-    border-radius: 50%;
+    background: none;
+    border-radius: 8px;
 }
 
-/* Un accent par plateforme : les cartes cessent d'être toutes violettes. */
-.platform-tag[data-platform="steam"] {
-    background: rgba(75, 159, 255, 0.14);
-    border-color: rgba(75, 159, 255, 0.5);
-    color: #8ec5ff;
-}
-
-.platform-tag[data-platform="riot"] {
-    background: rgba(255, 91, 110, 0.14);
-    border-color: rgba(255, 91, 110, 0.5);
-    color: #ff9aa6;
-}
-
-.platform-tag[data-platform="epic"] {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.28);
-    color: #d8d8e2;
-}
+/* Le logo porte déjà la marque : la couleur ne sert plus qu'au libellé. */
+.platform-tag[data-platform="steam"] { color: #8ec5ff; }
+.platform-tag[data-platform="riot"]  { color: #ff9aa6; }
+.platform-tag[data-platform="epic"]  { color: #d8d8e2; }
 
 /* Filet de couleur en haut de carte, même code couleur que le badge. */
 .player-card[data-platform="steam"] { box-shadow: inset 0 2px 0 rgba(75, 159, 255, 0.5); }

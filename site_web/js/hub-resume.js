@@ -113,6 +113,7 @@ function hubAgreger(resultats) {
         libraryMesure: { mesures: 0, total: 0 },
         games:         0,
         playedGames:   0,
+        gamesDetail:   [],
         parts:         [],   // { slug, label, hours } pour la barre
         inconnues:     [],   // plateformes sans estimation d'heures
         topGame:       null,
@@ -128,6 +129,7 @@ function hubAgreger(resultats) {
     const inconnues  = new Set();
     const topGames   = new Map();
     const recentJeux = new Map();
+    const jeuxParPlateforme = new Map();
 
     agg.comptesTotal = new Set(resultats.map(r => r.platform.slug)).size;
 
@@ -141,6 +143,15 @@ function hubAgreger(resultats) {
         agg.playedGames += m.playedGames || 0;
         agg.recentHours += m.recentHours || 0;
         agg.yearHours   += m.yearHours   || 0;
+        // Détail par plateforme : "165" tout seul ne disait pas d'où
+        // venaient les jeux. Les comptes d'une même plateforme s'additionnent.
+        const detail = jeuxParPlateforme.get(r.platform.slug)
+            || { label: r.platform.label, games: 0, played: 0 };
+
+        detail.games  += m.games       || 0;
+        detail.played += m.playedGames || 0;
+
+        jeuxParPlateforme.set(r.platform.slug, detail);
 
         // On garde la date de repère la plus récente : c'est elle qui limite
         // ce qu'on peut réellement affirmer sur "cette année".
@@ -261,36 +272,13 @@ function hubAgreger(resultats) {
         .sort((a, b) => b.hours - a.hours)
         .slice(0, 3);
 
+
+    agg.gamesDetail = Array.from(jeuxParPlateforme.values())
+    .sort((a, b) => b.games - a.games);
     return agg;
 }
 
-/* ------------------------------------------------------------
-   Étage 3 — compteurs secondaires
-   ------------------------------------------------------------ */
 
-function hubCompteurs(agg) {
-    const moyenne = agg.playedGames > 0 ? agg.totalHours / agg.playedGames : 0;
-
-    // "2 / 3" n'a plus de sens quand une plateforme porte plusieurs
-    // comptes : on affiche le nombre de comptes réellement liés.
-    const boites = [
-        [hubNombre(agg.games),         "Jeux possédés"],
-        [hubNombre(agg.playedGames),   "Jeux lancés"],
-        [hubNombre(moyenne, 1) + " h", "Moyenne / jeu"],
-        [hubNombre(agg.comptesLies),   agg.comptesLies > 1 ? "Comptes liés" : "Compte lié"],
-    ];
-
-    return `
-        <section class="hub-counters">
-            ${boites.map(([valeur, label]) => `
-                <div class="summary-box">
-                    <span class="summary-value">${valeur}</span>
-                    <span class="summary-label">${label}</span>
-                </div>
-            `).join("")}
-        </section>
-    `;
-}
 
 /* ------------------------------------------------------------
    Étage 1 — le chiffre héros
@@ -538,24 +526,34 @@ function hubCarteRecent(agg) {
     `;
 }
 
+
 /* ------------------------------------------------------------
    Étage 3 — compteurs secondaires
    ------------------------------------------------------------ */
 
 function hubCompteurs(agg) {
+    // playedGames inclut désormais LoL et Fortnite : la moyenne divise
+    // enfin des heures et des jeux qui parlent du même périmètre.
     const moyenne = agg.playedGames > 0 ? agg.totalHours / agg.playedGames : 0;
 
+    const detail = cle => (agg.gamesDetail || [])
+        .filter(d => d[cle] > 0)
+        .map(d => `${d.label} : ${hubNombre(d[cle])}`)
+        .join("\n");
+
     const boites = [
-        [hubNombre(agg.games),            "Jeux possédés"],
-        [hubNombre(agg.playedGames),      "Jeux lancés"],
-        [hubNombre(moyenne, 1) + " h",    "Moyenne / jeu"],
-        [`${agg.comptesLies} / ${agg.comptesTotal}`, "Comptes liés"],
+        [hubNombre(agg.games),         "Jeux possédés", detail("games")],
+        [hubNombre(agg.playedGames),   "Jeux lancés",   detail("played")],
+        [hubNombre(moyenne, 1) + " h", "Moyenne / jeu", ""],
+        [hubNombre(agg.comptesLies),
+         agg.comptesLies > 1 ? "Comptes liés" : "Compte lié", ""],
     ];
 
     return `
         <section class="hub-counters">
-            ${boites.map(([valeur, label]) => `
-                <div class="summary-box">
+            ${boites.map(([valeur, label, infobulle]) => `
+                <div class="summary-box${infobulle ? " summary-box--info" : ""}"
+                     ${infobulle ? `title="${escapeHtml(infobulle)}"` : ""}>
                     <span class="summary-value">${valeur}</span>
                     <span class="summary-label">${label}</span>
                 </div>
@@ -563,6 +561,7 @@ function hubCompteurs(agg) {
         </section>
     `;
 }
+
 
 /* ------------------------------------------------------------
    Point d'entrée appelé par profile-stats.js

@@ -201,3 +201,47 @@
     opacity: 0.35;
     cursor: not-allowed;
 }
+
+.toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#gamesPlatform {
+    background: #1f1f26;
+    border: 1px solid #3a3a45;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 13px;
+    padding: 8px 12px;
+    outline: none;
+}
+
+#gamesPlatform:focus {
+    border-color: #7c5cff;
+}
+
+/* Un compte n'a pas répondu : le reste du tableau reste utilisable. */
+.games-warning {
+    margin: 0 0 12px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #ffcf9b;
+    background: rgba(224, 152, 74, 0.1);
+    border: 1px solid rgba(224, 152, 74, 0.35);
+    border-radius: 8px;
+}
+
+.col-platform {
+    width: 52px;
+    padding: 6px 0 6px 14px;
+}
+
+.games-platform-logo {
+    display: block;
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}

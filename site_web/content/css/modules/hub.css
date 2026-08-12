@@ -899,3 +899,13 @@
     font-weight: 500;
     color: #8f8fa5;
 }
+
+/* Compteur qui porte une infobulle de détail par plateforme. */
+.summary-box--info {
+    cursor: help;
+}
+
+.summary-box--info .summary-value {
+    text-decoration: underline dotted rgba(255, 255, 255, 0.25);
+    text-underline-offset: 4px;
+}

@@ -2,18 +2,170 @@ const gamesState = {
     games: [],
     totals: {},
     filtre: "",
+    plateforme: "",              // "" = toutes
+    plateformes: [],             // slugs réellement présents
+    avertissements: [],
     tri: { colonne: "hours", sens: "desc" },
     parPage: 100,
     page: 1,
 };
 
+/** Miroir de mgs_platforms() : le tableau n'affiche que le logo. */
+const GAMES_PLATEFORMES = {
+    steam: { label: "Steam",      icon: "/content/image/Steam_icon.webp" },
+    riot:  { label: "Riot Games", icon: "/content/image/riot-icon.png" },
+    epic:  { label: "Epic Games", icon: "/content/image/Epic_icon.webp" },
+};
+
 const GAMES_COLONNES = [
-    { cle: "image",       label: "",              triable: false, classe: "col-img" },
-    { cle: "name",        label: "Nom",           triable: true,  type: "texte" },
-    { cle: "hours",       label: "Temps total",   triable: true,  type: "nombre" },
-    { cle: "recentHours", label: "2 semaines",    triable: true,  type: "nombre" },
-    { cle: "lastPlayed",  label: "Dernière fois", triable: true,  type: "nombre" },
+    { cle: "platformLabel", label: "",              triable: true,  type: "texte", classe: "col-platform" },
+    { cle: "image",         label: "",              triable: false, classe: "col-img" },
+    { cle: "name",          label: "Nom",           triable: true,  type: "texte" },
+    { cle: "hours",         label: "Temps total",   triable: true,  type: "nombre" },
+    { cle: "recentHours",   label: "2 semaines",    triable: true,  type: "nombre" },
+    { cle: "lastPlayed",    label: "Dernière fois", triable: true,  type: "nombre" },
 ];
+
+/**
+ * Bibliothèque de TOUS les comptes liés.
+ *
+ * @param comptes  etatComptes de profile-stats.js : { platform, account, data, error }
+ */
+async function chargerBibliotheques(comptes, options = {}) {
+    const zone = document.getElementById("games-table");
+    if (!zone) return;
+
+    gamesState.lectureSeule = options.lectureSeule === true;
+
+    zone.innerHTML = `<p class="stats-loading">Chargement de la bibliothèque...</p>`;
+
+    const lies = (comptes || []).filter(c => c.account);
+
+    if (!lies.length) {
+        zone.innerHTML = "";
+        return;
+    }
+
+    const lots = await Promise.all(lies.map(c => chargerLot(c, options)));
+
+    const jeux = [];
+    const avertissements = [];
+
+    lots.forEach(lot => {
+        if (lot.error) avertissements.push(lot.error);
+        lot.games.forEach(j => jeux.push(j));
+    });
+
+    gamesState.games          = fusionnerDoublons(jeux);
+    gamesState.avertissements = avertissements;
+    gamesState.totals         = totauxGlobaux(gamesState.games);
+    gamesState.plateformes    = Array.from(new Set(gamesState.games.map(j => j.platform)));
+
+    dessinerTableau();
+}
+
+/** Un compte = un appel games.php, avec repli sur une ligne synthétique. */
+async function chargerLot(entree, options) {
+    const slug = entree.platform.slug;
+
+    const params = new URLSearchParams({
+        platform:  slug,
+        accountId: entree.account.accountId,
+    });
+    if (options.userId) params.set("userId", String(options.userId));
+
+    let reponse;
+    let data;
+
+    try {
+        reponse = await fetch(`/php/games.php?${params.toString()}`, { credentials: "include" });
+        data    = await reponse.json();
+    } catch (err) {
+        console.error("games:", slug, err);
+        return {
+            games: ligneVirtuelle(entree),
+            error: `${entree.platform.label} : bibliothèque injoignable.`,
+        };
+    }
+
+    // 501 = le provider n'expose pas de bibliothèque (Riot, Epic).
+    // Ce n'est pas une panne : on retombe sur la ligne estimée, sans alerte.
+    if (reponse.status === 501) {
+        return { games: ligneVirtuelle(entree), error: null };
+    }
+
+    if (!reponse.ok || data.error) {
+        return {
+            games: ligneVirtuelle(entree),
+            error: `${entree.platform.label} : ${data.error || "erreur HTTP " + reponse.status}`,
+        };
+    }
+
+    return {
+        games: (data.games || []).map(j => ligne(slug, j, false)),
+        error: null,
+    };
+}
+
+/**
+ * Plateforme sans bibliothèque : on fabrique la ligne à partir des stats
+ * déjà chargées. LoL et Fortnite existent, ils méritent leur ligne.
+ */
+function ligneVirtuelle(entree) {
+    const m   = (entree.data && entree.data.metrics) || null;
+    const jeu = m && m.topGame;
+
+    if (!jeu || !jeu.name || !(m.totalHours > 0)) return [];
+
+    return [ligne(entree.platform.slug, {
+        // "Fortnite — Solo" est un mode, pas un jeu.
+        name:        String(jeu.name).split(" — ")[0],
+        image:       jeu.image || "",
+        storeUrl:    "",
+        hours:       Number(m.totalHours)  || 0,
+        recentHours: Number(m.recentHours) || 0,
+        lastPlayed:  null,
+    }, true)];
+}
+
+function ligne(slug, jeu, estime) {
+    const meta = GAMES_PLATEFORMES[slug] || { label: slug };
+
+    return Object.assign({}, jeu, {
+        platform:      slug,
+        platformLabel: meta.label,
+        estime:        !!estime,
+    });
+}
+
+/** Plusieurs comptes Riot jouent au même LoL : une seule ligne, heures cumulées. */
+function fusionnerDoublons(jeux) {
+    const parCle = new Map();
+
+    jeux.forEach(jeu => {
+        const cle      = jeu.platform + "|" + jeu.name;
+        const existant = parCle.get(cle);
+
+        if (!existant) {
+            parCle.set(cle, jeu);
+            return;
+        }
+
+        existant.hours       += jeu.hours       || 0;
+        existant.recentHours += jeu.recentHours || 0;
+        existant.lastPlayed   = Math.max(existant.lastPlayed || 0, jeu.lastPlayed || 0) || null;
+    });
+
+    return Array.from(parCle.values());
+}
+
+function totauxGlobaux(jeux) {
+    return {
+        count:  jeux.length,
+        played: jeux.filter(j => (j.hours || 0) > 0).length,
+        hours:  Math.round(jeux.reduce((s, j) => s + (j.hours || 0), 0) * 10) / 10,
+    };
+}
 
 async function chargerBibliotheque(slug, options = {}) {
     const zone = document.getElementById("games-table");
@@ -50,9 +202,16 @@ async function chargerBibliotheque(slug, options = {}) {
 
 function jeuxFiltres() {
     const q = gamesState.filtre.trim().toLowerCase();
-    const liste = q
-        ? gamesState.games.filter(g => g.name.toLowerCase().includes(q))
-        : [...gamesState.games];
+
+    let liste = [...gamesState.games];
+
+    if (gamesState.plateforme) {
+        liste = liste.filter(g => g.platform === gamesState.plateforme);
+    }
+
+    if (q) {
+        liste = liste.filter(g => g.name.toLowerCase().includes(q));
+    }
 
     const { colonne, sens } = gamesState.tri;
     const facteur = sens === "asc" ? 1 : -1;
@@ -68,7 +227,7 @@ function jeuxFiltres() {
         if (vb === null) return -1;
 
         return meta?.type === "texte"
-            ? va.localeCompare(vb, "fr") * facteur
+            ? String(va).localeCompare(String(vb), "fr") * facteur
             : (va - vb) * facteur;
     });
 
@@ -105,20 +264,47 @@ function dessinerTableau() {
                 </th>`;
     }).join("");
 
-    const lignes = visibles.map(jeu => `
+    const lignes = visibles.map(jeu => {
+        const meta = GAMES_PLATEFORMES[jeu.platform] || { label: jeu.platform, icon: "" };
+        const url  = safeUrl(jeu.storeUrl);
+
+        const alerte = (gamesState.avertissements || []).length
+        ? `<p class="games-warning">${escapeHtml(gamesState.avertissements.join(" · "))}</p>`
+        : "";
+
+        const optionsPlateforme = ['<option value="">Toutes les plateformes</option>']
+        .concat((gamesState.plateformes || []).map(slug => {
+            const meta = GAMES_PLATEFORMES[slug] || { label: slug };
+            const sel  = slug === gamesState.plateforme ? " selected" : "";
+            return `<option value="${escapeHtml(slug)}"${sel}>${escapeHtml(meta.label)}</option>`;
+        }))
+        .join("");
+        return `
          <tr>
+            <td class="col-platform">
+                ${meta.icon
+                    ? `<img class="games-platform-logo" src="${escapeHtml(meta.icon)}"
+                            alt="${escapeHtml(meta.label)}" title="${escapeHtml(meta.label)}"
+                            loading="lazy" onerror="this.remove()">`
+                    : escapeHtml(meta.label)}
+            </td>
             <td class="col-img">
-                <img src="${escapeHtml(jeu.image)}" alt="" loading="lazy"
-                     onerror="this.style.visibility='hidden'">
+                ${jeu.image
+                    ? `<img src="${escapeHtml(jeu.image)}" alt="" loading="lazy"
+                            onerror="this.style.visibility='hidden'">`
+                    : ""}
             </td>
             <td class="col-name">
-                <a href="${safeUrl(jeu.storeUrl)}" target="_blank" rel="noopener">${escapeHtml(jeu.name)}</a>
+                ${url
+                    ? `<a href="${url}" target="_blank" rel="noopener">${escapeHtml(jeu.name)}</a>`
+                    : escapeHtml(jeu.name)}
             </td>
-            <td>${formaterHeures(jeu.hours)}</td>
+            <td>${jeu.estime ? "≈ " : ""}${formaterHeures(jeu.hours)}</td>
             <td>${formaterHeures(jeu.recentHours)}</td>
             <td>${formaterDate(jeu.lastPlayed)}</td>
         </tr>
-    `).join("");
+        `;
+    }).join("");
 
     const t = gamesState.totals || {};
 
@@ -142,6 +328,8 @@ function dessinerTableau() {
             </div>
         </div>
 
+        ${alerte}
+
         <div class="games-toolbar">
             <label class="toolbar-left">
                 <select id="gamesPerPage">
@@ -151,14 +339,17 @@ function dessinerTableau() {
                 </select>
                 <span>jeux par page</span>
             </label>
-            <input type="search" id="gamesSearch" class="games-search"
-                   placeholder="Rechercher un jeu..." value="${escapeHtml(gamesState.filtre)}">
+            <div class="toolbar-right">
+                <select id="gamesPlatform">${optionsPlateforme}</select>
+                <input type="search" id="gamesSearch" class="games-search"
+                       placeholder="Rechercher un jeu..." value="${escapeHtml(gamesState.filtre)}">
+            </div>
         </div>
 
         <div class="games-scroll">
             <table class="games-table">
                 <thead><tr>${entetes}</tr></thead>
-                <tbody>${lignes || `<tr><td colspan="5" class="cell-muted">Aucun jeu trouvé.</td></tr>`}</tbody>
+                <tbody>${lignes || `<tr><td colspan="6" class="cell-muted">Aucun jeu trouvé.</td></tr>`}</tbody>
             </table>
         </div>
 
@@ -209,6 +400,14 @@ function brancherEvenements() {
         });
     }
 
+    const plateforme = document.getElementById("gamesPlatform");
+    if (plateforme) {
+        plateforme.addEventListener("change", e => {
+            gamesState.plateforme = e.target.value;
+            gamesState.page = 1;
+            dessinerTableau();
+        });
+    }
     const prev = document.getElementById("gamesPrev");
     const next = document.getElementById("gamesNext");
     if (prev) prev.addEventListener("click", () => { gamesState.page--; dessinerTableau(); });

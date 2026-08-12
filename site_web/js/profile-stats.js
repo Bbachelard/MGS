@@ -51,12 +51,6 @@ async function chargerProfil() {
     lectureSeule    = status.isOwnProfile === false;
     etatPlateformes = status.platforms || [];
 
-    // La bibliothèque Steam reste sur le compte principal (games.php
-    // retombe dessus quand aucun accountId n'est passé).
-    const steam = etatPlateformes.find(p => p.slug === "steam" && p.linked);
-    if (steam) {
-        chargerBibliotheque("steam", { userId: PROFILE.userId, lectureSeule });
-    }
 
     /* Une requête de stats par compte lié. Les plateformes sans compte
        produisent quand même une entrée : le bandeau doit afficher leur
@@ -77,6 +71,10 @@ async function chargerProfil() {
     etatComptes = await Promise.all(taches);
 
     marquerComptesMultiples();
+
+    // Le tableau a besoin des stats déjà chargées : c'est de là que viennent
+    // les lignes LoL / Fortnite, que games.php ne sait pas produire.
+    chargerBibliotheques(etatComptes, { userId: PROFILE.userId, lectureSeule });
 
     dessinerHub(container);
     majAvatarNavbar();
