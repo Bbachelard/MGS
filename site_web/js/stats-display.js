@@ -15,6 +15,27 @@ function safeUrl(url) {
     return /^https?:\/\//i.test(value) ? value : '';
 }
 
+/* ================= Identité visuelle des plateformes ================= */
+
+/** Miroir de mgs_platforms() côté client : évite un aller-retour serveur
+ *  juste pour un logo, et reste vide si la plateforme est inconnue. */
+const PLATFORM_ICONS = {
+    steam: '/content/image/Steam_icon.webp',
+    riot:  '/content/image/riot-icon.png',
+    epic:  '/content/image/Epic_icon.webp'
+};
+
+/** Badge de plateforme : logo + libellé. Le logo disparaît s'il ne charge pas. */
+function platformTag(slug, label) {
+    const cle = String(slug ?? '').toLowerCase();
+    const src = PLATFORM_ICONS[cle] || '';
+
+    return `<span class="platform-tag" data-platform="${escapeHtml(cle)}">
+        ${src ? `<img class="platform-tag-logo" src="${escapeHtml(src)}" alt=""
+                      onerror="this.remove()">` : ''}
+        <span>${escapeHtml(label || slug || '')}</span>
+    </span>`;
+}
 /* ================= Rendu générique d'une carte ================= */
 
 function construireCarte(data) {
@@ -59,7 +80,7 @@ function construireCarte(data) {
     }).join('');
 
     card.innerHTML = `
-        <div class="platform-tag">${escapeHtml(data.platformLabel || data.platform)}</div>
+        <div class="platform-tag">${platformTag(data.platform, data.platformLabel || data.platform)}</div>
 
         <div class="player-header">
             <div class="avatar-frame">
@@ -104,7 +125,7 @@ function construireCarteVide(platform, options = {}) {
    
 
     card.innerHTML = `
-        <div class="platform-tag">${escapeHtml(platform.label)}</div>
+        <div class="platform-tag">${platformTag(platform.slug, platform.label)}</div>
         <div class="empty-body">
             ${icon ? `<img src="${escapeHtml(icon)}" alt="" width="48">` : ''}
             <p class="stats-info">Aucun compte ${escapeHtml(platform.label)} lié.</p>
@@ -375,7 +396,7 @@ function construireDetails(resultats) {
         groupe.dataset.platform = d.platform;
         groupe.innerHTML = `
             <div class="detail-head">
-                <span class="platform-tag">${escapeHtml(d.platformLabel)}</span>
+                <span class="platform-tag">${platformTag(d.platform, d.platformLabel)}</span>
                 ${links}
             </div>
             ${highlights ? `<div class="info-grid">${highlights}</div>` : ''}

@@ -230,6 +230,7 @@
             hasMore:    !!(section.pagination || {}).hasMore,
             max:        Number((section.pagination || {}).max || 100),
             page:       Number((section.pagination || {}).page || 5),
+            initial:    (section.items || []).length,
             chargement: false
         };
 
@@ -241,13 +242,61 @@
        Sections
        -------------------------------------------------------- */
 
-    /** Rendu historique, inchangé, pour Steam / Epic / maîtrises. */
+    /**
+     * Une ligne de liste. image / badge / bar sont optionnels : sans eux,
+     * on retombe très exactement sur l'ancien rendu (Steam, Epic).
+     */
+    function ligneListe(item) {
+        var image = url(item.image);
+        var badge = item.badge || null;
+        var bar   = Number(item.bar) || 0;
+
+        if (!image && !badge && !bar) {
+            return '<li>' + esc(item.name) + ' <span>' + esc(item.value || '') + '</span></li>';
+        }
+
+        var crest = badge
+            ? '<img class="mgs-list-crest" src="' + esc(url(badge.image)) + '" alt=""'
+              + ' title="' + esc(badge.title || '') + '" loading="lazy"'
+              + ' onerror="this.classList.add(\'is-empty\')">'
+              + '<em class="mgs-list-lvl" title="' + esc(badge.title || '') + '">'
+              + esc(badge.text || '') + '</em>'
+            : '';
+
+        var media = '<span class="mgs-list-media">'
+                  + (image
+                        ? '<img class="mgs-list-icon" src="' + esc(image) + '" alt="" loading="lazy"'
+                          + ' onerror="this.classList.add(\'is-broken\')">'
+                        : '<span class="mgs-list-icon is-broken"></span>')
+                  + crest
+                  + '</span>';
+
+        var jauge = bar > 0
+            ? '<span class="mgs-list-bar"><i style="width:'
+              + Math.max(0, Math.min(100, bar)).toFixed(1) + '%"></i></span>'
+            : '';
+
+        return '<li class="mgs-list-row">'
+             + media
+             + '<span class="mgs-list-text">'
+             +   '<b class="mgs-list-name">' + esc(item.name) + '</b>'
+             +   jauge
+             + '</span>'
+             + '<span class="mgs-list-value">' + esc(item.value || '') + '</span>'
+             + '</li>';
+    }
+
     function sectionListe(section) {
         var items = (section.items || []).map(function (item) {
-            return '<li>' + esc(item.name) + ' <span>' + esc(item.value || '') + '</span></li>';
+            return ligneListe(item);
         }).join('');
 
-        return '<div class="recent-games-box">'
+        // Variante purement cosmétique, filtrée pour ne pas injecter de classe.
+        var variante = /^[a-z-]+$/.test(String(section.variant || ''))
+            ? ' recent-games-box--' + section.variant
+            : '';
+
+        return '<div class="recent-games-box' + variante + '">'
              + '<span class="info-label">' + esc(section.title) + '</span>'
              + '<ul class="recent-games-list">'
              + (items || '<li>' + esc(section.empty || 'Aucune donnée') + '</li>')
@@ -277,7 +326,7 @@
              +   '<span class="mgs-matches-meta">' + res + '</span>'
              + '</div>'
              + '<div class="mgs-matches-list">' + lignes + '</div>'
-             + bouton(st)
+             + actions(st)
              + '</div>';
     }
 
@@ -303,14 +352,40 @@
              + wr + ' %';
     }
 
-    function bouton(st) {
-        if (!st.hasMore || st.nextStart >= st.max) {
-            return '';
+    /** Pied du bloc : « voir plus » et/ou « afficher moins », re-rendu à chaque fois. */
+    function actions(st) {
+        var html = '';
+
+        if (st.hasMore && st.nextStart < st.max) {
+            html += '<button type="button" class="mgs-more js-mgs-more">'
+                  + 'Voir ' + st.page + ' parties de plus'
+                  + '</button>';
         }
 
-        return '<button type="button" class="mgs-more js-mgs-more">'
-             + 'Voir ' + st.page + ' parties de plus'
-             + '</button>';
+        var repliables = Math.min(st.page, st.matches.length - st.initial);
+
+        if (repliables > 0) {
+            html += '<button type="button" class="mgs-more mgs-more--less js-mgs-less">'
+                  + 'Afficher ' + repliables + ' parties de moins'
+                  + '</button>';
+        }
+
+        return '<div class="mgs-actions">' + html + '</div>';
+    }
+
+    /** Résumé + pied à resynchroniser après tout ajout ou repli. */
+    function majBloc(ctx) {
+        var meta = ctx.el.querySelector('.mgs-matches-meta');
+
+        if (meta) {
+            meta.innerHTML = resume(ctx.st.matches);
+        }
+
+        var pied = ctx.el.querySelector('.mgs-actions');
+
+        if (pied) {
+            pied.outerHTML = actions(ctx.st);
+        }
     }
 
     function mgsSections(sections) {
@@ -664,21 +739,10 @@
 
             liste.insertAdjacentHTML('beforeend', html);
 
-            st.nextStart += Number(data.count || st.page);
+            st.nextStart += Number(data.count || nouvelles.length);
             st.hasMore    = !!data.hasMore && st.nextStart < st.max;
 
-            var meta = ctx.el.querySelector('.mgs-matches-meta');
-
-            if (meta) {
-                meta.innerHTML = resume(st.matches);
-            }
-
-            if (st.hasMore && nouvelles.length) {
-                bouton.textContent = 'Voir ' + st.page + ' parties de plus';
-                bouton.disabled = false;
-            } else {
-                bouton.remove();
-            }
+            majBloc(ctx);
 
         } catch (err) {
             console.error('Chargement des parties impossible :', err);
@@ -690,6 +754,43 @@
         } finally {
             st.chargement = false;
             bouton.classList.remove('is-loading');
+        }
+    }
+
+    function voirMoins(bouton) {
+        var ctx = bloc(bouton);
+
+        if (!ctx || ctx.st.chargement) {
+            return;
+        }
+
+        var st = ctx.st;
+        var n  = Math.min(st.page, st.matches.length - st.initial);
+
+        if (n <= 0) {
+            return;
+        }
+
+        var liste = ctx.el.querySelector('.mgs-matches-list');
+
+        for (var i = 0; i < n; i++) {
+            st.matches.pop();
+
+            if (liste.lastElementChild) {
+                liste.removeChild(liste.lastElementChild);
+            }
+        }
+
+        // On dépile par la fin : les data-index déjà posés restent valides.
+        st.nextStart = Math.max(st.initial, st.nextStart - n);
+        st.hasMore   = true;
+
+        majBloc(ctx);
+
+        var pied = ctx.el.querySelector('.mgs-actions');
+
+        if (pied) {
+            pied.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
     }
 
@@ -712,6 +813,13 @@
         if (plus) {
             e.preventDefault();
             voirPlus(plus);
+            return;
+        }
+        var moins = e.target.closest('.js-mgs-less');
+
+        if (moins) {
+            e.preventDefault();
+            voirMoins(moins);
             return;
         }
 

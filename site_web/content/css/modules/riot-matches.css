@@ -690,6 +690,146 @@ img.mgs-zoom {
    BOUTON « VOIR PLUS »
 ========================================================= */
 
+/* Les deux boutons partagent la largeur du bloc. */
+.mgs-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.mgs-actions .mgs-more {
+    flex: 1 1 0;
+    margin-top: 0;
+}
+
+.mgs-more--less:hover:not(:disabled) {
+    color: var(--mgs-loss);
+    border-color: rgba(255, 91, 110, 0.35);
+}
+
+@media (max-width: 480px) {
+    .mgs-actions { flex-direction: column; }
+}
+
+
+/* =========================================================
+   LISTE ENRICHIE (champions favoris)
+
+   Sélecteurs préfixés par .recent-games-list : les règles
+   génériques `li` / `li span` de player-card.css sont plus
+   spécifiques que de simples classes.
+========================================================= */
+
+.recent-games-box--champions {
+    --mgs-text:   #ececf2;
+    --mgs-dim:    #8d8d9c;
+    --mgs-accent: #4b9fff;
+    --mgs-gold:   #e0b04a;
+}
+
+.recent-games-list li.mgs-list-row {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 4px;
+    border-bottom: 0;
+    border-radius: 7px;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.recent-games-list li.mgs-list-row:hover {
+    background: rgba(75, 159, 255, 0.07);
+    transform: translateX(2px);
+}
+
+.recent-games-list .mgs-list-media {
+    position: relative;
+    display: block;
+    width: 42px;
+    height: 42px;
+    line-height: 0;
+}
+
+.recent-games-list .mgs-list-icon {
+    width: 42px;
+    height: 42px;
+    object-fit: cover;
+    background: #24242e;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.recent-games-list .mgs-list-icon.is-broken { background: #2c2c38; }
+
+.recent-games-list .mgs-list-crest {
+    position: absolute;
+    left: -6px;
+    bottom: -4px;
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+}
+
+/* L'emblème vient d'un CDN tiers : s'il tombe, la pastille chiffrée suffit. */
+.recent-games-list .mgs-list-crest.is-empty { display: none; }
+
+.recent-games-list .mgs-list-lvl {
+    position: absolute;
+    right: -4px;
+    bottom: -3px;
+    min-width: 16px;
+    padding: 0 4px;
+    font-size: 9.5px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    color: var(--mgs-gold, #e0b04a);
+    background: #101015;
+    border: 1px solid rgba(224, 176, 74, 0.45);
+    border-radius: 20px;
+}
+
+.recent-games-list .mgs-list-text {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.recent-games-list .mgs-list-name {
+    overflow: hidden;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--mgs-text, #ececf2);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recent-games-list .mgs-list-bar {
+    display: block;
+    height: 3px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 3px;
+}
+
+.recent-games-list .mgs-list-bar i {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #4b9fff, #a06bff);
+    border-radius: 3px;
+}
+
+.recent-games-list .mgs-list-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--mgs-accent, #4b9fff);
+    white-space: nowrap;
+}
+
 .mgs-more {
     display: block;
     width: 100%;

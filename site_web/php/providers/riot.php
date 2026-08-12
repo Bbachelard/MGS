@@ -57,6 +57,20 @@ const RIOT_TIER_PERCENTILE = [
 /** Points de maîtrise moyens rapportés par partie (sert à estimer le temps de jeu). */
 const RIOT_POINTS_PAR_PARTIE = 350;
 
+/** Champions affichés dans « Champions favoris ». */
+const RIOT_MASTERY_TOP = 3;
+
+/**
+ * Emblème de maîtrise, servi par CommunityDragon (ni clé API, ni version à
+ * suivre). Riot réorganise ses assets de temps en temps : si l'image casse,
+ * seule cette constante est à corriger — la carte retombe automatiquement
+ * sur la pastille chiffrée.
+ * Chemin de secours connu (niveaux 1-7 uniquement) :
+ * .../plugins/rcp-be-lol-collections/global/default/images/mastery/mastery-icon-level-%d.png
+ */
+const RIOT_MASTERY_EMBLEM =
+    'https://raw.communitydragon.org/latest/game/assets/ux/mastery/mastery_icon_lvl%d.png';
+
 /* ---- Parties détaillées ------------------------------------------ */
 
 /** Parties chargées d'emblée avec la carte. */
@@ -329,12 +343,33 @@ function riot_fetch_stats(array $cfg, string $accountId): array
     }
 
     $masteryItems = [];
-    foreach (array_slice($masteryData, 0, 3) as $m) {
-        $id = (int)($m['championId'] ?? 0);
+    $masteryKeys  = riot_champion_keys();
+    $masteryVer   = riot_ddragon_version();
+
+    // Référence de la jauge : le champion le plus joué vaut 100 %.
+    $masteryMax = (int)($masteryData[0]['championPoints'] ?? 0);
+
+    foreach (array_slice($masteryData, 0, RIOT_MASTERY_TOP) as $m) {
+        $id     = (int)($m['championId'] ?? 0);
+        $niveau = (int)($m['championLevel'] ?? 0);
+        $points = (int)($m['championPoints'] ?? 0);
+
+        // championName de match-v5 n'est pas fiable pour les noms de fichiers :
+        // on passe par le catalogue Data Dragon comme ailleurs dans le provider.
+        $cle = $masteryKeys[$id] ?? '';
+
         $masteryItems[] = [
             'name'  => $champions[$id] ?? ('Champion ' . $id),
-            'value' => 'Niv. ' . (int)($m['championLevel'] ?? 0)
-                       . ' · ' . number_format((int)($m['championPoints'] ?? 0), 0, ',', ' ') . ' pts',
+            'value' => number_format($points, 0, ',', ' ') . ' pts',
+            'image' => $cle !== ''
+                ? "https://ddragon.leagueoflegends.com/cdn/{$masteryVer}/img/champion/{$cle}.png"
+                : '',
+            'badge' => [
+                'image' => riot_mastery_emblem($niveau),
+                'text'  => (string)$niveau,
+                'title' => 'Maîtrise niveau ' . $niveau,
+            ],
+            'bar'   => $masteryMax > 0 ? (int)round($points / $masteryMax * 100) : 0,
         ];
     }
 
@@ -429,10 +464,11 @@ function riot_fetch_stats(array $cfg, string $accountId): array
                     ],
                 ],
                 [
-                    'type'  => 'list',
-                    'title' => 'Champions favoris',
-                    'items' => $masteryItems,
-                    'empty' => 'Aucune maîtrise',
+                    'type'    => 'list',
+                    'title'   => 'Champions favoris',
+                    'items'   => $masteryItems,
+                    'empty'   => 'Aucune maîtrise',
+                    'variant' => 'champions',
                 ],
             ],
             'links'         => [
@@ -479,6 +515,11 @@ function riot_fetch_stats(array $cfg, string $accountId): array
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
+/** Emblème du niveau de maîtrise. Les niveaux > 10 réutilisent le crest 10. */
+function riot_mastery_emblem(int $niveau): string
+{
+    return sprintf(RIOT_MASTERY_EMBLEM, max(1, min(10, $niveau)));
+}
 
 /**
  * Encadrés du haut de carte. Chaque entrée peut porter, en plus de
