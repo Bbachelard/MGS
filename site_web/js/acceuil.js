@@ -301,6 +301,10 @@ async function construireApercuBibliotheque(
 
         const response = await fetch(url);
 
+        // Riot n'expose pas de bibliothèque de jeux : inutile d'appeler l'endpoint.
+        if (String(platform).toLowerCase() === "riot") {
+            return null;
+        }
 
         if (!response.ok) {
 
