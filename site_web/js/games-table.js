@@ -267,18 +267,6 @@ function dessinerTableau() {
     const lignes = visibles.map(jeu => {
         const meta = GAMES_PLATEFORMES[jeu.platform] || { label: jeu.platform, icon: "" };
         const url  = safeUrl(jeu.storeUrl);
-
-        const alerte = (gamesState.avertissements || []).length
-        ? `<p class="games-warning">${escapeHtml(gamesState.avertissements.join(" · "))}</p>`
-        : "";
-
-        const optionsPlateforme = ['<option value="">Toutes les plateformes</option>']
-        .concat((gamesState.plateformes || []).map(slug => {
-            const meta = GAMES_PLATEFORMES[slug] || { label: slug };
-            const sel  = slug === gamesState.plateforme ? " selected" : "";
-            return `<option value="${escapeHtml(slug)}"${sel}>${escapeHtml(meta.label)}</option>`;
-        }))
-        .join("");
         return `
          <tr>
             <td class="col-platform">
@@ -308,6 +296,17 @@ function dessinerTableau() {
 
     const t = gamesState.totals || {};
 
+    const alerte = (gamesState.avertissements || []).length
+        ? `<p class="games-warning">${escapeHtml(gamesState.avertissements.join(" · "))}</p>`
+        : "";
+
+    const optionsPlateforme = ['<option value="">Toutes les plateformes</option>']
+        .concat((gamesState.plateformes || []).map(slug => {
+            const meta = GAMES_PLATEFORMES[slug] || { label: slug };
+            const sel  = slug === gamesState.plateforme ? " selected" : "";
+            return `<option value="${escapeHtml(slug)}"${sel}>${escapeHtml(meta.label)}</option>`;
+        }))
+        .join("");
     zone.innerHTML = `
         <div class="games-head">
             <h2 class="games-title">${gamesState.lectureSeule ? "Sa bibliothèque" : "Ma bibliothèque"}</h2>
