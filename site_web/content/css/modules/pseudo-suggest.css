@@ -1,0 +1,110 @@
+/* =========================================================
+   AUTOCOMPLÉTION DE PSEUDO (accueil)
+========================================================= */
+
+/* Le champ pseudo devient le repère de positionnement. */
+.pseudo-suggest-host {
+    position: relative;
+}
+
+
+.pseudo-suggest {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 40;
+
+    max-height: 280px;
+    overflow-y: auto;
+
+    margin: 0;
+    padding: 4px;
+
+    list-style: none;
+
+    border: 1px solid #3a3a44;
+    border-radius: 10px;
+
+    background: #1d1d24;
+
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+
+.pseudo-suggest[hidden] {
+    display: none;
+}
+
+
+/* =========================================================
+   LIGNE
+========================================================= */
+
+.pseudo-suggest-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+
+    padding: 9px 12px;
+
+    border-radius: 7px;
+
+    cursor: pointer;
+
+    font-size: 13px;
+    color: #eeeef3;
+
+    transition: background-color 0.12s ease;
+}
+
+
+.pseudo-suggest-item.is-active,
+.pseudo-suggest-item:hover {
+    background: rgba(75, 159, 255, 0.12);
+}
+
+
+.pss-label {
+    min-width: 0;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-weight: 500;
+}
+
+
+/* La portion correspondant à la saisie */
+.pss-label strong {
+    font-weight: 700;
+    color: #4b9fff;
+}
+
+
+/* Nom du compte MGS propriétaire, quand il diffère du pseudo */
+.pss-owner {
+    flex: 0 0 auto;
+
+    font-size: 11px;
+    color: #8a8a99;
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+
+    .pseudo-suggest {
+        max-height: 220px;
+    }
+
+    .pseudo-suggest-item {
+        padding: 11px 12px;
+        font-size: 14px;
+    }
+}

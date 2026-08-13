@@ -95,6 +95,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Plateforme sélectionnée par défaut
     let selectedPlatform = "Steam";
+    // accountId issu d'une suggestion. Non nul = on saute la résolution
+    // par pseudo côté serveur (indispensable pour Epic et Riot sans tag).
+    let selectedAccountId = null;
+
+    const suggest = window.initPseudoSuggest({
+        input: pseudoField,
+        getPlatform: () => selectedPlatform,
+        onSelect: (item) => { selectedAccountId = item.accountId; },
+        onClear:  ()     => { selectedAccountId = null; }
+    });
 
 
     // Ouvre / ferme le menu au clic
@@ -120,6 +130,9 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             selectedPlatform = choix;
+            selectedPlatform = choix;
+            selectedAccountId = null;      // un accountId Steam n'a aucun sens en Riot
+            if (suggest) suggest.fermer();
 
             platformValue.innerHTML =
                 `${choix} <span class="arrow">▾</span>`;
@@ -161,10 +174,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
         try {
+            const params = new URLSearchParams({ platform: selectedPlatform });
 
-            const url =
-                `/php/api.php?platform=${encodeURIComponent(selectedPlatform)}&pseudo=${encodeURIComponent(pseudo)}`;
+            if (selectedAccountId) {
+                params.set("accountId", selectedAccountId);
+            } else {
+                params.set("pseudo", pseudo);
+            }
 
+            const url = `/php/api.php?${params.toString()}`;
 
             const response = await fetch(url);
 
@@ -195,7 +213,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 data,
                 resultBox,
                 selectedPlatform,
-                pseudo
+                pseudo,
+                selectedAccountId 
             );
 
 
@@ -231,15 +250,10 @@ document.addEventListener("DOMContentLoaded", () => {
    Les données passent par games-public.php.
 ========================================================= */
 
-async function afficherResultatAccueil(
-    data,
-    resultBox,
-    platform,
-    pseudo
-) {
+async function afficherResultatAccueil(data, resultBox, platform, pseudo, accountId) {
 
     resultBox.innerHTML = "";
-
+    
 
     // Carte principale créée dans stats-display.js
     const card = construireCarte(data);
@@ -259,12 +273,7 @@ async function afficherResultatAccueil(
 
 
     // Chargement aperçu bibliothèque
-    const apercu =
-        await construireApercuBibliotheque(
-            platform,
-            pseudo
-        );
-
+    const apercu = await construireApercuBibliotheque(platform, pseudo, accountId);
 
     loader.remove();
 
@@ -295,10 +304,16 @@ async function construireApercuBibliotheque(
 
     try {
 
-        const url =
-            `/php/games-public.php?platform=${encodeURIComponent(platform)}&pseudo=${encodeURIComponent(pseudo)}`;
+        const params = new URLSearchParams({ platform: platform });
 
+        if (accountId) {
+            params.set("accountId", accountId);
+        } else {
+            params.set("pseudo", pseudo);
+        }
 
+        const url = `/php/games-public.php?${params.toString()}`;
+        
         const response = await fetch(url);
 
         // Riot n'expose pas de bibliothèque de jeux : inutile d'appeler l'endpoint.
