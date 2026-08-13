@@ -465,7 +465,7 @@ function steam_fetch_stats(array $cfg, string $accountId): array
                 ['label' => 'Profil',             'value' => ((int)($player['communityvisibilitystate'] ?? 1)) === 3 ? 'Public' : 'Privé'],
                 ['label' => 'Niveau Steam',       'value' => (string)($level['response']['player_level'] ?? '-')],
                 ['label' => 'XP',                 'value' => (string)($badges['response']['player_xp'] ?? '-')],
-                ['label' => 'Pays',               'value' => $player['loccountrycode'] ?: '-'],
+                ['label' => 'Pays', 'value' => ($player['loccountrycode'] ?? '') ?: '-'],
                 ['label' => 'Membre depuis',      'value' => isset($player['timecreated']) ? date('d/m/Y', (int)$player['timecreated']) : 'Inconnue'],
                 ['label' => 'Dernière connexion', 'value' => isset($player['lastlogoff']) ? date('d/m/Y H:i', (int)$player['lastlogoff']) : 'Inconnue'],
                 ['label' => 'Jeux possédés',      'value' => (string)count($ownedGames)],
