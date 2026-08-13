@@ -130,7 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             selectedPlatform = choix;
-            selectedAccountId = null;      // un accountId Steam n'a aucun sens en Riot
+            selectedAccountId = null;    
             if (suggest) suggest.fermer();
 
             platformValue.innerHTML =
@@ -258,6 +258,14 @@ async function afficherResultatAccueil(data, resultBox, platform, pseudo, accoun
     const card = construireCarte(data);
 
     resultBox.appendChild(card);
+
+
+    // Volontairement non bloquant : si l'endpoint tombe, la carte
+    // reste affichée sans ce bloc.
+    construireBlocMgs(data.platform, data.accountId)
+        .then(bloc => { if (bloc) card.appendChild(bloc); });
+    // ------------------------------------------------------------
+
 
 
     // Loader pendant le chargement de la bibliothèque
@@ -534,4 +542,125 @@ function formaterHeuresAccueil(valeur) {
             minimumFractionDigits: 1
         }
     ) + "h";
+}
+
+/* =========================================================
+   BLOC "MEMBRE MGS"
+
+   Si le compte de plateforme affiché est rattaché à un profil
+   du site, on propose l'action adaptée à la relation :
+
+     guest             -> "connecte-toi pour voir"
+     self              -> mon profil
+     friend            -> son profil
+     pending_sent      -> demande déjà envoyée (pas de bouton)
+     pending_received  -> il t'a déjà demandé -> inbox
+     none              -> ajouter en ami
+========================================================= */
+
+async function construireBlocMgs(platform, accountId) {
+
+    if (!platform || !accountId) {
+        return null;
+    }
+
+    let info;
+
+    try {
+
+        const params = new URLSearchParams({
+            platform:  platform,
+            accountId: accountId
+        });
+
+        const response = await fetch(
+            `/php/account-owner.php?${params.toString()}`
+        );
+
+        if (!response.ok) {
+            return null;
+        }
+
+        info = await response.json();
+
+    } catch (err) {
+
+        // Un compte non rattaché est le cas normal : pas de bruit console.
+        return null;
+    }
+
+
+    if (!info || info.isMember !== true) {
+        return null;
+    }
+
+
+    const pseudo   = String(info.username || "");
+    const relation = String(info.relation || "none");
+    const url      = String(info.url || "");
+
+
+    // Libellés par relation. Une seule table : pas de if en cascade
+    // à rallonger le jour où un état s'ajoute.
+    const LIBELLES = {
+        guest: {
+            note:   "Connecte-toi pour voir son profil.",
+            bouton: "Se connecter"
+        },
+        self: {
+            note:   "C'est ton compte.",
+            bouton: "Mon profil"
+        },
+        friend: {
+            note:   "Vous êtes amis.",
+            bouton: "Voir son profil"
+        },
+        pending_sent: {
+            note:   "Demande d'ami déjà envoyée.",
+            bouton: null
+        },
+        pending_received: {
+            note:   "Il t'a envoyé une demande d'ami.",
+            bouton: "Répondre"
+        },
+        none: {
+            note:   "Ajoute-le pour voir son profil.",
+            bouton: "Ajouter en ami"
+        }
+    };
+
+    const libelle = LIBELLES[relation] || LIBELLES.none;
+
+
+    const bloc = document.createElement("div");
+
+    bloc.className = "mgs-owner"
+                   + (relation === "guest" ? " mgs-owner--guest" : "");
+
+
+    // L'initiale sert d'avatar : même parti pris que .friend-avatar
+    // dans inbox.php, on n'a pas d'image de profil MGS.
+    const initiale = pseudo ? pseudo.charAt(0) : "?";
+
+    const bouton = (libelle.bouton && url)
+        ? `<div class="mgs-owner-action">
+               <a class="link-btn link-btn--sm" href="${escapeHtml(url)}">
+                   ${escapeHtml(libelle.bouton)}
+               </a>
+           </div>`
+        : "";
+
+    bloc.innerHTML = `
+        <div class="mgs-owner-avatar">${escapeHtml(initiale)}</div>
+
+        <div class="mgs-owner-body">
+            <span class="mgs-owner-label">Membre MGS</span>
+            <span class="mgs-owner-name">${escapeHtml(pseudo)}</span>
+            <span class="mgs-owner-note">${escapeHtml(libelle.note)}</span>
+        </div>
+
+        ${bouton}
+    `;
+
+    return bloc;
 }

@@ -36,3 +36,43 @@ function mgs_resolve_profile_target(mysqli $conn, int $viewerId, mixed $requeste
 
     return mgs_are_friends($conn, $viewerId, $targetId) ? $targetId : null;
 }
+
+
+/**
+ * État de la relation entre deux utilisateurs, du point de vue de $viewerId.
+ *
+ * Retourne : 'friend' | 'pending_sent' | 'pending_received' | 'none'
+ *
+ * Un refus antérieur ('refused' / 'declined' en base) est traité comme
+ * 'none' : rien n'interdit de retenter, et c'est add_friend.php qui
+ * arbitre au moment de l'envoi.
+ */
+function mgs_friendship_state(mysqli $conn, int $viewerId, int $otherId): string
+{
+    $stmt = $conn->prepare(
+        "SELECT sender_id, status FROM friendships
+          WHERE (sender_id = ? AND receiver_id = ?)
+             OR (sender_id = ? AND receiver_id = ?)
+          LIMIT 1"
+    );
+    $stmt->bind_param('iiii', $viewerId, $otherId, $otherId, $viewerId);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($row === null) {
+        return 'none';
+    }
+
+    if ($row['status'] === 'accepted') {
+        return 'friend';
+    }
+
+    if ($row['status'] === 'pending') {
+        return ((int) $row['sender_id'] === $viewerId)
+            ? 'pending_sent'
+            : 'pending_received';
+    }
+
+    return 'none';
+}

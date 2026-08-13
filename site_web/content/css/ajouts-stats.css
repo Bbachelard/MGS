@@ -24,6 +24,7 @@
 
 /* --- Accueil --- */
 @import url("modules/library-preview.css");
+@import url("modules/home-card.css");    
 /* =========================================================
    CARTE DE STATS - ACCUEIL
 ========================================================= */
