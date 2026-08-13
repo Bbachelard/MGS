@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
-
+ini_set('display_errors', '1');
+error_reporting(E_ALL);
 require_once __DIR__ . '/platforms.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -77,19 +78,11 @@ if (!$stats['ok']) {
     mgs_json_error($stats['status'] ?? 502, $stats['error']);
 }
 
-$stats = mgs_provider_call($slug, 'fetch_stats', $config['PLATFORMS'][$slug] ?? [], $accountId);
-
-if (!$stats['ok']) {
-    mgs_json_error($stats['status'] ?? 502, $stats['error']);
-}
-
-// --- AJOUT : mémorise le pseudo du compte s'il est lié à un profil MGS.
-if (isset($conn) && $conn instanceof mysqli) {
+if (isset($conn) && $conn instanceof mysqli && is_file(__DIR__ . '/suggest-model.php')) {
     require_once __DIR__ . '/suggest-model.php';
     mgs_remember_display_name($conn, $slug, $accountId, $stats['card']['displayName'] ?? null);
 }
 
-$json = json_encode($stats['card'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 $json = json_encode($stats['card'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
 @file_put_contents($cacheFile, $json, LOCK_EX);

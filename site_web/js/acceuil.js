@@ -130,7 +130,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             selectedPlatform = choix;
-            selectedPlatform = choix;
             selectedAccountId = null;      // un accountId Steam n'a aucun sens en Riot
             if (suggest) suggest.fermer();
 
@@ -299,7 +298,8 @@ async function afficherResultatAccueil(data, resultBox, platform, pseudo, accoun
 
 async function construireApercuBibliotheque(
     platform,
-    pseudo
+    pseudo,
+    accountId
 ) {
 
     try {
