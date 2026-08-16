@@ -29,19 +29,61 @@ async function chargerProfil() {
     container.innerHTML = `<p class="stats-loading">Chargement des stats...</p>`;
 
     let status;
+    let reponseOk = false;
+
     try {
         const response = await fetch(`/php/session-status.php${PROFILE_QS}`, { credentials: "include" });
-        status = await response.json();
+        reponseOk = response.ok;
+
+        // Corps lu en TEXTE d'abord : une panne serveur peut renvoyer un
+        // corps vide ou du HTML, et response.json() lèverait une exception
+        // qui masquerait le vrai code HTTP.
+        const texte = await response.text();
+        status = texte ? JSON.parse(texte) : null;
     } catch (err) {
         console.error("session-status:", err);
         container.innerHTML = `<p class="stats-error">Impossible de charger le profil.</p>`;
         return;
     }
 
+    /* Une erreur serveur n'est PAS une déconnexion.
+       Sans ce contrôle, un 500 sur session-status.php renvoyait un objet
+       sans clé "connected" : le test ci-dessous le prenait pour une
+       session expirée et redirigeait vers la page de connexion, qui
+       renvoyait aussitôt vers ce profil puisque la session, elle, était
+       bien valide — la page se rechargeait en boucle. */
+    if (!reponseOk) {
+        const detail = (status && status.error) || `Erreur ${"" + status}`;
+        console.error("session-status:", detail);
+        container.innerHTML =
+            `<p class="stats-error">Le serveur n'a pas pu charger ce profil.<br>`
+            + `${escapeHtml(detail)}</p>`;
+        return;
+    }
+
+    if (!status) {
+        container.innerHTML = `<p class="stats-error">Réponse vide du serveur.</p>`;
+        return;
+    }
+
     if (!status.connected) {
+        // Garde anti-boucle : on ne repart vers la connexion qu'une fois.
+        // Si on en revient déjà, mieux vaut afficher le problème que de
+        // faire clignoter le navigateur indéfiniment.
+        if (sessionStorage.getItem("mgs-redirect-connexion") === "1") {
+            sessionStorage.removeItem("mgs-redirect-connexion");
+            container.innerHTML =
+                `<p class="stats-error">Session non reconnue par le serveur. `
+                + `<a href="/connexion/index.php">Se reconnecter</a></p>`;
+            return;
+        }
+
+        sessionStorage.setItem("mgs-redirect-connexion", "1");
         window.location.href = "/connexion/index.php";
         return;
     }
+
+    sessionStorage.removeItem("mgs-redirect-connexion");
 
     if (status.error) {
         container.innerHTML = `<p class="stats-error">${escapeHtml(status.error)}</p>`;
