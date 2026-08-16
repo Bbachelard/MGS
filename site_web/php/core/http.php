@@ -20,6 +20,12 @@ const MGS_JSON_FLAGS = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
  */
 function mgs_json_header(?int $cacheSeconds = null): void
 {
+    // Signale au gestionnaire d'erreur fatale de bootstrap.php qu'il doit
+    // répondre en JSON, pas en HTML.
+    if (!defined('MGS_REPONSE_JSON')) {
+        define('MGS_REPONSE_JSON', true);
+    }
+
     header('Content-Type: application/json; charset=utf-8');
 
     if ($cacheSeconds !== null) {
