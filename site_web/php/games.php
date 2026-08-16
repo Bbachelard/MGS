@@ -1,75 +1,49 @@
 <?php
 declare(strict_types=1);
 
-session_start();
+/**
+ * php/games.php — bibliothèque d'un profil connecté (ou d'un ami).
+ *
+ *   GET /php/games.php?platform=steam[&userId=42][&accountId=…]
+ *
+ * L'accountId transmis par le client est TOUJOURS recoupé avec la base
+ * (mgs_resolve_owned_account) : sans ça, n'importe qui ferait scanner la
+ * bibliothèque d'un tiers via notre serveur et notre clé d'API.
+ */
 
-require_once __DIR__ . '/platforms.php';
-require_once __DIR__ . '/links-model.php';
+require_once __DIR__ . '/core/bootstrap.php';
+require_once __DIR__ . '/core/account-resolver.php';
 require_once __DIR__ . '/friends-model.php';
 
-$config = require __DIR__ . '/../config.php';
+mgs_session_start();
+mgs_json_header();
 
-header('Content-Type: application/json; charset=utf-8');
+$viewerId = mgs_require_login();
 
-function mgs_games_error(int $status, string $message): never
-{
-    http_response_code($status);
-    echo json_encode(['error' => $message], JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
-if (!isset($_SESSION['user_id'])) {
-    mgs_games_error(401, 'Session expirée, reconnecte-toi.');
-}
-$viewerId = (int) $_SESSION['user_id'];
+// Plus rien n'a besoin d'écrire en session : on la relâche pour ne pas
+// sérialiser les requêtes parallèles du profil.
 session_write_close();
 
 $targetId = mgs_resolve_profile_target($conn, $viewerId, $_GET['userId'] ?? null);
 
 if ($targetId === null) {
-    mgs_games_error(403, "Vous devez être ami avec cet utilisateur.");
+    mgs_fail(403, 'Vous devez être ami avec cet utilisateur.');
 }
 
-$slug = mgs_resolve_platform($_GET['platform'] ?? '');
+[$slug, $platform] = mgs_require_platform($_GET['platform'] ?? null, 'fetch_games', 'Bibliothèque');
 
-if ($slug === null) {
-    mgs_games_error(400, 'Plateforme inconnue.');
-}
+$accountId = mgs_resolve_owned_account($conn, $targetId, $slug, $platform);
 
-$platform = mgs_platform($slug);
-
-if (!$platform['enabled'] || !mgs_load_provider($slug) || !mgs_provider_supports($slug, 'fetch_games')) {
-    mgs_games_error(501, 'Bibliothèque indisponible pour ' . $platform['label'] . '.');
-}
-
-/* Avec plusieurs comptes possibles, le client peut préciser lequel il veut.
-   Mais l'accountId reçu est TOUJOURS recoupé avec la base : sans ça,
-   n'importe qui ferait scanner la bibliothèque d'un tiers via notre serveur
-   et notre clé API. Sans paramètre, on retombe sur le compte principal. */
-$accountId = trim((string)($_GET['accountId'] ?? ''));
-
-if ($accountId !== '') {
-    if (!mgs_user_owns_account($conn, $targetId, $slug, $accountId)) {
-        mgs_games_error(403, 'Ce compte ne fait pas partie de ce profil.');
-    }
-} else {
-    $accountId = mgs_get_primary_account($conn, $targetId, $slug);
-}
-
-if ($accountId === null || $accountId === '') {
-    mgs_games_error(404, 'Aucun compte ' . $platform['label'] . ' lié.');
-}
-
-$result = mgs_provider_call($slug, 'fetch_games', $config['PLATFORMS'][$slug] ?? [], $accountId);
+$result = mgs_provider_call($slug, 'fetch_games', mgs_platform_config($slug), $accountId);
 
 if (!$result['ok']) {
-    mgs_games_error($result['status'] ?? 502, $result['error']);
+    mgs_fail($result['status'] ?? 502, $result['error']);
 }
 
-echo json_encode([
+mgs_json([
     'platform'  => $slug,
     'label'     => $platform['label'],
     'accountId' => $accountId,
     'games'     => $result['games'],
     'totals'    => $result['totals'],
-], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+]);

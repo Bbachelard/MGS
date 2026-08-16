@@ -1,93 +1,93 @@
 <?php
 declare(strict_types=1);
 
-session_start();
+/**
+ * php/link.php — liaison d'un compte de plateforme par OAuth / OpenID.
+ *
+ * Le même script sert l'aller et le retour :
+ *   aller  : on redirige vers la plateforme avec un state signé en session
+ *   retour : la plateforme nous renvoie ici, on valide le state puis on
+ *            enregistre le compte
+ *
+ * C'est le provider qui tranche via <slug>_should_complete_link().
+ */
 
-require_once __DIR__ . '/platforms.php';
+require_once __DIR__ . '/core/bootstrap.php';
 require_once __DIR__ . '/links-model.php';
 
-$config = require __DIR__ . '/../config.php';
+mgs_session_start();
 
-$siteUrl   = rtrim($config['SITE_URL'], '/');
-$loggedUrl = $siteUrl . '/logged/index.php';
+$loggedUrl = mgs_site_url() . '/logged/index.php';
 
-function mgs_link_redirect(string $url): never
-{
-    header('Location: ' . $url);
-    exit;
-}
+$userId = mgs_user_id();
 
-if (mgs_load_provider('epic')) {
-    epic_log('ENTREE get=' . json_encode($_GET) . ' sid=' . session_id());
-}
-
-if (!isset($_SESSION['user_id'])) {
-    mgs_link_redirect($siteUrl . '/connexion/index.php?error=session');
+if ($userId === null) {
+    mgs_redirect(mgs_site_url() . '/connexion/index.php?error=session');
 }
 
 $slug     = mgs_resolve_platform($_GET['platform'] ?? $_SESSION['link_platform'] ?? '');
 $platform = mgs_platform($slug);
 
 if ($slug === null || !$platform['linkable'] || !mgs_load_provider($slug)) {
-    mgs_link_redirect($loggedUrl . '?error=platform_indisponible');
+    mgs_redirect($loggedUrl . '?error=platform_indisponible');
 }
 
-$userId = (int)$_SESSION['user_id'];
+$platformCfg = mgs_platform_config($slug);
 
-/* --- Aller : on part vers la plateforme --- */
+/* ------------------------------------------------------------------
+   Aller : on part vers la plateforme
+------------------------------------------------------------------ */
 if (!mgs_provider_call($slug, 'should_complete_link')) {
 
     if (mgs_count_accounts($conn, $userId, $slug) >= mgs_max_accounts($slug)) {
-        mgs_link_redirect($loggedUrl . '?error=max&platform=' . $slug);
+        mgs_redirect($loggedUrl . '?error=max&platform=' . $slug);
     }
 
     $state = bin2hex(random_bytes(16));
+
     $_SESSION['link_state']    = $state;
-    $_SESSION['link_platform'] = $slug;   
+    $_SESSION['link_platform'] = $slug;
 
-    $returnUrl = $siteUrl . '/php/link.php?platform=' . $slug . '&state=' . $state;
+    $returnUrl = mgs_site_url() . '/php/link.php?platform=' . $slug . '&state=' . $state;
 
-    mgs_link_redirect(
-        mgs_provider_call($slug, 'begin_link', $config['PLATFORMS'][$slug] ?? [], $returnUrl)
-    );
+    mgs_redirect(mgs_provider_call($slug, 'begin_link', $platformCfg, $returnUrl));
 }
 
-/* --- Retour : on valide --- */
-$state = (string)($_GET['state'] ?? '');
+/* ------------------------------------------------------------------
+   Retour : on valide le state avant toute chose (anti-CSRF)
+------------------------------------------------------------------ */
+$state = (string) ($_GET['state'] ?? '');
 
 if ($state === ''
     || !isset($_SESSION['link_state'])
     || !hash_equals($_SESSION['link_state'], $state)
     || ($_SESSION['link_platform'] ?? '') !== $slug) {
-    mgs_link_redirect($loggedUrl . '?error=state&platform=' . $slug);
+    mgs_redirect($loggedUrl . '?error=state&platform=' . $slug);
 }
 
 unset($_SESSION['link_state'], $_SESSION['link_platform']);
 
-$returnUrl = $siteUrl . '/php/link.php?platform=' . $slug . '&state=' . $state;
-$result    = mgs_provider_call($slug, 'complete_link', $config['PLATFORMS'][$slug] ?? [], $returnUrl);
+$returnUrl = mgs_site_url() . '/php/link.php?platform=' . $slug . '&state=' . $state;
+$result    = mgs_provider_call($slug, 'complete_link', $platformCfg, $returnUrl);
 
-/* ===== C'EST ICI QUE VA LE NOUVEAU BLOC ===== */
 if (!$result['ok']) {
 
     // Action corrective Epic : on renvoie l'utilisateur donner son accord.
-    // Le state est remis en session car Epic reviendra avec un nouveau code.
     if (($result['reason'] ?? '') === 'consent' && !empty($result['continuationUrl'])) {
-        $_SESSION['link_consent_url'] = (string)$result['continuationUrl'];
-        mgs_link_redirect($loggedUrl . '?error=consent&platform=' . $slug);
+        $_SESSION['link_consent_url'] = (string) $result['continuationUrl'];
+        mgs_redirect($loggedUrl . '?error=consent&platform=' . $slug);
     }
 
-    mgs_link_redirect(
+    mgs_redirect(
         $loggedUrl . '?error=auth&platform=' . $slug
-        . '&reason=' . urlencode((string)($result['reason'] ?? 'inconnu'))
+        . '&reason=' . urlencode((string) ($result['reason'] ?? 'inconnu'))
     );
 }
-/* ===== FIN DU NOUVEAU BLOC ===== */
 
-$ajout = mgs_add_link($conn, $userId, $slug, (string)$result['accountId']);
+$ajout = mgs_add_link($conn, $userId, $slug, (string) $result['accountId']);
 
 if (!$ajout['ok']) {
-    mgs_link_redirect($loggedUrl . '?error=' . urlencode($ajout['code']) . '&platform=' . $slug);
+    mgs_redirect($loggedUrl . '?error=' . urlencode($ajout['code']) . '&platform=' . $slug);
 }
 
-mgs_link_redirect($loggedUrl . '?linked=' . $slug);
+mgs_redirect($loggedUrl . '?linked=' . $slug);

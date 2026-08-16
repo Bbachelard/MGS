@@ -1,5 +1,17 @@
 {
+    "name": "bbachelard/mgs",
+    "description": "My Gamers Stats — agrégateur de statistiques de jeu (Steam, Riot, Epic).",
+    "type": "project",
+    "license": "proprietary",
     "require": {
+        "php": ">=8.3",
+        "ext-curl": "*",
+        "ext-mysqli": "*",
         "xpaw/steam-openid": "^4.0",
         "phpmailer/phpmailer": "^6.9"
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true
     }
+}

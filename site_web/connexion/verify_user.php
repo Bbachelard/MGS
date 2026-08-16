@@ -1,38 +1,46 @@
 <?php
+declare(strict_types=1);
 
-require __DIR__ . '/../config.php';
-session_start();
+/**
+ * connexion/verify_user.php — traitement du formulaire de connexion.
+ *
+ * Le message d'erreur est volontairement le même que l'identifiant
+ * n'existe pas ou que le mot de passe soit faux : distinguer les deux
+ * permettrait d'énumérer les comptes du site.
+ */
 
-$username = $_POST['username'];
-$password = $_POST['password'];
+require_once __DIR__ . '/../php/core/bootstrap.php';
 
-$stmt = $conn->prepare(
-    "SELECT id, password_hash FROM users WHERE username = ?"
-);
+mgs_session_start();
 
-$stmt->bind_param("s", $username);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    mgs_redirect('index.php');
+}
+
+$username = trim((string) ($_POST['username'] ?? ''));
+$password = (string) ($_POST['password'] ?? '');
+
+if ($username === '' || $password === '') {
+    mgs_redirect('index.php?error=invalid');
+}
+
+$stmt = $conn->prepare('SELECT id, password_hash FROM users WHERE username = ? LIMIT 1');
+$stmt->bind_param('s', $username);
 $stmt->execute();
+$row = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
+/* password_verify() est appelé même sans utilisateur, sur un haché
+   factice : sans ça, le temps de réponse trahirait l'existence du
+   compte (attaque temporelle). */
+const MGS_DUMMY_HASH = '$2y$12$3uhneKa2cdj.qya4jmvCC.DmnVnSovuKmZ6tUE/1/FP2mA1dzaKmC';
 
-if ($row === null) {
-    // L'utilisateur n'existe pas
-    header("Location: index.php?error=invalid");
-    exit();
+$hash = (string) ($row['password_hash'] ?? MGS_DUMMY_HASH);
+
+if ($row === null || !password_verify($password, $hash)) {
+    mgs_redirect('index.php?error=invalid');
 }
 
-if (password_verify($password, $row['password_hash'])) {
+mgs_login((int) $row['id'], $username);
 
-    session_regenerate_id(true);
-
-    $_SESSION["logged"] = true;
-    $_SESSION["user_id"] = $row['id'];
-    $_SESSION["username"] = $username;
-
-    header("Location: ../logged/index.php");
-    exit();
-}
-
-header("Location: index.php?error=invalid");
-exit();
+mgs_redirect('../logged/index.php');

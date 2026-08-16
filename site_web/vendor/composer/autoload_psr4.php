@@ -7,4 +7,5 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'xPaw\\Steam\\' => array($vendorDir . '/xpaw/steam-openid/src'),
+    'PHPMailer\\PHPMailer\\' => array($vendorDir . '/phpmailer/phpmailer/src'),
 );
