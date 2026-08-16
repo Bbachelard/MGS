@@ -2,6 +2,16 @@
 declare(strict_types=1);
 
 /**
+ * Racine du site (site_web/). Les providers construisaient leurs chemins
+ * de cache en remontant « ../.. » depuis __DIR__ : ça casse dès qu'un
+ * fichier change de profondeur, ce qui vient d'arriver au découpage de
+ * riot.php. Une constante ancrée sur platforms.php ne bouge plus.
+ */
+if (!defined('MGS_ROOT')) {
+    define('MGS_ROOT', dirname(__DIR__));
+}
+
+/**
  * Registre central des plateformes.
  *  - enabled    : un provider existe et fonctionne
  *  - linkable   : on sait lier un compte (OpenID / OAuth)

@@ -67,11 +67,9 @@
 <meta name="application-name" content="My Gamers Stats">
 
 
-    <link rel="stylesheet" href="./content/css/stylesheet.css?v=5">
-    <link rel="stylesheet" href="./content/css/styleAceuil.css?v=5">
-    <link rel="stylesheet" href="./content/css/ajouts-stats.css?v=6">
-    <link rel="stylesheet" href="./content/css/modules/pseudo-suggest.css?v=1">
-    <link href="https://googleapis.com" rel="stylesheet">
+    <link rel="stylesheet" href="./content/css/stylesheet.css?v=7">
+    <link rel="stylesheet" href="./content/css/styleAceuil.css?v=7">
+    <link rel="stylesheet" href="./content/css/ajouts-stats.css?v=7">
 </head>
 <body class="home">
 
@@ -92,13 +90,13 @@
                 width="700"
                 alt="My Gamers Stats">
         </div>
-    </br>
-    </br>
+    <br>
+    <br>
     <div class="hero-text">
         <h1>Bienvenue sur <span>my-gamers-stats.com</span></h1>
         <p>Recherchez un Steam ID, un pseudo ou un Riot ID pour découvrir vos statistiques.</p>
     </div>
-    </br>
+    <br>
         <form action="" method="get" class="form-example" id="statsForm">
             <div class="platform-card">
                 <div class="platform-select" id="platformSelect">
@@ -134,11 +132,14 @@
         </div>
     </main>
 
-    <script src="js/match-detail.js?v=1"></script>
-    <script src="js/stats-display.js?v=2"></script>
-    <script src="js/pseudo-suggest.js?v=1"></script>
-    <script src="js/acceuil.js?v=5"></script>
-    <script src="js/runner-bg.js" defer></script>
+    <!-- mgs-core.js expose MGS.* (échappement, registre des plateformes,
+         formatage) : il doit rester en premier, les autres en dépendent. -->
+    <script src="js/core/mgs-core.js?v=7"></script>
+    <script src="js/match-detail.js?v=7"></script>
+    <script src="js/stats-display.js?v=7"></script>
+    <script src="js/pseudo-suggest.js?v=7"></script>
+    <script src="js/acceuil.js?v=7"></script>
+    <script src="js/runner-bg.js?v=7" defer></script>
     
 </body>
 </html>

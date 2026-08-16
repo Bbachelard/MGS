@@ -15,13 +15,10 @@ const VERIFY_AIDES = {
 
 let verifyModal = null;
 
-function verifyEscape(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+/* Échappement mutualisé (js/core/mgs-core.js). La version locale
+   oubliait l'apostrophe : un pseudo contenant « ' » cassait tout
+   attribut HTML délimité par des apostrophes. */
+const verifyEscape = MGS.escapeHtml;
 
 /**
  * Appelle verify.php.

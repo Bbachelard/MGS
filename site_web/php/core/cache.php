@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/platforms.php';   // MGS_ROOT
+
 /* ==================================================================
  *  php/core/cache.php — cache disque des réponses d'API externes.
  *
@@ -15,7 +17,7 @@ declare(strict_types=1);
 /** Racine des caches, hors arborescence publique servie par le serveur. */
 function mgs_cache_dir(string $espace): string
 {
-    $dir = dirname(__DIR__, 2) . '/cache/' . $espace;
+    $dir = MGS_ROOT . '/cache/' . $espace;
 
     if (!is_dir($dir)) {
         @mkdir($dir, 0775, true);

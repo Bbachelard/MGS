@@ -1,0 +1,29 @@
+/* ============================================================
+   BASE — fond, typographie, variables de thème
+   ------------------------------------------------------------
+   Les variables :root vivaient dans styleAceuil.css, chargé sur
+   la SEULE page d'accueil : partout ailleurs, l'accent violet
+   était réécrit en dur (#7c5cff apparaissait dans 6 fichiers).
+   Elles sont ici, donc disponibles sur toutes les pages.
+   ============================================================ */
+
+:root {
+    --accent:      #7c5cff;
+    --accent-dark: #5b3fd9;
+    --bg-dark:     #1f1f1f;
+    --card-bg:     #2a2a33;
+    --text:        #ffffff;
+    --text-muted:  #9a9aa5;
+    --border:      #3a3a45;
+}
+
+html {
+    background-color: #1f1f1f;
+    color: white;
+}
+
+body {
+    background-color: #1f1f1f;
+    margin: 0;
+    font-family: 'Roboto', sans-serif;
+}

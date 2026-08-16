@@ -1,0 +1,224 @@
+/* ============================================================
+   ACCUEIL — logo cliquable et barre de recherche
+   (sélecteur de plateforme, champ pseudo, bouton)
+   ============================================================ */
+
+.titre {
+    background-color: var(--bg-dark);
+    display: flex;
+    justify-content: center;
+    padding: 28px 0 6px;
+}
+
+.platform-card {
+    display: flex;
+    align-items: stretch;
+    background: linear-gradient(145deg, #2f2f38, #262630);
+    border: 1px solid #3a3a45;
+    border-radius: 12px;
+    padding: 12px 24px;
+    width: 100%;
+    max-width: 580px;
+    margin: 24px auto 0;
+    gap: 15px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    box-sizing: border-box;
+}
+
+/* --- Logo principal : effet bouton arcade au clic --- */
+.titre img {
+    cursor: pointer;
+    max-width: 90%;
+    height: auto;
+    transition: transform 0.12s ease, filter 0.12s ease;
+    filter: drop-shadow(0 10px 0 rgba(124, 92, 255, 0.35));
+    -webkit-tap-highlight-color: transparent;
+}
+
+.titre img:hover {
+    filter: drop-shadow(0 10px 0 rgba(124, 92, 255, 0.55));
+}
+
+.titre img.is-pressed {
+    animation: arcade-press 0.32s cubic-bezier(0.3, 0, 0.4, 1);
+}
+
+@keyframes arcade-press {
+    0% {
+        transform: translateY(0) scale(1);
+        filter: drop-shadow(0 10px 0 rgba(124, 92, 255, 0.35)) brightness(1);
+    }
+    35% {
+        transform: translateY(9px) scale(0.96);
+        filter: drop-shadow(0 1px 0 rgba(124, 92, 255, 0.35)) brightness(0.82);
+    }
+    70% {
+        transform: translateY(-2px) scale(1.02);
+        filter: drop-shadow(0 12px 0 rgba(124, 92, 255, 0.35)) brightness(1.05);
+    }
+    100% {
+        transform: translateY(0) scale(1);
+        filter: drop-shadow(0 10px 0 rgba(124, 92, 255, 0.35)) brightness(1);
+    }
+}
+
+.platform-select {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+.platform-toggle {
+    display: flex;
+    flex-direction: column;
+    color: #fff;
+    cursor: pointer;
+    user-select: none;
+    padding: 5px 0;
+}
+
+.platform-toggle .value {
+    color: #999;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    transition: color 0.2s ease;
+}
+
+.platform-select:hover .platform-toggle .value {
+    color: #fff;
+}
+
+.platform-toggle .arrow {
+    font-size: 10px;
+    color: var(--accent);
+    transition: transform 0.2s ease;
+}
+
+.platform-select.open .platform-toggle .arrow {
+    transform: rotate(180deg);
+}
+
+.platform-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    width: 220px;
+    max-width: 90vw;
+    background-color: #1f1f26;
+    border: 1px solid #444;
+    border-radius: 8px;
+    list-style: none;
+    overflow: hidden;
+    z-index: 10;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+.platform-select.open .platform-menu {
+    display: block;
+}
+
+.platform-menu li {
+    padding: 12px 16px;
+    color: #ddd;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.platform-menu li:hover {
+    background-color: var(--accent);
+    color: #fff;
+}
+
+.divider {
+    width: 1px;
+    background-color: #444;
+    margin: 4px 0;
+}
+
+.pseudo-input {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+    min-width: 0;
+}
+
+.pseudo-field {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 14px;
+    outline: none;
+    padding: 5px 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.pseudo-field::placeholder {
+    color: #999;
+}
+
+.search-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0 22px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.15s ease;
+    flex-shrink: 0;
+}
+
+.search-btn:hover {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+}
+
+/* ================= RESPONSIVE ================= */
+
+@media (max-width: 640px) {
+    .titre {
+        padding: 20px 16px 6px;
+    }
+
+    .platform-card {
+        max-width: 92%;
+        margin-top: 16px;
+        flex-wrap: wrap;
+        row-gap: 10px;
+        padding: 14px 16px;
+    }
+
+    .platform-select {
+        flex-basis: 100%;
+    }
+
+    .divider {
+        display: none;
+    }
+
+    .pseudo {
+        flex-basis: 100%;
+    }
+
+    .pseudo-field {
+        border-top: 1px solid #3a3a45;
+        padding-top: 10px;
+    }
+
+    .search-btn {
+        width: 100%;
+        padding: 10px 0;
+        margin-top: 4px;
+    }
+
+    .platform-menu {
+        width: 100%;
+    }
+}

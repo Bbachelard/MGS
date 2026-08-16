@@ -256,7 +256,7 @@ function epic_complete_link(array $cfg, string $returnUrl): array
 
 function epic_cache_pseudo(string $accountId, ?string $pseudo = null): ?string
 {
-    $dir = __DIR__ . '/../../cache/epic';
+    $dir = MGS_ROOT . '/cache/epic';
 
     if (!is_dir($dir)) {
         @mkdir($dir, 0775, true);

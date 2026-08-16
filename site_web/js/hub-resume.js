@@ -15,15 +15,9 @@
         .hub-counters  -> compteurs secondaires
    ============================================================ */
 
-const HUB_COULEURS = {
-    steam: "#66c0f4",
-    riot:  "#e84057",
-    epic:  "#7c5cff",
-};
-
-function hubCouleur(slug) {
-    return HUB_COULEURS[slug] || "#7c5cff";
-}
+/* Les couleurs de plateforme viennent du registre partagé
+   (js/core/mgs-core.js), au même endroit que les libellés et les icônes. */
+const hubCouleur = MGS.platformColor;
 
 /* HEX -> HSL, pour pouvoir décliner une teinte sans coder 12 constantes. */
 function hubHexHsl(hex) {
@@ -59,11 +53,10 @@ function hubNuance(slug, rang = 0, total = 1) {
     return `hsl(${h} ${Math.round(s)}% ${Math.round(lum)}%)`;
 }
 
+/* Le formatage numérique lui-même est mutualisé ; seul le choix des
+   décimales reste propre à chaque écran. */
 function hubNombre(valeur, decimales = 0) {
-    return Number(valeur || 0).toLocaleString("fr-FR", {
-        minimumFractionDigits: decimales,
-        maximumFractionDigits: decimales,
-    });
+    return MGS.formaterNombre(valeur || 0, decimales);
 }
 
 /* Arrondi volontairement grossier : la valeur d'une bibliothèque est une

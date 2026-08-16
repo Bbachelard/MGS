@@ -9,17 +9,6 @@ const STEAM_PRIX_CACHE_JOURS = 30;
 /** Nombre d'appels au Store par chargement. Le cache se remplit progressivement. */
 const STEAM_PRIX_PAR_APPEL = 25;
 
-/* ------------------------------------------------------------------ */
-/*  Recherche : pseudo / URL / SteamID64  ->  accountId                */
-/* ------------------------------------------------------------------ */
-/* ==================================================================
- *  REMPLACE la fonction steam_resolve_account_id() actuelle dans
- *  php/providers/steam.php (lignes ~14 à ~48), et ajoute les trois
- *  helpers ci-dessous juste au-dessus.
- *
- *  Ne pas copier la balise <?php ni ce commentaire.
- * ================================================================== */
-
 /** Base des SteamID64 : 76561197960265728 = [U:1:0]. */
 const STEAM_ID64_BASE = '76561197960265728';
 
@@ -229,7 +218,7 @@ function steam_message_introuvable(string $query): string
  */
 function steam_snapshot_annuel(string $accountId, float $heuresActuelles): array
 {
-    $dir = __DIR__ . '/../../cache/snapshots';
+    $dir = MGS_ROOT . '/cache/snapshots';
 
     if (!is_dir($dir)) {
         @mkdir($dir, 0775, true);
@@ -255,25 +244,6 @@ function steam_snapshot_annuel(string $accountId, float $heuresActuelles): array
     ];
 }
 
-/** Prix de base (hors promo) d'un app, en euros. 0 pour les free-to-play. */
-function steam_prix_app(int $appId): ?float
-{
-    $data = mgs_http_get_json(
-        'https://store.steampowered.com/api/appdetails'
-        . '?appids=' . $appId . '&cc=fr&l=fr&filters=price_overview'
-    );
-
-    $bloc = $data[$appId] ?? null;
-
-    if (!is_array($bloc) || ($bloc['success'] ?? false) !== true) {
-        return null;
-    }
-
-    $centimes = $bloc['data']['price_overview']['initial'] ?? null;
-
-    return $centimes === null ? 0.0 : $centimes / 100;
-}
-
 /**
  * Valeur de la bibliothèque. Interroger le Store pour 400 jeux à chaque
  * chargement est impossible (rate limit ~200 requêtes / 5 min), donc :
@@ -282,7 +252,7 @@ function steam_prix_app(int $appId): ?float
  */
 function steam_library_value(array $ownedGames): array
 {
-    $fichier = __DIR__ . '/../../cache/steam-prices.json';
+    $fichier = MGS_ROOT . '/cache/steam-prices.json';
     $dir     = dirname($fichier);
 
     if (!is_dir($dir)) {
@@ -297,11 +267,6 @@ function steam_library_value(array $ownedGames): array
 
     // Les jeux les plus joués d'abord : c'est eux qu'on veut mesurer en vrai.
     usort($ownedGames, fn($a, $b) => ($b['playtime_forever'] ?? 0) <=> ($a['playtime_forever'] ?? 0));
-
-    $connus    = [];
-    $manquants = 0;
-    $appels    = 0;
-    $modifie   = false;
 
     // 1er passage : on ne garde que ce qui est déjà en cache
     $connus      = [];

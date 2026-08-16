@@ -19,11 +19,9 @@
     const DELAI_DEBOUNCE = 180;   // ms
     const MIN_CARACTERES = 2;
 
-    function echapper(texte) {
-        const div = document.createElement("div");
-        div.textContent = String(texte == null ? "" : texte);
-        return div.innerHTML;
-    }
+    /* Échappement mutualisé (js/core/mgs-core.js). La version locale
+       passait par un élément DOM jetable à chaque frappe au clavier. */
+    const echapper = MGS.escapeHtml;
 
     /** Met en gras la portion saisie dans le libellé proposé. */
     function surligner(libelle, saisie) {
