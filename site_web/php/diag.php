@@ -92,7 +92,7 @@ $fichiers = [
     'php/providers/steam.php',
     'php/providers/epic.php',
     'php/providers/riot.php',
-    'php/providers/riot/config.php',
+    'php/providers/riot/constantes.php',
     'php/providers/riot/http.php',
     'php/providers/riot/ranks.php',
     'php/providers/riot/assets.php',

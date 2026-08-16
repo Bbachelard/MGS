@@ -1,18 +1,28 @@
 # ------------------------------------------------------------------
 #  Secrets — NE JAMAIS committer
 # ------------------------------------------------------------------
-config.php
-site_web/config.php
-smtp-config.php
-site_web/smtp-config.php
-*.env
-.env
+#  Les chemins sont ANCRÉS par un « / » initial : un motif nu comme
+#  « config.php » est appliqué par git à TOUTES les profondeurs, et il
+#  a déjà silencieusement exclu php/providers/riot/config.php d'un
+#  commit — le site tombait en erreur 500 sur Riot faute de ce fichier.
+#  Toujours ancrer un motif qui vise un fichier précis.
+# ------------------------------------------------------------------
+/config.php
+/site_web/config.php
+/smtp-config.php
+/site_web/smtp-config.php
+/.env
+/site_web/.env
+*.env.local
 
 # ------------------------------------------------------------------
 #  Caches générés à l'exécution
+#  (le dossier reste versionné via son .gitkeep, seul son CONTENU est ignoré :
+#   sans ça, un déploiement propre n'a pas de cache/ et PHP ne peut pas
+#   toujours le créer lui-même)
 # ------------------------------------------------------------------
-site_web/cache/
-site_web/content/cache/
+/site_web/cache/*
+!/site_web/cache/.gitkeep
 
 # ------------------------------------------------------------------
 #  Divers
