@@ -27,6 +27,17 @@ ini_set('display_errors', '1');
 error_reporting(E_ALL);
 header('Content-Type: text/plain; charset=utf-8');
 
+/* La session doit démarrer AVANT le moindre echo : après, PHP refuse
+   d'envoyer le cookie et session_start() échoue. On la lit ici pour
+   pouvoir rejouer session-status.php plus bas sur ton vrai compte. */
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    @session_start();
+}
+
+$sessionConnecte = ($_SESSION['logged'] ?? false) === true
+                   && (int) ($_SESSION['user_id'] ?? 0) > 0;
+$sessionUserId   = (int) ($_SESSION['user_id'] ?? 0);
+
 $racine = dirname(__DIR__);
 $ko = 0;
 
@@ -207,12 +218,150 @@ if ($manquants === []) {
     ligne(false, 'chargement des providers', 'sauté : des fichiers manquent (voir plus haut)');
 }
 
+/* ==================================================================
+ *  REJEU DES APPELS QUI ÉCHOUENT
+ *
+ *  C'est la partie qui donne la réponse. On rejoue ici, pas à pas, ce
+ *  que font session-status.php et api.php, en annonçant chaque étape
+ *  AVANT de l'exécuter.
+ *
+ *  Une erreur fatale PHP n'est pas rattrapable par un try/catch : elle
+ *  tue le script. Mais register_shutdown_function() s'exécute quand
+ *  même — donc soit on voit l'erreur complète, soit la dernière étape
+ *  annoncée désigne la ligne coupable.
+ *
+ *  Visite cette page depuis le navigateur où tu es CONNECTÉ : le cookie
+ *  de session part avec la requête et le rejeu se fait sur ton compte.
+ * ================================================================== */
+
+$etape = 'aucune';
+
+register_shutdown_function(static function () use (&$etape): void {
+    $e = error_get_last();
+
+    if ($e !== null && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        echo "\n";
+        echo "########################################################\n";
+        echo "#  ERREUR FATALE ATTRAPÉE — C'EST LA CAUSE DU 500      #\n";
+        echo "########################################################\n";
+        echo "  message : {$e['message']}\n";
+        echo "  fichier : {$e['file']}\n";
+        echo "  ligne   : {$e['line']}\n";
+        echo "  étape   : $etape\n";
+        echo "\n>>> Copie ce bloc entier. <<<\n";
+    } else {
+        echo "\n(fin normale — dernière étape atteinte : $etape)\n";
+        echo "Pense à supprimer ce fichier une fois terminé.\n";
+    }
+});
+
+titre('REJEU DE session-status.php');
+
+try {
+    $etape = 'lecture de la session';
+    $connecte = $sessionConnecte;
+
+    ligne(true, 'session lue', $connecte
+        ? 'CONNECTÉ — user_id=' . $sessionUserId
+        : 'NON connecté (ouvre cette page dans l\'onglet où tu es connecté)');
+
+    if ($connecte && $conn instanceof mysqli) {
+        $viewerId = $sessionUserId;
+
+        $etape = 'require links-model.php';
+        require_once __DIR__ . '/links-model.php';
+        ligne(true, 'links-model.php chargé');
+
+        $etape = 'require friends-model.php';
+        require_once __DIR__ . '/friends-model.php';
+        ligne(true, 'friends-model.php chargé');
+
+        $etape = 'mgs_resolve_profile_target()';
+        $targetId = mgs_resolve_profile_target($conn, $viewerId, null);
+        ligne($targetId !== null, 'mgs_resolve_profile_target()', 'cible = ' . var_export($targetId, true));
+
+        $etape = 'SELECT username, email FROM users';
+        $stmt = $conn->prepare('SELECT username, email FROM users WHERE id = ? LIMIT 1');
+        $stmt->bind_param('i', $viewerId);
+        $stmt->execute();
+        $u = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        ligne($u !== null, 'lecture de l\'utilisateur', $u === null ? 'introuvable' : 'ok');
+
+        $etape = 'mgs_get_user_accounts()';
+        $comptes = mgs_get_user_accounts($conn, $viewerId);
+        ligne(true, 'mgs_get_user_accounts()',
+              implode(', ', array_map(fn($s, $l) => "$s:" . count($l), array_keys($comptes), $comptes)));
+
+        foreach (mgs_platforms() as $slug => $pf) {
+            $etape = "boucle plateformes : $slug — mgs_load_provider()";
+            $ok = mgs_load_provider($slug);
+
+            $etape = "boucle plateformes : $slug — mgs_provider_supports(fetch_games)";
+            $lib = $ok && mgs_provider_supports($slug, 'fetch_games');
+
+            $etape = "boucle plateformes : $slug — mgs_max_accounts()";
+            $max = mgs_max_accounts($slug);
+
+            ligne(true, "plateforme $slug", "provider=" . ($ok ? 'ok' : 'ÉCHEC')
+                        . ", bibliothèque=" . ($lib ? 'oui' : 'non') . ", max=$max");
+        }
+
+        $etape = 'fin du rejeu session-status';
+        ligne(true, 'REJEU COMPLET SANS ERREUR',
+              'session-status.php devrait donc répondre — vide le cache et réessaie');
+    }
+} catch (Throwable $e) {
+    ligne(false, 'REJEU session-status', get_class($e) . ' : ' . $e->getMessage()
+                 . ' — ' . $e->getFile() . ':' . $e->getLine());
+    echo "\n  pile d'appels :\n  " . str_replace("\n", "\n  ", $e->getTraceAsString()) . "\n";
+}
+
+/* ------------------------------------------------------------------ */
+titre('REJEU DE api.php (Riot)');
+
+/* Ajoute &account=euw1:xxxx à l'URL pour rejouer un compte précis. */
+$compte = trim((string) ($_GET['account'] ?? ''));
+
+if ($compte === '') {
+    echo "  (ajoute &account=euw1:TON_PUUID à l'URL pour rejouer cet appel)\n";
+} elseif (!is_array($config)) {
+    ligne(false, 'rejeu Riot', 'config.php non chargée');
+} else {
+    try {
+        $etape = 'mgs_load_provider(riot)';
+        mgs_load_provider('riot');
+
+        $etape = 'riot_fetch_stats()';
+        $r = riot_fetch_stats($config['PLATFORMS']['riot'] ?? [], $compte);
+
+        if (!empty($r['ok'])) {
+            ligne(true, 'riot_fetch_stats()', 'succès — le compte remonte bien');
+        } else {
+            ligne(false, 'riot_fetch_stats()',
+                  'statut ' . ($r['status'] ?? '?') . ' — ' . ($r['error'] ?? ''));
+
+            if (($r['status'] ?? 0) === 500) {
+                echo "\n  >>> « Clé API Riot invalide ou expirée » renvoie un HTTP 500.\n";
+                echo "  >>> Une clé de DÉVELOPPEMENT Riot expire toutes les 24 heures.\n";
+                echo "  >>> Régénère-la sur https://developer.riotgames.com et\n";
+                echo "  >>> mets PLATFORMS.riot.api_key à jour dans config.php.\n";
+                echo "  >>> Ce comportement est d'origine, il n'a pas changé.\n";
+            }
+        }
+    } catch (Throwable $e) {
+        ligne(false, 'REJEU Riot', get_class($e) . ' : ' . $e->getMessage()
+                     . ' — ' . $e->getFile() . ':' . $e->getLine());
+    }
+}
+
 /* ------------------------------------------------------------------ */
 titre('Journal des erreurs PHP');
 
 $log = ini_get('error_log');
 echo "  chemin : " . ($log !== '' ? $log : '(non défini — voir le journal du serveur web)') . "\n";
 echo "  log_errors : " . ini_get('log_errors') . "\n";
+echo "  Cherches-y la ligne « mgs FATAL [référence] » correspondant au 500.\n";
 
 /* ------------------------------------------------------------------ */
 titre('RÉSULTAT');
