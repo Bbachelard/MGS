@@ -1,0 +1,40 @@
+/* ============================================================
+   FORMULAIRES — messages d'erreur / de succès et aides de champ
+   ------------------------------------------------------------
+   Chargé par styleLogin.css, donc présent sur connexion/,
+   signup/ et les pages de mot de passe oublié.
+
+   .error-message était déjà posée dans signup/index.php sans
+   qu'aucune règle ne la définisse : le message d'erreur
+   d'inscription s'affichait comme du texte courant.
+   ============================================================ */
+
+.error-message,
+.success-message {
+    max-width: 100%;
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.error-message {
+    background: rgba(192, 57, 43, 0.15);
+    border: 1px solid #c0392b;
+    color: #ff9b8f;
+}
+
+.success-message {
+    background: rgba(46, 125, 50, 0.15);
+    border: 1px solid #2e7d32;
+    color: #7fdc7f;
+}
+
+.field-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+

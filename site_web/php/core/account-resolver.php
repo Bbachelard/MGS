@@ -17,6 +17,7 @@ require_once dirname(__DIR__) . '/platforms.php';
  * Valide ?platform= et vérifie que le provider sait faire $action.
  *
  * @param  string $action  ex. 'fetch_stats', 'fetch_games', 'fetch_matches'
+ * @param  string $indispo  phrase complète, « %s » remplacé par le libellé
  * @return array{0:string, 1:array}  [slug, définition de la plateforme]
  */
 function mgs_require_platform(?string $entree, string $action, string $indispo): array
@@ -32,7 +33,7 @@ function mgs_require_platform(?string $entree, string $action, string $indispo):
     if (!$platform['enabled']
         || !mgs_load_provider($slug)
         || !mgs_provider_supports($slug, $action)) {
-        mgs_fail(501, $indispo . ' indisponible pour ' . $platform['label'] . '.');
+        mgs_fail(501, sprintf($indispo, $platform['label']));
     }
 
     return [$slug, $platform];

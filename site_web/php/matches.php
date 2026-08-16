@@ -27,7 +27,7 @@ const MGS_MATCHES_CACHE_TTL = 900;   // 15 minutes
 /** Bornes serveur de la pagination : le client ne dicte pas la charge. */
 const MGS_MATCHES_COUNT_MAX = 10;
 
-[$slug, $platform] = mgs_require_platform($_GET['platform'] ?? null, 'fetch_matches', 'Historique des parties');
+[$slug, $platform] = mgs_require_platform($_GET['platform'] ?? null, 'fetch_matches', "L'historique des parties n'est pas disponible pour %s.");
 
 $accountId = mgs_resolve_public_account($slug, $platform, 'Compte manquant.');
 

@@ -21,7 +21,7 @@ mgs_json_header();
  *  ou Riot à chaque affichage de page. */
 const MGS_API_CACHE_TTL = 600;   // 10 minutes
 
-[$slug, $platform] = mgs_require_platform($_GET['platform'] ?? null, 'fetch_stats', 'Statistiques');
+[$slug, $platform] = mgs_require_platform($_GET['platform'] ?? null, 'fetch_stats', "Les statistiques ne sont pas disponibles pour %s.");
 
 $accountId = mgs_resolve_public_account($slug, $platform);
 

@@ -30,7 +30,7 @@ if ($targetId === null) {
     mgs_fail(403, 'Vous devez être ami avec cet utilisateur.');
 }
 
-[$slug, $platform] = mgs_require_platform($_GET['platform'] ?? null, 'fetch_games', 'Bibliothèque');
+[$slug, $platform] = mgs_require_platform($_GET['platform'] ?? null, 'fetch_games', "La bibliothèque n'est pas disponible pour %s.");
 
 $accountId = mgs_resolve_owned_account($conn, $targetId, $slug, $platform);
 

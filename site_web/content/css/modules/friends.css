@@ -1,0 +1,126 @@
+/* ============================================================
+   AMIS — cartes, grille, états vides
+   ------------------------------------------------------------
+   .friends-grid, .friend-card, .empty-state et .status-badge étaient
+   déjà écrites dans le HTML d'inbox.php et d'add_friend.php, mais
+   AUCUNE feuille de style ne les définissait : la page « Mes amis »
+   s'affichait sans aucune mise en forme.
+
+   Les messages de formulaire sont dans modules/form-messages.css :
+   les pages de connexion et d'inscription en ont besoin et ne
+   chargent pas ajouts-stats.css.
+   ============================================================ */
+
+/* --- État vide --- */
+
+.empty-state {
+    padding: 24px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    color: var(--text-muted);
+    text-align: center;
+    font-size: 14px;
+}
+
+/* --- Grille de cartes --- */
+
+.friends-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin: 18px 0 32px;
+    text-align: left;
+}
+
+.friend-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px;
+    background: linear-gradient(145deg, #2f2f38, #262630);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+/* Une demande en attente se distingue par un liseré d'accent. */
+.friend-card--request {
+    border-left: 3px solid var(--accent);
+}
+
+.friend-card__main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.friend-avatar {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.friend-info h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    word-break: break-word;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.status-badge.online {
+    background: rgba(46, 125, 50, 0.18);
+    color: #7fdc7f;
+}
+
+.friend-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.friend-actions__form {
+    margin: 0;
+}
+
+.btn-sm {
+    padding: 6px 14px;
+    font-size: 13px;
+}
+
+.button--ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+}
+
+.button--ghost:hover {
+    border-color: var(--accent);
+    color: #fff;
+}
+
+/* --- Recherche d'un joueur (add_friend.php) ---
+   Remplace les style="" en dur qui étaient posés dans le HTML. */
+
+.search-wrapper {
+    margin: 30px auto 0;
+}
+
+.player-card--search {
+    margin-bottom: 16px;
+}

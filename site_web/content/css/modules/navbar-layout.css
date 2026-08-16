@@ -84,6 +84,27 @@
     margin-left: 20px;
 }
 
+/* .login a était stylé, .create a ne l'était pas : le lien « S'inscrire »
+   de la barre s'affichait en bleu souligné par défaut du navigateur, à
+   côté du bouton violet de connexion. */
+.create a {
+    display: inline-block;
+    padding: 9px 18px;
+    border: 1px solid rgba(124, 92, 255, 0.45);
+    border-radius: 999px;
+    color: #cfc4ff;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: border-color .18s ease, color .18s ease, background .18s ease;
+}
+
+.create a:hover {
+    background: rgba(124, 92, 255, 0.12);
+    border-color: var(--accent);
+    color: #fff;
+}
+
 .login {
     margin-left: 28px;
 }
