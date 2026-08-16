@@ -7,7 +7,7 @@ declare(strict_types=1);
  *  Ce fichier faisait 1501 lignes. Il ne fait plus que charger les
  *  modules de providers/riot/, dans l'ordre de leurs dépendances :
  *
- *    config.php   constantes (régions, files, tiers, TTL de cache)
+ *    constantes.php  constantes (régions, files, tiers, TTL de cache)
  *    http.php     appels à l'API Riot (la clé passe en header)
  *    ranks.php    rangs : formatage, percentile, emblèmes, couleurs
  *    assets.php   Data Dragon : champions, objets, sorts, runes
@@ -24,7 +24,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../platforms.php';
 
-require_once __DIR__ . '/riot/config.php';
+require_once __DIR__ . '/riot/constantes.php';
 require_once __DIR__ . '/riot/http.php';
 require_once __DIR__ . '/riot/ranks.php';
 require_once __DIR__ . '/riot/assets.php';

@@ -4,7 +4,9 @@ declare(strict_types=1);
 /**
  * php/diag.php — diagnostic d'installation.
  *
- *   https://my-gamers-stats.com/php/diag.php?cle=CHANGE-MOI
+ * URL à ouvrir telle quelle, la clé est déjà en place :
+ *
+ *   https://my-gamers-stats.com/php/diag.php?cle=mgs-diag-8f3a
  *
  * À SUPPRIMER une fois le problème réglé. Ce fichier ne révèle aucun
  * secret (ni mot de passe, ni clé d'API : seulement leur présence), mais
@@ -15,12 +17,23 @@ declare(strict_types=1);
  * fichiers manquent.
  */
 
-/* Garde-fou minimal : change cette valeur avant de déposer le fichier. */
-const DIAG_CLE = 'RGAPI-1359bece-be16-4423-8e98-f06b0e132169';
+/* Garde-fou minimal : empêche un passant de tomber dessus. La valeur est
+   déjà renseignée, il n'y a RIEN à modifier ici — il suffit d'ouvrir
+   l'URL indiquée en haut du fichier. Libre à toi de la changer, mais
+   alors change aussi le ?cle= dans l'URL. */
+const DIAG_CLE = 'mgs-diag-8f3a';
 
 if (($_GET['cle'] ?? '') !== DIAG_CLE) {
     http_response_code(404);
-    exit('Not found');
+    header('Content-Type: text/plain; charset=utf-8');
+    exit(
+        "Cle attendue absente ou incorrecte.\n\n"
+        . "Ouvre exactement cette adresse :\n"
+        . "  " . ($_SERVER['REQUEST_SCHEME'] ?? 'https') . '://'
+        . ($_SERVER['HTTP_HOST'] ?? 'my-gamers-stats.com')
+        . strtok($_SERVER['REQUEST_URI'] ?? '/php/diag.php', '?')
+        . '?cle=' . DIAG_CLE . "\n"
+    );
 }
 
 ini_set('display_errors', '1');
@@ -79,7 +92,7 @@ $fichiers = [
     'php/providers/steam.php',
     'php/providers/epic.php',
     'php/providers/riot.php',
-    'php/providers/riot/config.php',
+    'php/providers/riot/constantes.php',
     'php/providers/riot/http.php',
     'php/providers/riot/ranks.php',
     'php/providers/riot/assets.php',
