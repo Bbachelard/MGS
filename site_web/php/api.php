@@ -1,91 +1,44 @@
 <?php
 declare(strict_types=1);
-ini_set('display_errors', '1');
-error_reporting(E_ALL);
-require_once __DIR__ . '/platforms.php';
 
-header('Content-Type: application/json; charset=utf-8');
+/**
+ * php/api.php — carte de statistiques d'un compte (endpoint public).
+ *
+ *   GET /php/api.php?platform=steam&pseudo=xxx
+ *   GET /php/api.php?platform=riot&accountId=euw1:xxx
+ *   GET /php/api.php?…&refresh=1     force le rafraîchissement
+ *
+ * Réponse : la « carte » normalisée produite par le provider.
+ */
 
-$config = require __DIR__ . '/../config.php';
+require_once __DIR__ . '/core/bootstrap.php';
+require_once __DIR__ . '/core/cache.php';
+require_once __DIR__ . '/core/account-resolver.php';
 
-function mgs_json_error(int $status, string $message): void
-{
-    http_response_code($status);
-    echo json_encode(['error' => $message], JSON_UNESCAPED_UNICODE);
-    exit;
-}
+mgs_json_header();
 
-$slug = mgs_resolve_platform($_GET['platform'] ?? '');
-
-if ($slug === null) {
-    mgs_json_error(400, 'Plateforme inconnue.');
-}
-
-$platform = mgs_platform($slug);
-
-if (!$platform['enabled'] || !mgs_load_provider($slug)) {
-    mgs_json_error(501, $platform['label'] . " n'est pas encore disponible.");
-}
-
-// accountId direct (compte lié) ; "steamid" gardé pour compat
-$accountId = trim((string)($_GET['accountId'] ?? $_GET['steamid'] ?? ''));
-$pseudo    = trim((string)($_GET['pseudo'] ?? ''));
-
-if ($accountId === '' && $pseudo === '') {
-    mgs_json_error(400, 'Merci de saisir un pseudo.');
-}
-
-if ($accountId === '') {
-    if (!$platform['searchable'] || !mgs_provider_supports($slug, 'resolve_account_id')) {
-        mgs_json_error(501, 'La recherche par pseudo n\'est pas disponible pour ' . $platform['label'] . '.');
-    }
-
-    $resolved = mgs_provider_call($slug, 'resolve_account_id', $config['PLATFORMS'][$slug] ?? [], $pseudo);
-
-    if (!$resolved['ok']) {
-        mgs_json_error($resolved['status'] ?? 404, $resolved['error']);
-    }
-
-    $accountId = $resolved['accountId'];
-}
-
-/* --- Cache disque : les stats ne bougent pas à la minute, inutile de
-       rappeler Steam / Riot à chaque affichage de page. --- */
+/** Les stats ne bougent pas à la minute : inutile de rappeler Steam
+ *  ou Riot à chaque affichage de page. */
 const MGS_API_CACHE_TTL = 600;   // 10 minutes
 
-$cacheDir = __DIR__ . '/../cache/api';
+[$slug, $platform] = mgs_require_platform($_GET['platform'] ?? null, 'fetch_stats', "Les statistiques ne sont pas disponibles pour %s.");
 
-if (!is_dir($cacheDir)) {
-    @mkdir($cacheDir, 0775, true);
-}
+$accountId = mgs_resolve_public_account($slug, $platform);
 
-$cacheFile = $cacheDir . '/' . $slug . '-' . sha1($accountId) . '.json';
+$cacheFile = mgs_cache_file('api', $slug, [$accountId]);
+mgs_cache_serve($cacheFile, MGS_API_CACHE_TTL);
 
-// ?refresh=1 pour forcer un rafraîchissement (bouton "actualiser")
-if (!isset($_GET['refresh'])
-    && is_file($cacheFile)
-    && (time() - filemtime($cacheFile)) < MGS_API_CACHE_TTL) {
-
-    header('X-MGS-Cache: hit');
-    readfile($cacheFile);
-    exit;
-}
-
-
-$stats = mgs_provider_call($slug, 'fetch_stats', $config['PLATFORMS'][$slug] ?? [], $accountId);
+$stats = mgs_provider_call($slug, 'fetch_stats', mgs_platform_config($slug), $accountId);
 
 if (!$stats['ok']) {
-    mgs_json_error($stats['status'] ?? 502, $stats['error']);
+    mgs_fail($stats['status'] ?? 502, $stats['error']);
 }
 
-if (isset($conn) && $conn instanceof mysqli && is_file(__DIR__ . '/suggest-model.php')) {
+// Alimente l'index d'autocomplétion à partir du pseudo réellement
+// renvoyé par la plateforme (ne touche que des comptes déjà liés).
+if (isset($conn) && $conn instanceof mysqli) {
     require_once __DIR__ . '/suggest-model.php';
     mgs_remember_display_name($conn, $slug, $accountId, $stats['card']['displayName'] ?? null);
 }
 
-$json = json_encode($stats['card'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-@file_put_contents($cacheFile, $json, LOCK_EX);
-
-header('X-MGS-Cache: miss');
-echo $json;
+mgs_cache_store_and_send($cacheFile, mgs_json_encode($stats['card']));

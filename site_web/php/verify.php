@@ -1,15 +1,6 @@
 <?php
 declare(strict_types=1);
 
-session_start();
-
-require_once __DIR__ . '/platforms.php';
-require_once __DIR__ . '/links-model.php';
-
-$config = require __DIR__ . '/../config.php';
-
-header('Content-Type: application/json; charset=utf-8');
-
 /* ==================================================================
  *  Liaison par preuve de propriété (sans OAuth).
  *
@@ -21,53 +12,36 @@ header('Content-Type: application/json; charset=utf-8');
  *  pas nous faire enregistrer un compte qu'il n'a pas fait vérifier.
  * ================================================================== */
 
+require_once __DIR__ . '/core/bootstrap.php';
+require_once __DIR__ . '/links-model.php';
+
+mgs_session_start();
+mgs_json_header();
+
 const MGS_VERIFY_TTL      = 3600; // 1 h : Riot peut mettre >10 min à propager l'icône
 const MGS_VERIFY_MAX_TRY  = 40;   // anti-martelage de l'API Riot
 const MGS_VERIFY_COOLDOWN = 4;    // secondes entre deux "confirm"
 
 /**
- * Sortie JSON unique du script.
- *
- * json_encode() renvoie false sur le moindre octet non-UTF8, et "echo false"
- * n'écrit rien : le client recevait alors un corps vide avec un code 200/202
- * et affichait un message de repli trompeur. On garantit ici qu'un corps
- * exploitable part toujours.
+ * Sortie JSON du script. Le corps de la fonction vivait ici en entier :
+ * il est parti dans core/http.php, qui porte déjà le repli sur octets
+ * non-UTF8 (les pseudos de joueurs en sont pleins, et « echo false »
+ * renvoyait un corps vide en 200). Ce nom reste comme simple alias.
  */
 function mgs_verify_send(int $status, array $payload): never
 {
-    http_response_code($status);
-
-    $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-    if ($json === false) {
-        // Deuxième chance : on remplace les octets invalides au lieu d'échouer
-        $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
-    }
-
-    if ($json === false) {
-        $json = '{"step":"error","error":"Reponse illisible cote serveur ('
-                . addslashes(json_last_error_msg()) . ')."}';
-    }
-
-    echo $json;
-    exit;
+    mgs_json($payload, $status);
 }
 
 function mgs_verify_error(int $status, string $message): never
 {
-    mgs_verify_send($status, ['error' => $message]);
+    mgs_fail($status, $message);
 }
 
-if (!isset($_SESSION['user_id'])) {
-    mgs_verify_error(401, 'Session expirée, reconnecte-toi.');
-}
+$userId = mgs_require_login();
+mgs_require_method('POST');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    mgs_verify_error(405, 'Méthode non autorisée.');
-}
-
-$userId = (int)$_SESSION['user_id'];
-$slug   = mgs_resolve_platform($_POST['platform'] ?? '');
+$slug = mgs_resolve_platform($_POST['platform'] ?? '');
 
 if ($slug === null) {
     mgs_verify_error(400, 'Plateforme inconnue.');
@@ -83,7 +57,7 @@ if (empty($platform['verifiable'])
     mgs_verify_error(501, 'Vérification indisponible pour ' . $platform['label'] . '.');
 }
 
-$cfg    = $config['PLATFORMS'][$slug] ?? [];
+$cfg    = mgs_platform_config($slug);
 $action = (string)($_POST['action'] ?? '');
 
 /* ------------------------------------------------------------------ */

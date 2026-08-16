@@ -1,16 +1,20 @@
 <?php
 declare(strict_types=1);
+
+/**
+ * connexion/forgot-password.php — demande d'un lien de réinitialisation.
+ *
+ * La confirmation est la même que l'adresse existe ou non : sans ça, ce
+ * formulaire dirait à un attaquant quelles adresses ont un compte.
+ */
+
+require_once __DIR__ . '/../php/views/head.php';
+
 session_start();
 ?>
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mot de passe oublié — My Gamers Stats</title>
-    <link rel="stylesheet" href="../content/css/stylesheet.css">
-    <link rel="stylesheet" href="../content/css/styleLogin.css">
-</head>
+<?php mgs_head('Mot de passe oublié', ['/content/css/stylesheet.css', '/content/css/styleLogin.css']); ?>
 <body>
     <div class="page">
         <div class="login-wrapper">
@@ -26,7 +30,7 @@ session_start();
                     <p>Entre ton adresse email, on t'enverra un lien de réinitialisation.</p>
 
                     <div class="form-group">
-                        <label for="email">Adresse email</label></br>
+                        <label for="email">Adresse email</label><br>
                         <input
                             class="text-field"
                             type="email"

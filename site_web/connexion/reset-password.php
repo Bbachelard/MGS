@@ -1,7 +1,18 @@
 <?php
 declare(strict_types=1);
-session_start();
-require __DIR__ . '/../config.php';
+
+/**
+ * connexion/reset-password.php — saisie du nouveau mot de passe.
+ *
+ * Le formulaire ne s'affiche que si le token existe encore et n'a pas
+ * expiré. Le token circule en clair dans l'URL mais n'est stocké en base
+ * que haché : une fuite de la table ne permet pas de s'en servir.
+ */
+
+require_once __DIR__ . '/../php/core/bootstrap.php';
+require_once __DIR__ . '/../php/views/head.php';
+
+mgs_session_start();
 
 $tokenBrut = (string) ($_GET['token'] ?? '');
 $tokenValide = false;
@@ -21,13 +32,7 @@ if ($tokenBrut !== '') {
 ?>
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Réinitialisation du mot de passe — My Gamers Stats</title>
-    <link rel="stylesheet" href="../content/css/stylesheet.css">
-    <link rel="stylesheet" href="../content/css/styleLogin.css">
-</head>
+<?php mgs_head('Réinitialisation du mot de passe', ['/content/css/stylesheet.css', '/content/css/styleLogin.css']); ?>
 <body>
     <div class="page">
         <div class="login-wrapper">
@@ -49,13 +54,13 @@ if ($tokenBrut !== '') {
                     <input type="hidden" name="token" value="<?= htmlspecialchars($tokenBrut, ENT_QUOTES, 'UTF-8') ?>">
 
                     <div class="form-group">
-                        <label for="password">Nouveau mot de passe</label></br>
+                        <label for="password">Nouveau mot de passe</label><br>
                         <input class="text-field" type="password" name="password" id="password"
                                placeholder="••••••••" minlength="8" required>
                     </div>
 
                     <div class="form-group">
-                        <label for="password_confirm">Confirme le mot de passe</label></br>
+                        <label for="password_confirm">Confirme le mot de passe</label><br>
                         <input class="text-field" type="password" name="password_confirm" id="password_confirm"
                                placeholder="••••••••" minlength="8" required>
                     </div>

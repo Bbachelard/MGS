@@ -10,12 +10,9 @@ const gamesState = {
     page: 1,
 };
 
-/** Miroir de mgs_platforms() : le tableau n'affiche que le logo. */
-const GAMES_PLATEFORMES = {
-    steam: { label: "Steam",      icon: "/content/image/Steam_icon.webp" },
-    riot:  { label: "Riot Games", icon: "/content/image/riot-icon.png" },
-    epic:  { label: "Epic Games", icon: "/content/image/Epic_icon.webp" },
-};
+/* Le miroir local de mgs_platforms() est parti dans js/core/mgs-core.js :
+   il en existait trois copies à tenir synchronisées à la main. */
+const GAMES_PLATEFORMES = MGS.PLATFORMS;
 
 const GAMES_COLONNES = [
     { cle: "platformLabel", label: "",              triable: true,  type: "texte", classe: "col-platform" },

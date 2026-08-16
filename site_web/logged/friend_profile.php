@@ -1,52 +1,40 @@
 <?php
 declare(strict_types=1);
 
-session_start();
+/**
+ * logged/friend_profile.php — profil d'un ami, en lecture seule.
+ *
+ * Même coquille que logged/index.php : c'est profile-stats.js qui
+ * remplit la page, en lisant window.PROFILE_TARGET pour savoir quel
+ * profil demander et qu'il est en lecture seule.
+ */
 
-if (!isset($_SESSION['logged']) || $_SESSION['logged'] !== true) {
-    header('Location: ../connexion/index.php');
-    exit;
-}
-
-require __DIR__ . '/../config.php';
+require_once __DIR__ . '/../php/core/bootstrap.php';
+require_once __DIR__ . '/../php/views/navbar.php';
 require_once __DIR__ . '/../php/friends-model.php';
-require_once __DIR__ . '/../php/platforms.php';
 
-$myId       = (int) ($_SESSION['user_id'] ?? 0);
-$myUsername = $_SESSION['username'] ?? '';
+mgs_session_start();
+
+$myId       = mgs_require_login_page();
+$myUsername = mgs_username();
 $friendId   = (int) ($_GET['id'] ?? 0);
-
-if ($myId <= 0) {
-    header('Location: ../connexion/index.php');
-    exit;
-}
 
 if ($friendId <= 0) {
     http_response_code(400);
     exit('Identifiant invalide.');
 }
 
-// Ouvrir friend_profile.php avec son propre id renvoie vers le profil perso.
+// Ouvrir friend_profile.php avec son propre id renvoie au profil perso.
 if ($friendId === $myId) {
-    header('Location: ./index.php');
-    exit;
+    mgs_redirect('./index.php');
 }
 
-/* ---------------------------------------------------------
-   Contrôle d'amitié (désormais mutualisé dans friends-model)
---------------------------------------------------------- */
 if (!mgs_are_friends($conn, $myId, $friendId)) {
     http_response_code(403);
     ?>
     <!DOCTYPE html>
     <html lang="fr">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Accès refusé</title>
-        <link rel="stylesheet" href="../content/css/stylesheet.css">
-        <link rel="stylesheet" href="../content/css/styleLogin.css">
-    </head>
+    <?php mgs_head('Accès refusé', ['/content/css/stylesheet.css', '/content/css/styleLogin.css']); ?>
     <body>
         <div class="page">
             <div class="login-wrapper">
@@ -63,16 +51,7 @@ if (!mgs_are_friends($conn, $myId, $friendId)) {
     exit;
 }
 
-/* ---------------------------------------------------------
-   Informations publiques de l'ami
---------------------------------------------------------- */
-$stmt = $conn->prepare('SELECT id, username FROM users WHERE id = ? LIMIT 1');
-
-if ($stmt === false) {
-    http_response_code(500);
-    exit('Erreur serveur.');
-}
-
+$stmt = $conn->prepare('SELECT username FROM users WHERE id = ? LIMIT 1');
 $stmt->bind_param('i', $friendId);
 $stmt->execute();
 $friend = $stmt->get_result()->fetch_assoc();
@@ -83,61 +62,33 @@ if ($friend === null) {
     exit('Utilisateur introuvable.');
 }
 
-$friendUsername = htmlspecialchars((string) $friend['username'], ENT_QUOTES, 'UTF-8');
+$friendUsername = (string) $friend['username'];
 ?>
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $friendUsername ?> — My gamers stats</title>
-
-    <!-- Mêmes feuilles de style que logged/index.php -->
-    <link rel="stylesheet" href="../content/css/stylesheet.css?v=6">
-    <link rel="stylesheet" href="../content/css/styleLogin.css?v=6">
-    <link rel="stylesheet" href="../content/css/ajouts-stats.css?v=6">
-</head>
+<?php mgs_head($friendUsername); ?>
 <body>
 
-<header class="navbar">
-    <div class="logo">
-        <a href="../index.html">
-            <img src="../content/image/mgs_letters.png" width="100" alt="My Gamer Stats">
-        </a>
-    </div>
-
-    <!-- Pas d'id="navAvatar" ici : la navbar reste la tienne, pas celle de l'ami -->
-    <div class="user-chip">
-        <img class="nav-avatar" src="../content/image/mgs_icon.png" alt="Avatar">
-        <span class="nav-username"><?= htmlspecialchars($myUsername) ?></span>
-    </div>
-
-    <!-- Icônes plateformes : décoratives, aucun lien de liaison -->
-    <?php $i = 1; foreach (mgs_platforms() as $slug => $platform): ?>
-        <div class="nav-box<?= $i++ ?>">
-            <img src="<?= htmlspecialchars($platform['icon']) ?>"
-                 width="50"
-                 alt="<?= htmlspecialchars($platform['label']) ?>"
-                 <?= $platform['enabled'] ? '' : 'style="opacity:.35"' ?>>
-        </div>
-    <?php endforeach; ?>
-
-    <div class="friends-actions">
-        <a href="./index.php" class="nav-link-btn">Mon profil</a>
-        <a href="./inbox.php" class="nav-link-btn">Amis</a>
-    </div>
-
-    <div class="login"><a href="./disconnect.php">Déconnexion</a></div>
-</header>
+<?php
+/* La navbar reste LA TIENNE (ton pseudo, pas d'avatar dynamique), et
+   les icônes de plateforme sont décoratives : on ne lie pas un compte
+   depuis le profil de quelqu'un d'autre. */
+mgs_navbar([
+    'username'  => $myUsername,
+    'avatar'    => false,
+    'platforms' => 'static',
+    'actions'   => [['Mon profil', './index.php'], ['Amis', './inbox.php']],
+    'logout'    => true,
+]);
+?>
 
 <main>
     <section class="hero">
         <p class="hero-hello">Profil de</p>
-        <h1 class="hero-name"><?= htmlspecialchars($friendUsername) ?></h1>
+        <h1 class="hero-name"><?= htmlspecialchars($friendUsername, ENT_QUOTES, 'UTF-8') ?></h1>
         <p class="hero-sub">Toutes ses stats, réunies au même endroit.</p>
     </section>
 
-    <!-- Mêmes conteneurs que index.php : le JS les remplit à l'identique -->
     <div id="platform-hub" class="platform-hub"></div>
 
     <div id="games-table" class="games-section"></div>
@@ -151,14 +102,15 @@ $friendUsername = htmlspecialchars((string) $friend['username'], ENT_QUOTES, 'UT
 <!-- Doit rester AVANT profile-stats.js, qui lit cette variable au chargement -->
 <script>
     window.PROFILE_TARGET = {
-        userId: <?= (int) $friendId ?>,
+        userId: <?= $friendId ?>,
         isOwnProfile: false
     };
 </script>
-<script src="../js/match-detail.js?v=1"></script>
-<script src="../js/stats-display.js?v=8"></script>
-<script src="../js/hub-resume.js?v=6"></script>
-<script src="../js/games-table.js?v=2"></script>
-<script src="../js/profile-stats.js?v=8"></script>
+<script src="<?= mgs_asset('../js/core/mgs-core.js') ?>"></script>
+<script src="<?= mgs_asset('../js/match-detail.js') ?>"></script>
+<script src="<?= mgs_asset('../js/stats-display.js') ?>"></script>
+<script src="<?= mgs_asset('../js/hub-resume.js') ?>"></script>
+<script src="<?= mgs_asset('../js/games-table.js') ?>"></script>
+<script src="<?= mgs_asset('../js/profile-stats.js') ?>"></script>
 </body>
 </html>

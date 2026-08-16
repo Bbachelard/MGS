@@ -1,50 +1,54 @@
 <?php
 declare(strict_types=1);
 
-session_start();
+/**
+ * php/session-status.php — état du profil affiché.
+ *
+ *   GET /php/session-status.php[?userId=42]
+ *
+ * Renvoie le pseudo, et pour chaque plateforme la liste des comptes
+ * liés (principal en tête) plus ce que le visiteur a le droit de faire.
+ * L'email ne sort jamais du profil de son propriétaire.
+ */
 
-require_once __DIR__ . '/platforms.php';
+require_once __DIR__ . '/core/bootstrap.php';
 require_once __DIR__ . '/links-model.php';
 require_once __DIR__ . '/friends-model.php';
 
-$config = require __DIR__ . '/../config.php';
+mgs_session_start();
+mgs_json_header();
 
-header('Content-Type: application/json; charset=utf-8');
-
-if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['connected' => false]);
-    exit;
+if (!mgs_is_logged()) {
+    mgs_json(['connected' => false]);
 }
 
-$viewerId = (int) $_SESSION['user_id'];
+$viewerId = mgs_user_id();
 session_write_close();
 
 $targetId = mgs_resolve_profile_target($conn, $viewerId, $_GET['userId'] ?? null);
 
 if ($targetId === null) {
-    http_response_code(403);
-    echo json_encode([
+    mgs_json([
         'connected' => true,
-        'error'     => "Vous devez être ami avec cet utilisateur pour voir son profil.",
-    ], JSON_UNESCAPED_UNICODE);
-    exit;
+        'error'     => 'Vous devez être ami avec cet utilisateur pour voir son profil.',
+    ], 403);
 }
 
 $isOwnProfile = ($targetId === $viewerId);
 
-$stmt = $conn->prepare('SELECT username, email FROM users WHERE id = ?');
+$stmt = $conn->prepare('SELECT username, email FROM users WHERE id = ? LIMIT 1');
 $stmt->bind_param('i', $targetId);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-$comptes = mgs_get_user_accounts($conn, $targetId);
-
+$comptes   = mgs_get_user_accounts($conn, $targetId);
 $platforms = [];
 
 foreach (mgs_platforms() as $slug => $platform) {
     $liste = $comptes[$slug] ?? [];
     $max   = mgs_max_accounts($slug);
+
     $aBibliotheque = $platform['enabled']
                      && mgs_load_provider($slug)
                      && mgs_provider_supports($slug, 'fetch_games');
@@ -75,7 +79,7 @@ foreach (mgs_platforms() as $slug => $platform) {
         // le reste du site (recherche, liens directs) ne casse pas.
         'accountId'   => $liste[0]['accountId'] ?? null,
 
-        // Le bouton "ajouter" ne s'affiche que sur son propre profil
+        // Le bouton « ajouter » ne s'affiche que sur son propre profil
         // et tant que le quota n'est pas atteint.
         'canAdd'      => $isOwnProfile
                          && $platform['enabled']
@@ -84,12 +88,11 @@ foreach (mgs_platforms() as $slug => $platform) {
     ];
 }
 
-echo json_encode([
+mgs_json([
     'connected'    => true,
     'userId'       => $targetId,
     'isOwnProfile' => $isOwnProfile,
     'username'     => $user['username'] ?? '',
-    // l'email ne sort jamais du profil de son propriétaire
     'email'        => $isOwnProfile ? ($user['email'] ?? '') : null,
     'platforms'    => $platforms,
-], JSON_UNESCAPED_UNICODE);
+]);

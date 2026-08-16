@@ -531,17 +531,8 @@ function construireLigneJeu(jeu) {
 ========================================================= */
 
 function formaterHeuresAccueil(valeur) {
-
-    const nombre =
-        Number(valeur) || 0;
-
-
-    return nombre.toLocaleString(
-        "fr-FR",
-        {
-            minimumFractionDigits: 1
-        }
-    ) + "h";
+    // max 3 décimales : comportement natif de toLocaleString, conservé tel quel
+    return MGS.formaterNombre(Number(valeur) || 0, 1, 3) + "h";
 }
 
 /* =========================================================

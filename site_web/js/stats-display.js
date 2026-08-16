@@ -1,34 +1,14 @@
-/* ================= Utilitaires ================= */
+/* ============================================================
+   AFFICHAGE DES CARTES DE STATS
 
-function escapeHtml(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-/** N'autorise que http(s) : bloque javascript:... dans un href/src. */
-function safeUrl(url) {
-    const value = String(url ?? '').trim();
-    return /^https?:\/\//i.test(value) ? value : '';
-}
-
-/* ================= Identité visuelle des plateformes ================= */
-
-/** Miroir de mgs_platforms() côté client : évite un aller-retour serveur
- *  juste pour un logo, et reste vide si la plateforme est inconnue. */
-const PLATFORM_ICONS = {
-    steam: '/content/image/Steam_icon.webp',
-    riot:  '/content/image/riot-icon.png',
-    epic:  '/content/image/Epic_icon.webp'
-};
+   escapeHtml(), safeUrl() et le registre des plateformes vivent
+   désormais dans js/core/mgs-core.js, à charger AVANT ce fichier.
+   ============================================================ */
 
 /** Badge de plateforme : logo + libellé. Le logo disparaît s'il ne charge pas. */
 function platformTag(slug, label) {
     const cle = String(slug ?? '').toLowerCase();
-    const src = PLATFORM_ICONS[cle] || '';
+    const src = MGS.platformIcon(cle) || '';
 
     return `<span class="platform-tag" data-platform="${escapeHtml(cle)}">
         ${src ? `<img class="platform-tag-logo" src="${escapeHtml(src)}" alt=""

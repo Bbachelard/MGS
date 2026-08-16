@@ -1,74 +1,82 @@
 <?php
-require __DIR__ . '/../config.php';
-session_start();
+declare(strict_types=1);
 
-// Si déjà connecté, on redirige
-if (isset($_SESSION["logged"]) && $_SESSION["logged"] == true) {
-    header("Location: ../logged/index.php");
-    exit;
+/**
+ * signup/create_user.php — traitement du formulaire d'inscription.
+ */
+
+require_once __DIR__ . '/../php/core/bootstrap.php';
+
+mgs_session_start();
+
+/** Longueur minimale du mot de passe, alignée sur reset-password-process.php. */
+const MGS_PASSWORD_MIN = 8;
+
+if (mgs_is_logged()) {
+    mgs_redirect('../logged/index.php');
 }
 
-// On n'accepte que les requêtes POST
-if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-    header("Location: ../signup/index.php");
-    exit;
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    mgs_redirect('../signup/index.php');
 }
 
-// Petite fonction utilitaire pour rediriger avec une erreur
-function redirectWithError($message) {
+/** Redirige vers le formulaire en y déposant le message d'erreur. */
+function mgs_signup_echec(string $message): never
+{
     $_SESSION['signup_error'] = $message;
-    header("Location: ../signup/index.php");
-    exit;
+    mgs_redirect('../signup/index.php');
 }
 
-$username = trim($_POST['username'] ?? '');
-$email    = trim($_POST['email'] ?? '');
-$password = $_POST['password'] ?? '';
+$username = trim((string) ($_POST['username'] ?? ''));
+$email    = trim((string) ($_POST['email'] ?? ''));
+$password = (string) ($_POST['password'] ?? '');
 
-// Validation côté serveur
 if ($username === '' || $email === '' || $password === '') {
-    redirectWithError("Tous les champs sont obligatoires.");
+    mgs_signup_echec('Tous les champs sont obligatoires.');
 }
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    redirectWithError("Adresse mail invalide.");
+    mgs_signup_echec('Adresse mail invalide.');
 }
 
-if (strlen($password) < 8) {
-    redirectWithError("Le mot de passe doit contenir au moins 8 caractères.");
+if (strlen($password) < MGS_PASSWORD_MIN) {
+    mgs_signup_echec('Le mot de passe doit contenir au moins ' . MGS_PASSWORD_MIN . ' caractères.');
 }
 
-// Vérifier unicité username / email
-$stmt = $conn->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
-$stmt->bind_param("ss", $username, $email);
+/* Contrôle d'unicité « à titre indicatif » : la vraie garantie est
+   l'index unique en base, testé par le catch plus bas. Entre ce SELECT
+   et l'INSERT, une autre inscription peut passer. */
+$stmt = $conn->prepare('SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1');
+$stmt->bind_param('ss', $username, $email);
 $stmt->execute();
-$result = $stmt->get_result();
-
-if ($result->num_rows > 0) {
-    redirectWithError("Ce nom d'utilisateur ou cette adresse mail est déjà utilisé.");
-}
+$existe = $stmt->get_result()->fetch_assoc() !== null;
 $stmt->close();
 
-// Hash du mot de passe
-$password_hash = password_hash($password, PASSWORD_DEFAULT);
+if ($existe) {
+    mgs_signup_echec("Ce nom d'utilisateur ou cette adresse mail est déjà utilisé.");
+}
 
-// Insertion
-$stmt = $conn->prepare("INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)");
-$stmt->bind_param("sss", $username, $email, $password_hash);
+$passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
-if ($stmt->execute()) {
-    $_SESSION["logged"]   = true;
-    $_SESSION["user_id"]  = $stmt->insert_id;
-    $_SESSION["username"] = $username;
-
+try {
+    $stmt = $conn->prepare('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)');
+    $stmt->bind_param('sss', $username, $email, $passwordHash);
+    $ok     = $stmt->execute();
+    $userId = (int) $conn->insert_id;
     $stmt->close();
-    $conn->close();
+} catch (mysqli_sql_exception $e) {
+    if ((int) $e->getCode() === 1062) {
+        mgs_signup_echec("Ce nom d'utilisateur ou cette adresse mail est déjà utilisé.");
+    }
 
-    header("Location: ../logged/index.php");
-    exit;
+    error_log('mgs_create_user: ' . $e->getMessage());
+    mgs_signup_echec('Une erreur est survenue, réessaie plus tard.');
 }
 
-// Si on arrive ici, l'insert a échoué (erreur serveur, pas la faute de l'utilisateur)
-$stmt->close();
-$conn->close();
-redirectWithError("Une erreur est survenue, réessaie plus tard.");
+if (!$ok || $userId <= 0) {
+    mgs_signup_echec('Une erreur est survenue, réessaie plus tard.');
+}
+
+mgs_login($userId, $username);
+
+mgs_redirect('../logged/index.php');
