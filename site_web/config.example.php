@@ -40,8 +40,24 @@ return [
 
         // https://developer.riotgames.com
         // Une clé de développement expire toutes les 24 h.
+        //
+        // valorant_api_key : clé HenrikDev, pour les stats Valorant.
+        // Riot n'ouvre PAS ses endpoints Valorant aux clés de
+        // développement (« Personal Key Applications are currently not
+        // supported ») : il faut une clé Production approuvée, ce qui
+        // n'est pas accordé à un site personnel. On passe donc par
+        // l'API communautaire, exactement comme Fortnite passe par
+        // fortnite-api.com.
+        //
+        // Obtenir la clé : rejoindre le Discord HenrikDev
+        // (https://discord.com/invite/X3GaVkX2YN) et faire la demande
+        // dans le salon dédié. Gratuit, format HDEV-….
+        //
+        // Laisser vide désactive proprement Valorant : la carte Riot
+        // reste exactement celle d'avant, sans message d'erreur.
         'riot' => [
-            'api_key' => 'RGAPI-xxxxxxxx',
+            'api_key'          => 'RGAPI-xxxxxxxx',
+            'valorant_api_key' => '',   // HDEV-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
         ],
 
         // https://dev.epicgames.com/portal

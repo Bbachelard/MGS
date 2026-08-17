@@ -68,7 +68,7 @@ site_web/
 │   │   ├── epic.php
 │   │   ├── riot.php            chargeur
 │   │   └── riot/               config, http, ranks, assets, stats,
-│   │                           matches, verify
+│   │                           matches, valorant, verify
 │   │
 │   ├── platforms.php       Registre central des plateformes + helpers HTTP
 │   ├── links-model.php     Comptes liés (platform_links)
@@ -138,7 +138,10 @@ return [
     'SITE_URL'  => 'https://my-gamers-stats.com',
     'PLATFORMS' => [
         'steam' => ['api_key' => '…'],   // steamcommunity.com/dev/apikey
-        'riot'  => ['api_key' => '…'],   // developer.riotgames.com
+        'riot'  => [
+            'api_key'          => '…',   // developer.riotgames.com
+            'valorant_api_key' => '…',   // HenrikDev — voir « Valorant » plus bas
+        ],
         'epic'  => ['client_id' => '…', 'client_secret' => '…'],
     ],
 ];
@@ -211,6 +214,22 @@ par son slug :
 `mgs_provider_supports()` teste la présence d'une fonction : une capacité
 absente donne un 501 propre, pas une erreur fatale.
 
+### Les jeux d'une plateforme sans bibliothèque
+
+Riot et Epic n'exposent aucune API de bibliothèque : `games.php` répond 501 et
+`games-table.js` reconstruit les lignes à partir des stats déjà chargées.
+
+Un provider peut déclarer ses jeux de deux façons dans `metrics` :
+
+| Clé            | Pour qui             | Effet                                    |
+|----------------|----------------------|------------------------------------------|
+| `virtualGames` | Riot (LoL, Valorant) | une ligne par jeu, avec ses heures propres |
+| `topGame`      | Epic (Fortnite)      | repli à une seule ligne, heures = total de la plateforme |
+
+`topGame` reste servi dans les deux cas : c'est lui qui alimente la carte
+« Jeu principal » du hub. Quand `virtualGames` est présent, `topGame` en est
+simplement l'entrée la plus jouée.
+
 ### Sécurité des identifiants de compte
 
 Deux chemins bien distincts, à ne surtout pas confondre :
@@ -220,6 +239,56 @@ Deux chemins bien distincts, à ne surtout pas confondre :
 - **Authentifié** (profil, amis) — `mgs_resolve_owned_account()` recoupe
   **toujours** l'`accountId` avec `platform_links`. Sans ce contrôle, n'importe
   qui ferait scanner la bibliothèque d'un tiers avec notre clé d'API.
+
+### Valorant : pourquoi une API tierce
+
+Riot n'ouvre pas ses endpoints Valorant aux clés de développement — le portail
+est explicite : *« Personal Key Applications are currently not supported »*.
+Les routes `val-match-v1` et `val-ranked-v1` demandent une clé **Production**,
+accordée sur dossier et refusée en pratique à un site personnel.
+
+Les stats Valorant passent donc par **HenrikDev** (`api.henrikdev.xyz`), la
+référence communautaire — exactement le principe déjà retenu pour Fortnite,
+qui passe par `fortnite-api.com`.
+
+**Obtenir la clé** — rejoindre le [Discord HenrikDev](https://discord.com/invite/X3GaVkX2YN),
+faire la demande dans le salon prévu (pseudo Riot + usage du site). C'est
+gratuit, la clé arrive sous la forme `HDEV-…` et se pose dans `config.php` :
+
+```php
+'riot' => [
+    'api_key'          => 'RGAPI-…',
+    'valorant_api_key' => 'HDEV-…',
+],
+```
+
+**Sans clé, rien ne casse** : `riot_valorant_fetch()` renvoie `['state' => 'nokey']`,
+et la carte Riot reste très exactement celle d'avant — pas de message d'erreur,
+pas de section vide.
+
+Le code appelle deux routes, en parallèle :
+
+| Route                                              | Sert à                       |
+|----------------------------------------------------|------------------------------|
+| `/valorant/v3/by-puuid/mmr/{région}/pc/{puuid}`     | rang, RR, pic, saisons       |
+| `/valorant/v1/by-puuid/stored-matches/{région}/{puuid}` | parties, agents, K/D    |
+
+Le compte est le **même** que pour League of Legends : un PUUID Riot déjà
+vérifié affiche automatiquement ses stats Valorant, il n'y a rien de plus à
+lier.
+
+Tout ce qui dépend du fournisseur est confiné entre les bornes
+`## DÉBUT / FIN FOURNISSEUR VALORANT ##` de `php/providers/riot/valorant.php`.
+Pour changer de source, il suffit de réécrire `riot_valorant_fetch()` en
+respectant son format de sortie — le reste du fichier (percentiles, emblèmes,
+encadrés, sections) ne connaît aucun tiers. Les URL elles-mêmes sont deux
+constantes, `RIOT_VAL_URL_MMR` et `RIOT_VAL_URL_MATCHES`.
+
+> Le temps de jeu Valorant est une **estimation** : le fournisseur ne donne pas
+> la durée des parties. On multiplie le nombre de parties classées par
+> `RIOT_VAL_MINUTES_PAR_PARTIE` (35 min). Toute valeur qui en découle porte
+> `estimated => true`, et le hub l'affiche préfixée d'un « ≈ », comme les
+> heures LoL déduites des points de maîtrise.
 
 ### Liaison par preuve de propriété (Riot)
 

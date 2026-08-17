@@ -13,6 +13,7 @@ declare(strict_types=1);
  *    assets.php   Data Dragon : champions, objets, sorts, runes
  *    stats.php    riot_resolve_account_id() + riot_fetch_stats()
  *    matches.php  historique détaillé des parties + son cache
+ *    valorant.php rang, agents et parties Valorant (API tierce bornée)
  *    verify.php   liaison de compte par changement d'icône de profil
  *
  *  platforms.php appelle les fonctions riot_* par leur nom
@@ -30,4 +31,5 @@ require_once __DIR__ . '/riot/ranks.php';
 require_once __DIR__ . '/riot/assets.php';
 require_once __DIR__ . '/riot/stats.php';
 require_once __DIR__ . '/riot/matches.php';
+require_once __DIR__ . '/riot/valorant.php';
 require_once __DIR__ . '/riot/verify.php';

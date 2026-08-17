@@ -105,6 +105,127 @@ const RIOT_POSTES = [
     'UTILITY' => 'Support',
 ];
 
+/* ==================================================================
+ *  Valorant
+ *  ------------------------------------------------------------------
+ *  Même compte Riot, autre jeu, autre échelle de rangs. Les valeurs
+ *  ci-dessous ne dépendent pas du fournisseur de stats : elles
+ *  décrivent le jeu, pas l'API qui le sert.
+ * ================================================================== */
+
+/**
+ * Plateforme League of Legends -> région Valorant.
+ * Le PUUID est global, mais les routes Valorant sont régionales et ne
+ * portent pas les mêmes codes que celles de LoL.
+ */
+const RIOT_VAL_REGIONS = [
+    'euw1' => 'eu',    'eun1' => 'eu',    'tr1' => 'eu',    'ru'  => 'eu',    'me1' => 'eu',
+    'na1'  => 'na',    'br1'  => 'br',    'la1' => 'latam', 'la2' => 'latam',
+    'kr'   => 'kr',    'jp1'  => 'ap',
+    'oc1'  => 'ap',    'sg2'  => 'ap',    'tw2' => 'ap',    'vn2' => 'ap',
+];
+
+/** Région servie quand la plateforme LoL n'est pas dans la table. */
+const RIOT_VAL_REGION_DEFAUT = 'eu';
+
+/** Tiers Valorant, DANS L'ORDRE : riot_val_tier() indexe dessus. */
+const RIOT_VAL_TIERS = [
+    'IRON'      => 'Fer',
+    'BRONZE'    => 'Bronze',
+    'SILVER'    => 'Argent',
+    'GOLD'      => 'Or',
+    'PLATINUM'  => 'Platine',
+    'DIAMOND'   => 'Diamant',
+    'ASCENDANT' => 'Ascendant',
+    'IMMORTAL'  => 'Immortel',
+    'RADIANT'   => 'Radiant',
+];
+
+/**
+ * Tiers sans division affichée. Radiant est le seul : tous les autres,
+ * Immortel compris, gardent leurs paliers 1/2/3.
+ */
+const RIOT_VAL_TIERS_SANS_DIVISION = ['RADIANT'];
+
+/** Modes de jeu -> libellé français. Les absents s'affichent tels quels. */
+const RIOT_VAL_MODES = [
+    'competitive' => 'Compétitif',
+    'unrated'     => 'Non classé',
+    'swiftplay'   => 'Partie rapide',
+    'spikerush'   => 'Spike Rush',
+    'deathmatch'  => 'Match à mort',
+    'escalation'  => 'Escalade',
+    'teamdeathmatch' => 'Match à mort par équipe',
+    'replication' => 'Réplication',
+    'premier'     => 'Premier',
+];
+
+/**
+ * Percentile approximatif de chaque tier sur la ladder compétitive.
+ * [plancher, plafond] = % de joueurs que tu dépasses.
+ * MÊME ÉCHELLE que RIOT_TIER_PERCENTILE : c'est ce qui permet au hub de
+ * classer un Immortel Valorant au-dessus d'un Diamant LoL.
+ */
+const RIOT_VAL_TIER_PERCENTILE = [
+    'IRON'      => [0.0,   5.0],
+    'BRONZE'    => [5.0,  19.0],
+    'SILVER'    => [19.0, 39.0],
+    'GOLD'      => [39.0, 58.0],
+    'PLATINUM'  => [58.0, 75.0],
+    'DIAMOND'   => [75.0, 87.0],
+    'ASCENDANT' => [87.0, 94.5],
+    'IMMORTAL'  => [94.5, 99.97],
+    'RADIANT'   => [99.97, 100.0],
+];
+
+/** Couleur d'accent par tier Valorant, pour les encadrés de rang. */
+const RIOT_VAL_TIER_COULEUR = [
+    'IRON'      => '#7d7d84',
+    'BRONZE'    => '#a2673f',
+    'SILVER'    => '#98a5a5',
+    'GOLD'      => '#e0b04a',
+    'PLATINUM'  => '#4ec2c2',
+    'DIAMOND'   => '#c471ed',
+    'ASCENDANT' => '#37b56a',
+    'IMMORTAL'  => '#a63b5d',
+    'RADIANT'   => '#fffbb0',
+];
+
+/**
+ * Emblème de rang Valorant, servi par le CDN de valorant-api.com
+ * (ni clé, ni version à suivre). %d = tier.id brut.
+ * Si l'image casse, seule cette constante est à corriger — la carte
+ * retombe automatiquement sur le libellé texte.
+ */
+const RIOT_VAL_RANK_EMBLEM =
+    'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/%d/largeicon.png';
+
+/** Portrait d'agent. %s = nom de l'agent en minuscules. */
+const RIOT_VAL_AGENT_ICON = 'https://valorant-api.com/v1/agents/%s/displayicon';
+
+/**
+ * Jaquette du jeu, affichée dans le tableau des jeux et sur la carte
+ * « Jeu principal ». Poser le fichier à ce chemin ; sans lui, le
+ * tableau retombe sur les initiales (onerror="this.remove()").
+ */
+const RIOT_VAL_JAQUETTE = '/content/image/games/valorant.jpg';
+
+/** Parties demandées au fournisseur (sert aussi aux agents favoris). */
+const RIOT_VAL_MATCHES_MAX = 20;
+
+/** Parties listées sur la carte. */
+const RIOT_VAL_MATCHES_AFFICHEES = 5;
+
+/** Agents affichés dans « Agents favoris ». */
+const RIOT_VAL_AGENTS_TOP = 3;
+
+/**
+ * Durée moyenne d'une partie compétitive, en minutes. Le fournisseur
+ * ne renvoie pas la durée : c'est le seul moyen d'estimer un temps de
+ * jeu. Toute valeur qui en découle est marquée 'estimated' => true.
+ */
+const RIOT_VAL_MINUTES_PAR_PARTIE = 35;
+
 /** Couleur d'accent par tier, pour les encadrés de rang. */
 const RIOT_TIER_COULEUR = [
     'IRON'        => '#7d7d84',

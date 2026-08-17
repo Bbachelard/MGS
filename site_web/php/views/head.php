@@ -12,7 +12,7 @@ declare(strict_types=1);
  * ================================================================== */
 
 /** À incrémenter à chaque mise en production touchant le CSS ou le JS. */
-const MGS_ASSET_VERSION = '8';
+const MGS_ASSET_VERSION = '9';
 
 /** Ajoute le numéro de version à une URL d'asset. */
 function mgs_asset(string $chemin): string

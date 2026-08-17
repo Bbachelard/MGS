@@ -107,19 +107,50 @@ async function chargerLot(entree, options) {
     };
 }
 
+/** "Fortnite — Solo" est un mode, pas un jeu. */
+function nomDeJeu(nom) {
+    return String(nom).split(" — ")[0];
+}
+
 /**
- * Plateforme sans bibliothèque : on fabrique la ligne à partir des stats
- * déjà chargées. LoL et Fortnite existent, ils méritent leur ligne.
+ * Plateforme sans bibliothèque : on fabrique les lignes à partir des
+ * stats déjà chargées. LoL, Valorant et Fortnite existent, ils méritent
+ * leur ligne.
+ *
+ * Deux sources, dans cet ordre :
+ *   metrics.virtualGames — liste explicite (Riot : LoL + Valorant), avec
+ *                          les heures propres à CHAQUE jeu ;
+ *   metrics.topGame      — repli historique pour les providers qui n'en
+ *                          déclarent qu'un (Epic / Fortnite). Les heures
+ *                          viennent alors du total de la plateforme.
  */
 function ligneVirtuelle(entree) {
-    const m   = (entree.data && entree.data.metrics) || null;
-    const jeu = m && m.topGame;
+    const m = (entree.data && entree.data.metrics) || null;
+    if (!m) return [];
+
+    const slug = entree.platform.slug;
+
+    if (Array.isArray(m.virtualGames) && m.virtualGames.length) {
+        return m.virtualGames
+            .filter(jeu => jeu && jeu.name && Number(jeu.hours) > 0)
+            .map(jeu => ligne(slug, {
+                name:        nomDeJeu(jeu.name),
+                image:       jeu.image || "",
+                storeUrl:    "",
+                hours:       Number(jeu.hours) || 0,
+                // Aucun provider sans bibliothèque ne sait ventiler les
+                // « 2 semaines » jeu par jeu : on ne les invente pas.
+                recentHours: 0,
+                lastPlayed:  null,
+            }, true));
+    }
+
+    const jeu = m.topGame;
 
     if (!jeu || !jeu.name || !(m.totalHours > 0)) return [];
 
-    return [ligne(entree.platform.slug, {
-        // "Fortnite — Solo" est un mode, pas un jeu.
-        name:        String(jeu.name).split(" — ")[0],
+    return [ligne(slug, {
+        name:        nomDeJeu(jeu.name),
         image:       jeu.image || "",
         storeUrl:    "",
         hours:       Number(m.totalHours)  || 0,

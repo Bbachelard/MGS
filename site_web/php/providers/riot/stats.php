@@ -160,6 +160,16 @@ function riot_fetch_stats(array $cfg, string $accountId): array
         ];
     }
 
+    /* --- Valorant ---
+       Même compte, même PUUID : rien à lier de plus. Le provider est
+       borné dans riot/valorant.php et ne lève jamais — au pire il
+       renvoie ['state' => 'unavailable'] et la carte reste celle d'avant. */
+    $valorant = riot_valorant_fetch(
+        $cfg,
+        $puuid,
+        RIOT_VAL_REGIONS[$region] ?? RIOT_VAL_REGION_DEFAUT
+    );
+
     /* --- Dernières parties (détaillées, en parallèle, avec cache) --- */
     $recentes = riot_matches_detaillees($regional, $puuid, $apiKey, 0, RIOT_MATCHES_INITIAL);
 
@@ -208,9 +218,48 @@ function riot_fetch_stats(array $cfg, string $accountId): array
     $rangs = array_values(array_filter([
         riot_rank_entry($solo, 'League of Legends', 'Solo/Duo'),
         riot_rank_entry($flex, 'League of Legends', 'Flex 5v5'),
+        riot_valorant_rank_entry($valorant),
     ]));
 
     usort($rangs, fn($a, $b) => ($b['score'] ?? -1) <=> ($a['score'] ?? -1));
+
+    /* --- Les deux jeux du compte -------------------------------------
+       Riot n'expose aucune bibliothèque : games.php répond 501 et
+       games-table.js reconstruit les lignes à partir d'ici. Tant qu'il
+       n'y avait que LoL, un seul topGame suffisait ; avec Valorant il
+       faut une liste, sinon le second jeu disparaît du tableau. */
+    $jeuxLoL = $heuresEstimees > 0 ? [
+        'name'      => 'League of Legends',
+        'hours'     => (float)$heuresEstimees,
+        'image'     => '/content/image/ranks/lol.jpg',
+        'platform'  => 'Riot',
+        'estimated' => true,
+    ] : null;
+
+    $jeuxVal = riot_valorant_game($valorant);
+
+    $jeux = array_values(array_filter([$jeuxLoL, $jeuxVal]));
+
+    // Le jeu principal se décide sur les heures, plus par forfait.
+    usort($jeux, fn($a, $b) => $b['hours'] <=> $a['hours']);
+
+    $heuresValorant = riot_valorant_heures($valorant);
+
+    /* Le lien Valorant n'apparaît que si le compte y joue vraiment :
+       un lien mort vers un profil vide serait pire que pas de lien. */
+    $liens = [[
+        'label' => 'Voir sur OP.GG',
+        'url'   => 'https://www.op.gg/summoners/' . rawurlencode($region)
+                   . '/' . rawurlencode(str_replace('#', '-', $riotId)),
+    ]];
+
+    if ($valorant['state'] === 'ok') {
+        $liens[] = [
+            'label' => 'Valorant sur Tracker.gg',
+            'url'   => 'https://tracker.gg/valorant/profile/riot/'
+                       . rawurlencode($riotId) . '/overview',   // # -> %23
+        ];
+    }
 
     return [
         'ok'   => true,
@@ -227,11 +276,14 @@ function riot_fetch_stats(array $cfg, string $accountId): array
                 'online' => false,
             ],
             'activity'      => null,
-            'highlights'    => riot_highlights(
-                $sum, $solo, $flex, $wins, $losses, $total,
-                $matchItems, $victoires, $heuresEstimees, $partiesEstimees
+            'highlights'    => array_merge(
+                riot_highlights(
+                    $sum, $solo, $flex, $wins, $losses, $total,
+                    $matchItems, $victoires, $heuresEstimees, $partiesEstimees
+                ),
+                riot_valorant_highlights($valorant)
             ),
-            'sections'      => [
+            'sections'      => array_merge([
                 [
                     'type'       => 'matches',
                     'title'      => 'Dernières parties',
@@ -257,30 +309,31 @@ function riot_fetch_stats(array $cfg, string $accountId): array
                     'empty'   => 'Aucune maîtrise',
                     'variant' => 'champions',
                 ],
-            ],
-            'links'         => [
-                [
-                    'label' => 'Voir sur OP.GG',
-                    'url'   => 'https://www.op.gg/summoners/' . rawurlencode($region) . '/' . rawurlencode(str_replace('#', '-', $riotId)),
+
                 ],
-            ],
+                riot_valorant_sections($valorant),
+                riot_valorant_section_degradee($valorant)
+            ),
+            'links'         => $liens,
             'metrics' => [
                 'accounts'       => 1,
-                'games'          => 1,
-                'playedGames'    => ($total > 0 || $heuresEstimees > 0) ? 1 : 0,
+
+                // LoL + Valorant quand les deux répondent. Compter Valorant
+                // sans savoir s'il a été joué gonflerait "Jeux possédés".
+                'games'          => 1 + ($jeuxVal !== null ? 1 : 0),
+                'playedGames'    => (($total > 0 || $heuresEstimees > 0) ? 1 : 0)
+                                    + ($jeuxVal !== null ? 1 : 0),
                 'matches'        => $total,
                 'recentHours'    => round($recentSeconds / 3600, 1),
-                'totalHours'     => $heuresEstimees,
+                'totalHours'     => round($heuresEstimees + $heuresValorant, 1),
                 'hoursEstimated' => true,
 
                 // Sans ça, Steam gagnait le duel du "jeu principal" par forfait.
-                'topGame'        => $heuresEstimees > 0 ? [
-                    'name'      => 'League of Legends',
-                    'hours'     => $heuresEstimees,
-                    'image'     => '/content/image/ranks/lol.jpg',
-                    'platform'  => 'Riot',
-                    'estimated' => true,
-                ] : null,
+                'topGame'        => $jeux[0] ?? null,
+
+                // Une ligne de tableau par jeu : games.php ne sait pas les
+                // produire (Riot n'a pas d'API de bibliothèque).
+                'virtualGames'   => $jeux,
 
                 'recentTop'      => $recentTop,
 

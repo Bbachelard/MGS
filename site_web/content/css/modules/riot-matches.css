@@ -727,6 +727,30 @@ img.mgs-zoom {
     --mgs-gold:   #e0b04a;
 }
 
+/* Agents favoris (Valorant). Même structure que les champions LoL :
+   seul l'accent change, pour qu'on distingue les deux jeux d'un coup
+   d'œil sur une carte Riot qui porte désormais les deux. */
+.recent-games-box--agents {
+    --mgs-text:   #ececf2;
+    --mgs-dim:    #8d8d9c;
+    --mgs-accent: #ff4655;   /* rouge Valorant */
+    --mgs-gold:   #e0b04a;
+}
+
+.recent-games-box--agents .mgs-list-row:hover {
+    background: rgba(255, 70, 85, 0.07);
+}
+
+.recent-games-box--agents .mgs-list-bar i {
+    background: linear-gradient(90deg, #ff4655, #ff8a75);
+}
+
+/* Les portraits d'agents sont des rendus en pied : cadrer sur le haut
+   du visuel, sinon la vignette ronde ne montre qu'un torse. */
+.recent-games-box--agents .mgs-list-icon {
+    object-position: top center;
+}
+
 .recent-games-list li.mgs-list-row {
     display: grid;
     grid-template-columns: 42px minmax(0, 1fr) auto;
