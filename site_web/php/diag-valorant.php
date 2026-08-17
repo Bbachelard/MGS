@@ -87,31 +87,25 @@ if (!str_starts_with($cle, 'HDEV-')) {
 
 /* --- Quel compte tester ? ----------------------------------------- */
 
-$puuid  = null;
+$riotId = null;
 $region = 'euw1';
-$argRiotId = $argv[1] ?? null;
+$arg    = $argv[1] ?? null;
 
-if ($argRiotId !== null && str_contains($argRiotId, '#')) {
-    echo "\n=== Résolution de « {$argRiotId} » via l'API Riot ===\n";
+if ($arg !== null && str_contains($arg, '#')) {
+    $riotId = $arg;
 
-    $res = riot_resolve_account_id($cfg, $argRiotId);
+    // Facultatif : on demande quand même à l'API Riot, pour vérifier au
+    // passage que la clé LoL est valide et connaître la plateforme.
+    $res = riot_resolve_account_id($cfg, $arg);
 
-    if (!$res['ok']) {
-        exit("Échec : " . $res['error'] . "\n"
-           . "(clé Riot expirée ? les clés de développement durent 24 h)\n\n");
-    }
+    echo "\n=== Contrôle côté API Riot ===\n";
 
-    [$region, $puuid] = explode(':', $res['accountId'], 2);
-    echo "OK  accountId = {$res['accountId']}\n";
-
-} elseif ($argRiotId !== null) {
-    // PUUID brut, éventuellement préfixé de sa plateforme : "euw1:abc…".
-    // Court-circuite l'API Riot : on teste Valorant même si la clé LoL
-    // a expiré, ce qui arrive toutes les 24 h avec une clé de dev.
-    if (str_contains($argRiotId, ':')) {
-        [$region, $puuid] = explode(':', $argRiotId, 2);
+    if ($res['ok']) {
+        [$region] = explode(':', $res['accountId'], 2);
+        echo "OK  plateforme = {$region}\n";
     } else {
-        $puuid = $argRiotId;
+        echo "Échec : " . $res['error'] . "\n"
+           . "(sans conséquence pour Valorant : on n'utilise pas le PUUID de Riot)\n";
     }
 
 } elseif (isset($conn) && $conn instanceof mysqli) {
@@ -124,38 +118,39 @@ if ($argRiotId !== null && str_contains($argRiotId, '#')) {
 
     $lignes = $q ? $q->fetch_all(MYSQLI_ASSOC) : [];
 
-    if (!$lignes) {
-        exit("Aucun compte Riot lié. Relancer avec un Riot ID :\n"
-           . "  php site_web/php/diag-valorant.php Pseudo#TAG\n\n");
-    }
-
     foreach ($lignes as $i => $l) {
-        printf("  [%d] %-22s %s\n", $i, $l['display_name'] ?? '?', $l['platform_user_id']);
+        printf("  [%d] %-24s %s\n", $i, $l['display_name'] ?? '?', $l['platform_user_id']);
     }
 
-    $premier = $lignes[0]['platform_user_id'];
+    // display_name porte le Riot ID ; le PUUID stocké, lui, est chiffré
+    // par clé et ne sert à rien face au fournisseur Valorant.
+    foreach ($lignes as $l) {
+        if (str_contains((string)($l['display_name'] ?? ''), '#')) {
+            $riotId = (string)$l['display_name'];
 
-    if (str_contains($premier, ':')) {
-        [$region, $puuid] = explode(':', $premier, 2);
-    } else {
-        $puuid = $premier;
+            if (str_contains((string)$l['platform_user_id'], ':')) {
+                [$region] = explode(':', (string)$l['platform_user_id'], 2);
+            }
+            break;
+        }
     }
 
-    echo "\nOn teste le premier.\n";
+    if ($riotId !== null) {
+        echo "\nOn teste « {$riotId} ».\n";
+    }
 }
 
-if ($puuid === null || $puuid === '') {
-    exit("\nAucun compte à tester. Relancer en donnant un compte :\n"
-       . "  php site_web/php/diag-valorant.php Pseudo#TAG      (via l'API Riot)\n"
-       . "  php site_web/php/diag-valorant.php euw1:le-puuid   (sans l'API Riot)\n\n");
+if ($riotId === null) {
+    exit("\nAucun compte à tester. Relancer en donnant un Riot ID :\n"
+       . "  php php/diag-valorant.php Pseudo#TAG\n\n");
 }
 
-$regionVal = RIOT_VAL_REGIONS[$region] ?? RIOT_VAL_REGION_DEFAUT;
+$regionDefaut = RIOT_VAL_REGIONS[$region] ?? RIOT_VAL_REGION_DEFAUT;
 
 echo "\n=== Compte testé ===\n";
-printf("PUUID           : %s\n", $puuid);
-printf("Plateforme LoL  : %s\n", $region);
-printf("Région Valorant : %s   (table RIOT_VAL_REGIONS)\n", $regionVal);
+printf("Riot ID          : %s\n", $riotId);
+printf("Plateforme LoL   : %s\n", $region);
+printf("Région par défaut: %s   (table RIOT_VAL_REGIONS, sert de repli)\n", $regionDefaut);
 
 /* --- Appel brut, sans passer par le provider ---------------------- */
 
@@ -175,35 +170,72 @@ function diag_get(string $url, string $cle): array
     $erreur = curl_error($ch);
     curl_close($ch);
 
-    return ['status' => $status, 'body' => (string)$corps, 'curl' => $erreur];
+    return [
+        'status' => $status,
+        'body'   => (string)$corps,
+        'curl'   => $erreur,
+        'json'   => json_decode((string)$corps, true) ?: [],
+    ];
 }
 
-$routes = [
-    'MMR v3 (rang, RR, pic)' => sprintf(RIOT_VAL_URL_MMR, $regionVal, rawurlencode($puuid)),
-    'Parties stockées'       => sprintf(RIOT_VAL_URL_MATCHES, $regionVal, rawurlencode($puuid), 5),
-];
-
-foreach ($routes as $nom => $url) {
-    echo "\n=== {$nom} ===\n";
-    echo "URL    : {$url}\n";
-
-    $r = diag_get($url, $cle);
-
+/** Code HTTP + corps brut : c'est le corps qui porte le message utile. */
+function diag_afficher(array $r): void
+{
     printf("HTTP   : %d %s\n", $r['status'], diag_verdict($r['status']));
 
     if ($r['curl'] !== '') {
         echo "curl   : {$r['curl']}\n";
     }
 
-    $corps = $r['body'];
-    echo "Corps  : " . (strlen($corps) > 900 ? substr($corps, 0, 900) . ' …[tronqué]' : $corps) . "\n";
+    echo "Corps  : " . (strlen($r['body']) > 900
+        ? substr($r['body'], 0, 900) . ' …[tronqué]'
+        : $r['body']) . "\n";
+}
+
+/* --- Étape 1 : résoudre le Riot ID -------------------------------- */
+
+[$nom, $tag] = array_map('trim', explode('#', $riotId, 2));
+
+$urlCompte = sprintf(RIOT_VAL_URL_ACCOUNT, rawurlencode($nom), rawurlencode($tag));
+
+echo "\n=== Compte Valorant (Riot ID -> PUUID + région) ===\n";
+echo "URL    : {$urlCompte}\n";
+
+$r = diag_get($urlCompte, $cle);
+diag_afficher($r);
+
+$puuid     = (string)($r['json']['data']['puuid']  ?? '');
+$regionVal = strtolower((string)($r['json']['data']['region'] ?? ''));
+
+if ($puuid === '') {
+    exit("\nSans PUUID Valorant, inutile d'aller plus loin.\n"
+       . "  403 -> clé refusée\n"
+       . "  404 -> ce Riot ID n'a jamais joué à Valorant, ou le tag est faux\n\n");
+}
+
+$regionVal = $regionVal !== '' ? $regionVal : $regionDefaut;
+
+printf("\nPUUID Valorant : %s\n", $puuid);
+printf("Région réelle  : %s\n", $regionVal);
+
+/* --- Étape 2 : les deux routes de données ------------------------- */
+
+$routes = [
+    'MMR v3 (rang, RR, pic)' => sprintf(RIOT_VAL_URL_MMR, $regionVal, rawurlencode($puuid)),
+    'Parties stockées'       => sprintf(RIOT_VAL_URL_MATCHES, $regionVal, rawurlencode($puuid), 5),
+];
+
+foreach ($routes as $nomRoute => $url) {
+    echo "\n=== {$nomRoute} ===\n";
+    echo "URL    : {$url}\n";
+    diag_afficher(diag_get($url, $cle));
 }
 
 /* --- Et ce que le provider en fait -------------------------------- */
 
 echo "\n=== Verdict du provider ===\n";
 
-$val = riot_valorant_fetch($cfg, $puuid, $regionVal);
+$val = riot_valorant_fetch($cfg, $riotId, $regionDefaut);
 
 printf("state   : %s\n", $val['state']);
 printf("message : %s\n", riot_valorant_message($val['state']));
@@ -218,7 +250,7 @@ if ($val['state'] === 'ok') {
     echo "\nTout va bien côté API.\n"
        . "Si le site affiche encore l'ancien message, c'est le CACHE :\n"
        . "  rm -rf site_web/cache/api/*\n"
-       . "ou ouvrir /php/api.php?platform=riot&accountId={$region}:{$puuid}&refresh=1\n";
+       . "ou ouvrir la carte du profil avec &refresh=1\n";
 }
 
 echo "\n";

@@ -266,23 +266,58 @@ gratuit, la clé arrive sous la forme `HDEV-…` et se pose dans `config.php` :
 et la carte Riot reste très exactement celle d'avant — pas de message d'erreur,
 pas de section vide.
 
-Le code appelle deux routes, en parallèle :
-
-| Route                                              | Sert à                       |
-|----------------------------------------------------|------------------------------|
-| `/valorant/v3/by-puuid/mmr/{région}/pc/{puuid}`     | rang, RR, pic, saisons       |
-| `/valorant/v1/by-puuid/stored-matches/{région}/{puuid}` | parties, agents, K/D    |
-
-Le compte est le **même** que pour League of Legends : un PUUID Riot déjà
+Le compte est le **même** que pour League of Legends : un compte Riot déjà
 vérifié affiche automatiquement ses stats Valorant, il n'y a rien de plus à
 lier.
+
+**Attention au PUUID.** On ne peut pas réutiliser celui de LoL : Riot chiffre
+désormais les PUUID par clé d'API. `account-v1` renvoie une chaîne opaque de
+78 caractères, propre à notre clé — pas un UUID. Le fournisseur la rejette,
+à juste titre :
+
+```json
+400 {"errors":[{"code":43,"message":"Invalid UUID/PUUID"}]}
+```
+
+On part donc du **Riot ID** (`Pseudo#TAG`), qui est public et stable. D'où
+trois routes, la première résolvant les deux autres :
+
+| Route                                                   | Sert à                        |
+|---------------------------------------------------------|-------------------------------|
+| `/valorant/v1/account/{pseudo}/{tag}`                    | PUUID Valorant **et région**  |
+| `/valorant/v3/by-puuid/mmr/{région}/pc/{puuid}`          | rang, RR, pic, saisons        |
+| `/valorant/v1/by-puuid/stored-matches/{région}/{puuid}`  | parties, agents, K/D          |
+
+Les deux dernières partent en parallèle. Bénéfice au passage : la région
+vient du fournisseur au lieu d'être déduite de la plateforme LoL — un joueur
+peut très bien être sur EUW en LoL et ailleurs en Valorant. `RIOT_VAL_REGIONS`
+ne sert plus que de repli.
 
 Tout ce qui dépend du fournisseur est confiné entre les bornes
 `## DÉBUT / FIN FOURNISSEUR VALORANT ##` de `php/providers/riot/valorant.php`.
 Pour changer de source, il suffit de réécrire `riot_valorant_fetch()` en
 respectant son format de sortie — le reste du fichier (percentiles, emblèmes,
-encadrés, sections) ne connaît aucun tiers. Les URL elles-mêmes sont deux
-constantes, `RIOT_VAL_URL_MMR` et `RIOT_VAL_URL_MATCHES`.
+encadrés, sections) ne connaît aucun tiers. Les URL elles-mêmes sont trois
+constantes : `RIOT_VAL_URL_ACCOUNT`, `RIOT_VAL_URL_MMR`, `RIOT_VAL_URL_MATCHES`.
+
+### Diagnostic
+
+`php/diag-valorant.php` appelle les trois routes avec la clé de `config.php`
+et affiche le **code HTTP et le corps brut** de chaque réponse — la carte du
+site, elle, dit « temporairement indisponibles » aussi bien pour une clé
+refusée que pour une route qui a bougé, volontairement.
+
+```bash
+php site_web/php/diag-valorant.php Pseudo#TAG
+docker compose exec web php php/diag-valorant.php Pseudo#TAG   # si conteneurisé
+```
+
+CLI uniquement : via le navigateur il exposerait la clé. Il annonce aussi
+quel `config.php` il lit et s'il tourne dans un conteneur — lancé depuis
+l'hôte sur un déploiement Docker, il lirait un fichier périmé.
+
+Les échecs sont par ailleurs journalisés dans `cache/valorant-debug.log` et
+dans le journal PHP, sans jamais la clé.
 
 > Le temps de jeu Valorant est une **estimation** : le fournisseur ne donne pas
 > la durée des parties. On multiplie le nombre de parties classées par

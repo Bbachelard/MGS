@@ -166,7 +166,7 @@ function riot_fetch_stats(array $cfg, string $accountId): array
        renvoie ['state' => 'unavailable'] et la carte reste celle d'avant. */
     $valorant = riot_valorant_fetch(
         $cfg,
-        $puuid,
+        $riotId,                                          // Pseudo#TAG, pas le PUUID
         RIOT_VAL_REGIONS[$region] ?? RIOT_VAL_REGION_DEFAUT
     );
 

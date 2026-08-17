@@ -39,9 +39,13 @@ const RIOT_VAL_API_BASE = 'https://api.henrikdev.xyz/valorant';
 
 /**
  * Gabarits d'URL. Si le fournisseur renumérote ses routes, ce sont les
- * DEUX SEULES lignes à corriger — même philosophie que RIOT_MASTERY_EMBLEM.
- *   %1$s = région (eu, na, ap, kr, br, latam)   %2$s = PUUID
+ * TROIS SEULES lignes à corriger — même philosophie que RIOT_MASTERY_EMBLEM.
+ *
+ *   ACCOUNT : %1$s = pseudo, %2$s = tag       (aucune région : elle est
+ *                                              dans la réponse)
+ *   MMR / MATCHES : %1$s = région, %2$s = PUUID Valorant
  */
+const RIOT_VAL_URL_ACCOUNT = RIOT_VAL_API_BASE . '/v1/account/%1$s/%2$s';
 const RIOT_VAL_URL_MMR     = RIOT_VAL_API_BASE . '/v3/by-puuid/mmr/%1$s/pc/%2$s';
 const RIOT_VAL_URL_MATCHES = RIOT_VAL_API_BASE . '/v1/by-puuid/stored-matches/%1$s/%2$s?size=%3$d';
 
@@ -168,18 +172,80 @@ function riot_val_state(int $status): string
 }
 
 /**
+ * Résout un Riot ID en PUUID Valorant + région réelle.
+ *
+ *  Pourquoi on ne peut PAS réutiliser le PUUID de League of Legends :
+ *  Riot chiffre désormais les PUUID par clé d'API. account-v1 renvoie
+ *  une chaîne opaque de 78 caractères, propre à notre clé — pas un
+ *  UUID. Le fournisseur la rejette, à juste titre :
+ *      400 {"code":43,"message":"Invalid UUID/PUUID"}
+ *
+ *  On passe donc par le Riot ID (Pseudo#TAG), qui lui est public et
+ *  stable. La réponse porte le vrai PUUID Valorant ET la région, ce
+ *  qui évite au passage de la déduire de la plateforme LoL : un joueur
+ *  peut très bien être sur EUW en LoL et ailleurs en Valorant.
+ *
+ * @return array{state:string, puuid?:string, region?:string}
+ */
+function riot_val_resolve(string $riotId, string $cle, string $regionDefaut): array
+{
+    if (!str_contains($riotId, '#')) {
+        return ['state' => 'notfound'];
+    }
+
+    [$nom, $tag] = array_map('trim', explode('#', $riotId, 2));
+
+    if ($nom === '' || $tag === '' || $nom === '?' || $tag === '?') {
+        return ['state' => 'notfound'];
+    }
+
+    $res = riot_val_get_multi([
+        'compte' => sprintf(RIOT_VAL_URL_ACCOUNT, rawurlencode($nom), rawurlencode($tag)),
+    ], $cle)['compte'];
+
+    if ($res['status'] !== 200 || empty($res['data']['data']['puuid'])) {
+        $etat = riot_val_state($res['status']);
+
+        riot_val_log(sprintf(
+            'ACCOUNT http=%d state=%s riotId=%s erreurs=%s',
+            $res['status'], $etat, $riotId,
+            json_encode($res['data']['errors'] ?? null)
+        ));
+
+        return ['state' => $etat];
+    }
+
+    $region = strtolower((string)($res['data']['data']['region'] ?? ''));
+
+    return [
+        'state'  => 'ok',
+        'puuid'  => (string)$res['data']['data']['puuid'],
+        'region' => $region !== '' ? $region : $regionDefaut,
+    ];
+}
+
+/**
  * Rang + historique d'un compte Valorant.
  *
- * @param string $puuid     PUUID Riot (le même que pour League of Legends)
- * @param string $region    région Valorant : eu, na, ap, kr, br, latam
+ * @param string $riotId        « Pseudo#TAG », tel que le donne account-v1
+ * @param string $regionDefaut  repli si le fournisseur ne dit pas la région
  */
-function riot_valorant_fetch(array $cfg, string $puuid, string $region): array
+function riot_valorant_fetch(array $cfg, string $riotId, string $regionDefaut): array
 {
     $cle = (string)($cfg['valorant_api_key'] ?? '');
 
-    if ($cle === '' || $puuid === '') {
+    if ($cle === '') {
         return ['state' => 'nokey'];
     }
+
+    $compte = riot_val_resolve($riotId, $cle, $regionDefaut);
+
+    if ($compte['state'] !== 'ok') {
+        return ['state' => $compte['state']];
+    }
+
+    $puuid  = $compte['puuid'];
+    $region = $compte['region'];
 
     $reponses = riot_val_get_multi([
         'mmr'     => sprintf(RIOT_VAL_URL_MMR, $region, rawurlencode($puuid)),
