@@ -1,0 +1,259 @@
+/* ============================================================
+   JEUX MGS — catalogue de /game/
+   ------------------------------------------------------------
+   La page n'utilise volontairement ni .titre (sa règle vit dans
+   home-search.css, que seule l'accueil charge) ni .compte /
+   .stats-result (limités à 700 px, trop étroits pour une grille).
+   Elle a donc son propre conteneur.
+
+   .button et .empty-state viennent respectivement de forms.css et
+   friends.css : la page doit charger styleLogin.css ET
+   ajouts-stats.css, ce que fait mgs_head() par défaut.
+   ============================================================ */
+
+.games-page {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 48px 24px 72px;
+}
+
+/* --- En-tête de page --- */
+
+.games-header {
+    text-align: center;
+    margin-bottom: 34px;
+}
+
+.games-header h1 {
+    margin: 0 0 12px;
+    font-size: 42px;
+    font-weight: 800;
+    line-height: 1.15;
+
+    background: linear-gradient(120deg, #fff 0%, #b3a0ff 50%, #7c5cff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.games-header__sub {
+    max-width: 620px;
+    margin: 0 auto;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text-muted);
+}
+
+.games-header__compte {
+    margin: 14px 0 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #8f8fa5;
+}
+
+/* --- Grille --- */
+
+.games-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+    gap: 20px;
+    text-align: left;
+}
+
+/* --- Carte --- */
+
+.game-card {
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--card-bg);
+
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.game-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(124, 92, 255, 0.55);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.38);
+}
+
+/* --- Visuel --- */
+
+.game-card__cover {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    aspect-ratio: 16 / 9;
+
+    background: linear-gradient(135deg, #26262f 0%, #1b1b22 100%);
+    border-bottom: 1px solid var(--border);
+}
+
+.game-card__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.game-card__initiales {
+    font-size: 40px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: rgba(179, 160, 255, 0.55);
+    user-select: none;
+}
+
+/* --- Pastilles --- */
+
+.game-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+
+    padding: 4px 10px;
+
+    border-radius: 999px;
+
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.game-badge--web {
+    color: #d7ffe9;
+    background: rgba(28, 145, 90, 0.72);
+    border: 1px solid rgba(72, 214, 143, 0.5);
+}
+
+.game-badge--download {
+    color: #e2dbff;
+    background: rgba(124, 92, 255, 0.72);
+    border: 1px solid rgba(124, 92, 255, 0.5);
+}
+
+.game-badge--bientot {
+    left: auto;
+    right: 10px;
+
+    color: #ffe3b8;
+    background: rgba(120, 82, 20, 0.78);
+    border: 1px solid rgba(224, 160, 52, 0.5);
+}
+
+/* --- Corps --- */
+
+.game-card__body {
+    flex: 1;
+    padding: 16px 18px 8px;
+}
+
+.game-card__nom {
+    margin: 0 0 6px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.game-card__resume {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #b3a0ff;
+}
+
+.game-card__desc {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-muted);
+}
+
+.game-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+}
+
+.game-card__meta li {
+    padding: 3px 9px;
+
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #1d1d24;
+
+    font-size: 11px;
+    color: #9a9aa5;
+}
+
+/* --- Actions --- */
+
+.game-card__actions {
+    padding: 14px 18px 18px;
+}
+
+.game-card__actions .button,
+.game-card__actions .button--ghost {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.game-card__actions .is-disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.game-card__auteur {
+    display: block;
+    margin-top: 10px;
+    text-align: center;
+    font-size: 11px;
+    color: #77778a;
+}
+
+/* --- Jeu pas encore sorti --- */
+
+.game-card--bientot {
+    border-style: dashed;
+}
+
+.game-card--bientot .game-card__cover {
+    filter: grayscale(0.55);
+}
+
+/* ================= RESPONSIVE ================= */
+
+@media (max-width: 600px) {
+    .games-page {
+        padding: 32px 16px 56px;
+    }
+
+    .games-header h1 {
+        font-size: 30px;
+    }
+
+    .games-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+}

@@ -25,13 +25,13 @@ declare(strict_types=1);
  * racines et dans index.html (page statique). Tout se met à jour d'un
  * coup, depuis site_web/ :
  *
- *   sed -i 's/?v=14/?v=15/g' index.html content/css/*.css
+ *   sed -i 's/?v=15/?v=16/g' index.html content/css/*.css
  *
  * puis la constante ci-dessous. Un contrôle rapide avant de livrer :
  *
- *   grep -c '?v=14' index.html content/css/*.css   # 0 partout
+ *   grep -c '?v=15' index.html content/css/*.css   # 0 partout
  */
-const MGS_ASSET_VERSION = '14';
+const MGS_ASSET_VERSION = '15';
 
 /** Ajoute le numéro de version à une URL d'asset. */
 function mgs_asset(string $chemin): string
@@ -45,9 +45,17 @@ function mgs_asset(string $chemin): string
  * @param string       $titre    Titre de la page (échappé ici).
  * @param list<string> $styles   Feuilles à charger, relatives à la racine du site.
  * @param string       $base     Préfixe de chemin ('..' depuis un sous-dossier).
+ * @param string       $robots   Directive d'indexation. Les pages servies par
+ *                               mgs_head() étaient toutes privées, d'où le
+ *                               « noindex » par défaut ; le catalogue de jeux,
+ *                               lui, est public et passe « index, follow ».
  */
-function mgs_head(string $titre, array $styles = [], string $base = '..'): void
-{
+function mgs_head(
+    string $titre,
+    array $styles = [],
+    string $base = '..',
+    string $robots = 'noindex, nofollow'
+): void {
     $base = rtrim($base, '/');
 
     $styles = $styles ?: [
@@ -59,7 +67,7 @@ function mgs_head(string $titre, array $styles = [], string $base = '..'): void
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow">
+    <meta name="robots" content="<?= htmlspecialchars($robots, ENT_QUOTES, 'UTF-8') ?>">
     <title><?= htmlspecialchars($titre, ENT_QUOTES, 'UTF-8') ?> — My Gamers Stats</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <?php foreach ($styles as $style): ?>

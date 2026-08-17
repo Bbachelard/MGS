@@ -37,6 +37,10 @@ if (isset($_GET['error'])) {
                 <img src="../content/image/mgs_letters.png" width="100" alt="My Gamers Stats">
             </a>
         </div>
+
+        <nav class="nav-main" aria-label="Navigation principale">
+            <a href="../game/index.php" class="nav-main__link">Games</a>
+        </nav>
     </header>
 
     <div class="page">

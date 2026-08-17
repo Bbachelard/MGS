@@ -7,6 +7,11 @@
     </url>
 
     <url>
+        <loc>https://my-gamers-stats.com/game/</loc>
+        <priority>0.8</priority>
+    </url>
+
+    <url>
         <loc>https://my-gamers-stats.com/connexion/</loc>
         <priority>0.7</priority>
     </url>

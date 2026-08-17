@@ -22,8 +22,27 @@ require_once dirname(__DIR__) . '/platforms.php';
  *          'friends'   => true,        // boutons Amis / Ajouter un ami
  *          'actions'   => [['Mon profil', './index.php'], …],
  *          'logout'    => true,
+ *          'active'    => 'game',      // onglet principal en surbrillance
  *      ]);
+ *
+ *  Les liens propres à l'espace connecté (déconnexion, amis) sont
+ *  construits à partir de $base et non en « ./ » : la barre est
+ *  désormais affichée depuis d'autres dossiers que logged/, et un
+ *  « ./disconnect.php » y pointait dans le vide.
  * ================================================================== */
+
+/**
+ * Onglets de la navigation principale, à gauche de la barre.
+ * Communs à toutes les pages, connecté ou non.
+ *
+ * @return list<array{0:string,1:string,2:string}> [clé, libellé, href relatif à la racine]
+ */
+function mgs_navbar_tabs(): array
+{
+    return [
+        ['game', 'Games', '/game/index.php'],
+    ];
+}
 
 /**
  * Icônes de plateforme de la navbar.
@@ -81,13 +100,14 @@ function mgs_navbar_platforms(string $mode, string $base): void
  * @param array{
  *   username?:string, avatar?:bool, platforms?:string, friends?:bool,
  *   actions?:list<array{0:string,1:string}>, logout?:bool, login?:bool,
- *   base?:string
+ *   base?:string, active?:string
  * } $options
  */
 function mgs_navbar(array $options = []): void
 {
     $base     = rtrim($options['base'] ?? '..', '/');
     $username = (string) ($options['username'] ?? '');
+    $actif    = (string) ($options['active'] ?? '');
     ?>
 <header class="navbar">
     <div class="logo">
@@ -96,6 +116,14 @@ function mgs_navbar(array $options = []): void
                  width="100" alt="My Gamers Stats">
         </a>
     </div>
+
+    <nav class="nav-main" aria-label="Navigation principale">
+        <?php foreach (mgs_navbar_tabs() as [$cle, $libelle, $href]): ?>
+            <a href="<?= htmlspecialchars($base . $href, ENT_QUOTES, 'UTF-8') ?>"
+               class="nav-main__link<?= $cle === $actif ? ' is-active' : '' ?>"
+               <?= $cle === $actif ? 'aria-current="page"' : '' ?>><?= htmlspecialchars($libelle, ENT_QUOTES, 'UTF-8') ?></a>
+        <?php endforeach; ?>
+    </nav>
 
     <?php if ($username !== ''): ?>
         <div class="user-chip">
@@ -115,8 +143,10 @@ function mgs_navbar(array $options = []): void
             <?php endforeach; ?>
 
             <?php if (!empty($options['friends'])): ?>
-                <a href="./inbox.php" class="nav-link-btn" title="Voir mes amis">Amis</a>
-                <a href="./add_friend.php" class="nav-link-btn" title="Ajouter un ami">Ajouter un ami</a>
+                <a href="<?= htmlspecialchars($base, ENT_QUOTES, 'UTF-8') ?>/logged/inbox.php"
+                   class="nav-link-btn" title="Voir mes amis">Amis</a>
+                <a href="<?= htmlspecialchars($base, ENT_QUOTES, 'UTF-8') ?>/logged/add_friend.php"
+                   class="nav-link-btn" title="Ajouter un ami">Ajouter un ami</a>
             <?php endif; ?>
         </div>
     <?php endif; ?>
@@ -127,7 +157,7 @@ function mgs_navbar(array $options = []): void
     <?php endif; ?>
 
     <?php if (!empty($options['logout'])): ?>
-        <div class="login"><a href="./disconnect.php">Déconnexion</a></div>
+        <div class="login"><a href="<?= htmlspecialchars($base, ENT_QUOTES, 'UTF-8') ?>/logged/disconnect.php">Déconnexion</a></div>
     <?php endif; ?>
 </header>
 <?php

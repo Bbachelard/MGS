@@ -1,0 +1,88 @@
+/* ============================================================
+   NAVIGATION PRINCIPALE — onglets à gauche de la barre
+   ------------------------------------------------------------
+   Chargé par stylesheet.css, donc présent sur TOUTES les pages :
+   accueil, connexion, inscription, mentions légales et espace
+   connecté ont la même barre, les onglets doivent y être partout.
+
+   .logo porte « margin-right: auto » dans navbar-layout.css, ce qui
+   pousse tout ce qui suit vers la droite. On déplace cet auto sur
+   .nav-main : les onglets restent collés au logo, le reste de la
+   barre (icônes, pastille, Connexion) garde sa place à droite.
+   ============================================================ */
+
+.navbar .logo {
+    margin-right: 22px;
+}
+
+.nav-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: auto;
+}
+
+.nav-main__link {
+    display: inline-flex;
+    align-items: center;
+
+    height: 34px;
+    padding: 0 14px;
+
+    border: 1px solid transparent;
+    border-radius: 999px;
+
+    color: #cfcfdb;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+
+    transition: color .18s ease, background .18s ease, border-color .18s ease;
+}
+
+.nav-main__link:hover {
+    color: #fff;
+    background: rgba(124, 92, 255, 0.14);
+    border-color: rgba(124, 92, 255, 0.35);
+}
+
+.nav-main__link.is-active {
+    color: #fff;
+    background: rgba(124, 92, 255, 0.20);
+    border-color: var(--accent);
+}
+
+.nav-main__link:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ================= RESPONSIVE ================= */
+
+@media (max-width: 768px) {
+    .navbar .logo {
+        margin-right: 12px;
+    }
+
+    .nav-main__link {
+        height: 30px;
+        padding: 0 11px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 420px) {
+    .navbar .logo {
+        margin-right: 8px;
+    }
+
+    .nav-main {
+        gap: 4px;
+    }
+
+    .nav-main__link {
+        padding: 0 9px;
+        font-size: 12px;
+    }
+}

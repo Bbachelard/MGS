@@ -7,29 +7,32 @@
    ============================================================ */
 
 /* --- Briques réutilisables --- */
-@import url("modules/messages.css?v=14");
-@import url("modules/buttons.css?v=14");
+@import url("modules/messages.css?v=15");
+@import url("modules/buttons.css?v=15");
 
 /* --- Structure de page --- */
-@import url("modules/navbar.css?v=14");
-@import url("modules/hero.css?v=14");
+@import url("modules/navbar.css?v=15");
+@import url("modules/hero.css?v=15");
 
 /* --- Blocs métier --- */
-@import url("modules/player-card.css?v=14");
-@import url("modules/riot-matches.css?v=14");
-@import url("modules/hub.css?v=14");
-@import url("modules/detail-fold.css?v=14");
-@import url("modules/games-table.css?v=14");
-@import url("modules/modal.css?v=14");
-@import url("modules/verify.css?v=14");
+@import url("modules/player-card.css?v=15");
+@import url("modules/riot-matches.css?v=15");
+@import url("modules/hub.css?v=15");
+@import url("modules/detail-fold.css?v=15");
+@import url("modules/games-table.css?v=15");
+@import url("modules/modal.css?v=15");
+@import url("modules/verify.css?v=15");
 
 /* --- Accueil --- */
-@import url("modules/library-preview.css?v=14");
-@import url("modules/home-card.css?v=14");
-@import url("modules/pseudo-suggest.css?v=14");
+@import url("modules/library-preview.css?v=15");
+@import url("modules/home-card.css?v=15");
+@import url("modules/pseudo-suggest.css?v=15");
 
 /* --- Amis --- */
-@import url("modules/friends.css?v=14");    
+@import url("modules/friends.css?v=15");
+
+/* --- Jeux MGS (page /game/) --- */
+@import url("modules/mgs-games.css?v=15");    
 /* =========================================================
    CARTE DE STATS - ACCUEIL
 ========================================================= */
