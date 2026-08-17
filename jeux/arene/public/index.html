@@ -183,7 +183,13 @@ redimensionner();
 // --- connexion -----------------------------------------------------------
 function connecter(nom) {
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  const url = `${proto}://${location.host}/ws?nom=${encodeURIComponent(nom)}&salon=${encodeURIComponent(salon)}`;
+
+  // L'adresse du WebSocket est construite RELATIVEMENT à la page, jamais en
+  // dur. En local le jeu est servi à la racine (`/` → `/ws`) ; sur le VPS,
+  // Apache le passe sous `/jeu/` (`/jeu/` → `/jeu/ws`). Une adresse en dur
+  // marcherait d'un côté et pas de l'autre.
+  const base = location.pathname.replace(/[^/]*$/, "");
+  const url = `${proto}://${location.host}${base}ws?nom=${encodeURIComponent(nom)}&salon=${encodeURIComponent(salon)}`;
 
   ws = new WebSocket(url);
 

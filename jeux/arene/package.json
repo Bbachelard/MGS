@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Arène MGS — prototype multijoueur temps réel (Cloudflare Workers + Durable Objects)",
-  "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+  "description": "Arène MGS — jeu multijoueur temps réel. Node pur, aucune dépendance.",
+  "engines": {
+    "node": ">=20"
   },
-  "devDependencies": {
-    "wrangler": "^4.0.0"
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node test/arene.test.js"
   }
 }

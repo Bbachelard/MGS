@@ -1,96 +1,133 @@
-# Arène MGS — prototype multijoueur temps réel
+# Arène MGS — jeu multijoueur temps réel
 
 Une arène 2D où plusieurs joueurs se déplacent en même temps, se voient bouger
-et se bousculent. Tout tourne sur Cloudflare, gratuitement.
+et se bousculent. Elle tourne **sur le VPS MGS**, à côté d'Apache, dans un
+conteneur Node de quelques dizaines de mégaoctets.
 
-Le jeu s'ouvre depuis le site : **`/game/arene/`**, elle-même listée dans le
+Le joueur y arrive par `my-gamers-stats.com/game/arene/`, page listée dans le
 catalogue `/game/`.
 
 ---
 
-## Pourquoi ce dossier n'est pas dans `site_web/`
+## Pourquoi un serveur à part, et pas du PHP
 
-`site_web/` part sur l'hébergement PHP (par FTP). Ce dossier-ci n'y a rien à
-faire : il ne contient pas une ligne de PHP et il se déploie ailleurs.
+Un jeu temps réel a besoin d'un processus qui **garde l'état de la partie en
+mémoire** entre deux messages et qui pousse la position de tout le monde 20
+fois par seconde. Un script PHP démarre, répond, meurt : entre deux requêtes,
+il ne reste rien. Faire la même chose en PHP obligerait à écrire les positions
+dans MySQL et à les relire en boucle toutes les 200 ms — jouable, mais mou, et
+lourd pour la base.
 
-Cloudflare n'exécute pas de PHP. Ses Workers exécutent du **JavaScript** (ou du
-WebAssembly) : pas d'Apache, pas d'`index.php`, pas de `mysqli_connect()`.
+Le conteneur Node, lui, reste vivant. Une salle de jeu y est simplement un
+objet en mémoire (`class Salle`), et le WebSocket permet au serveur de parler
+sans qu'on lui demande.
 
-Ce n'est pas une perte, et surtout pas pour un jeu :
+Le reste du site ne bouge pas : comptes, MySQL, stats Steam et Riot restent en
+PHP derrière Apache. Les deux cohabitent, Apache faisant simplement passerelle.
 
-| | PHP mutualisé (l'hébergement MGS) | Cloudflare Workers |
-|---|---|---|
-| Mémoire entre 2 requêtes | aucune (tout meurt à la fin du script) | **Durable Objects** : un objet qui reste vivant |
-| WebSocket | quasi impossible en mutualisé | natif |
-| Comment savoir qui bouge | le client redemande toutes les 200 ms (*polling*) | le serveur pousse 20 fois/s |
-| Ressenti | mou, saccadé | fluide |
-
-Un jeu temps réel a besoin d'un serveur **qui se souvient** de l'état de la
-partie entre deux messages. Le reste du site (comptes, MySQL, stats Steam et
-Riot) reste exactement où il est : les deux cohabitent très bien, le site PHP
-se contentant d'afficher le jeu dans une iframe.
+```
+navigateur ──HTTPS──> Apache ──┬── / …            PHP  (le site)
+                               └── /jeu/ …        conteneur node (le jeu)
+                                   /jeu/ws        WebSocket, mod_proxy_wstunnel
+```
 
 ---
 
 ## Les fichiers
 
 ```
-jeux/arene/
-├── wrangler.toml        configuration Cloudflare
-├── package.json
-├── src/
-│   └── server.js        le Worker (routage) + ArenaRoom (le serveur de jeu)
-└── public/
-    ├── index.html       tout le client : canvas, clavier, réseau, rendu
-    └── shared.js        ⭐ la physique, partagée par le client ET le serveur
-```
+jeux/arene/                     ← ne part PAS dans apache/site/
+├── README.md
+├── package.json                aucune dépendance, juste `npm test`
+├── server/
+│   ├── index.js                salles, boucle 20 Hz, fichiers statiques
+│   └── ws.js                   WebSocket minimal (RFC 6455), sans bibliothèque
+├── public/
+│   ├── index.html              le client : canvas, clavier, réseau, rendu
+│   └── shared.js               ⭐ la physique, partagée client ET serveur
+├── test/arene.test.js          27 contrôles, `npm test`
+├── apache/mgs-arene.conf       le ProxyPass à inclure dans le vhost
+└── docker/service-arene.yml    le bloc à coller dans docker-compose.yml
 
-Côté site, deux fichiers seulement :
-
-```
-site_web/game/arene/index.php               le cadre (navbar MGS + iframe)
+site_web/game/arene/index.php                la page du site (navbar + iframe)
 site_web/content/css/modules/arene-embed.css son style
 ```
 
-`shared.js` est le fichier le plus important. Il contient la fonction
-`simuler()`, utilisée **des deux côtés**. C'est la règle numéro un du
-multijoueur : si le client et le serveur ne calculent pas le mouvement de façon
-identique, le personnage tressaute en permanence.
+`shared.js` est le fichier le plus important : `simuler()` y est écrite **une
+seule fois** et importée des deux côtés. C'est la règle numéro un du
+multijoueur — si le client et le serveur ne calculent pas le mouvement à
+l'identique, le personnage tressaute en permanence.
+
+### Aucune dépendance, et pourquoi
+
+Pas de `ws`, pas d'`express`, pas de `node_modules`, pas de Dockerfile. Le
+dossier est monté tel quel dans l'image officielle `node:22-alpine` et lancé
+par `node server/index.js`. Conséquences concrètes :
+
+- `update-mgs.sh` se contente d'un `rsync` et d'un `restart` — pas de `npm
+  install` sur le VPS, pas d'image à reconstruire ;
+- rien à surveiller côté failles de dépendances ;
+- `server/ws.js` fait 200 lignes commentées, ce qui est à peu près le prix
+  d'un WebSocket sans compression ni extensions.
 
 ---
 
-## Lancer le projet en local
+## Lancer en local
 
 ```bash
 cd jeux/arene
-npm install
-npx wrangler dev          # http://localhost:8787
+node server/index.js        # http://localhost:8080
 ```
 
-Ouvre l'adresse dans **deux onglets** (ou deux navigateurs) : tu verras les
-deux joueurs bouger en même temps.
-
-## Mettre en ligne
+Deux onglets sur cette adresse = deux joueurs qui se voient bouger.
 
 ```bash
-cd jeux/arene
-npx wrangler login
-npx wrangler deploy       # → https://mgs-arene.<ton-compte>.workers.dev
+npm test                    # 27 contrôles, ~5 s, aucune dépendance
 ```
 
-Wrangler affiche l'adresse obtenue. **Report-la dans `MGS_ARENE_URL`**, en tête
-de `site_web/game/arene/index.php`, puis renvoie ce fichier sur l'hébergement.
-Tant que la constante est vide, la page affiche « pas encore en ligne » au lieu
-d'une iframe cassée.
+Les tests démarrent le vrai serveur et s'y connectent avec le client WebSocket
+intégré à Node 22 : mouvement, salons, anti-triche, déconnexion, pseudos
+hostiles, traversée de dossier.
 
-Les Durable Objects avec stockage SQLite (`new_sqlite_classes` dans
-`wrangler.toml`) sont disponibles sur le **plan gratuit**.
+---
 
-### Plus tard : une adresse en `my-gamers-stats.com`
+## Mettre en ligne sur le VPS
 
-Si le domaine passe un jour chez Cloudflare, un enregistrement
-`arene.my-gamers-stats.com` pointé sur le Worker remplace l'adresse en
-`workers.dev` — seule `MGS_ARENE_URL` change. Rien d'autre à toucher.
+Trois choses à mettre en place **une fois**, ensuite `update-mgs.sh` suffit.
+
+### 1. Le conteneur
+
+Coller le contenu de `docker/service-arene.yml` dans
+`~/apache/docker-compose.yml`, sous `services:`, à la même indentation que
+`apache`.
+
+### 2. Apache
+
+Activer les modules dans le `Dockerfile` de l'image Apache (sinon ils
+disparaissent au prochain rebuild) :
+
+```dockerfile
+RUN a2enmod proxy proxy_http proxy_wstunnel
+```
+
+Puis inclure `apache/mgs-arene.conf` **dans le `<VirtualHost>`** du site.
+
+### 3. Le script de mise à jour
+
+`update-mgs.sh` doit maintenant copier deux dossiers : `site_web/` vers
+`site/` et `jeux/arene/` vers `arene/`. La version à jour est fournie.
+
+### Vérifier
+
+```bash
+docker compose up -d
+docker compose logs arene            # « Arène MGS — en écoute sur le port 8080 »
+curl -s https://my-gamers-stats.com/jeu/sante
+# {"ok":true,"connexions":0,"salons":[],"depuis":"12 s"}
+```
+
+`/jeu/sante` dit à tout moment combien de joueurs sont connectés et sur quels
+salons. C'est aussi ce que Docker interroge pour le `healthcheck`.
 
 ---
 
@@ -105,54 +142,49 @@ seulement **ce qu'il appuie** :
 { "t": "cmd", "seq": 412, "dt": 0.0333, "e": { "haut": true, "droite": true } }
 ```
 
-C'est le serveur qui calcule la position et qui la renvoie à tout le monde.
-Sinon, n'importe qui ouvrirait la console et se téléporterait où il veut.
-Le serveur borne d'ailleurs `dt` et le nombre de commandes traitées par tick :
-sans ça, envoyer 1000 commandes d'un coup rendrait 1000 fois plus rapide.
+C'est le serveur qui calcule la position et la renvoie à tout le monde. Sinon
+n'importe qui ouvrirait la console et se téléporterait où il veut. Le serveur
+borne `dt` (0,1 s max) et le nombre de commandes traitées par tick (5) :
+envoyer 1000 commandes d'un coup ne rend pas 1000 fois plus rapide, ça remplit
+juste une file qui se vide au rythme normal.
 
-### 2. Le Durable Object, c'est la salle
-
-Un Worker classique n'a pas de mémoire : il démarre, répond, meurt. Impossible
-d'y stocker la liste des joueurs. Le Durable Object, lui, est une instance
-unique et persistante, identifiée par un nom :
+### 2. Une salle = un objet en mémoire
 
 ```js
-const id = env.ARENA.idFromName("mgs");   // toujours le même objet
-return env.ARENA.get(id).fetch(requete);
+const salles = new Map();   // "mgs" -> Salle
 ```
 
-Deux joueurs qui demandent le salon `mgs` tombent forcément sur la **même
-instance**, sur la même machine. C'est ce qui permet de créer des salons :
-`/game/arene/?salon=copains` ouvre une deuxième arène complètement séparée.
+`/game/arene/?salon=copains` ouvre une arène complètement séparée. Une salle
+vide s'arrête d'elle-même (`clearInterval`) et disparaît de la Map : un serveur
+sans joueur ne consomme rien.
 
-Le nom du salon est filtré des deux côtés (lettres, chiffres, tiret, 24
-caractères) : il sert d'identifiant d'objet, on ne laisse pas un visiteur en
-faire créer une infinité.
+Le nom du salon crée une salle : il est filtré des **deux** côtés (PHP et
+Node) en `[a-z0-9-]`, 24 caractères, avec un plafond de 20 salles.
 
 ### 3. La boucle 20 Hz
 
-Toutes les 50 ms, le serveur applique les commandes reçues, sépare les joueurs
-qui se chevauchent, et diffuse un *snapshot* :
+Toutes les 50 ms : appliquer les commandes reçues, séparer les joueurs qui se
+chevauchent, diffuser un *snapshot*.
 
 ```json
-{ "t": "etat", "tick": 1042, "joueurs": [ { "i":1, "n":"Alice", "x":812.4, "y":301.0, "s":412 } ] }
+{ "t": "etat", "tick": 1042, "joueurs": [ { "i":1, "n":"Ben", "x":812.4, "y":301.0, "s":412 } ] }
 ```
 
-Les noms de champs sont volontairement d'une lettre : à 20 messages par seconde
-et par joueur, chaque octet compte.
+Les noms de champs font une lettre : à 20 messages par seconde et par joueur,
+chaque octet compte. La trame WebSocket est fabriquée **une seule fois** par
+tick puis écrite telle quelle sur chaque socket.
 
 ### 4. Les trois techniques qui font que ça ne rame pas
 
-C'est le cœur du sujet. Avec 60 ms de latence, attendre la réponse du serveur
-avant de bouger donnerait un jeu injouable. Donc :
+Avec 60 ms de latence, attendre la réponse du serveur avant de bouger donnerait
+un jeu injouable. Donc :
 
 **Prédiction** — le client applique `simuler()` chez lui immédiatement. Le
 personnage répond au clavier dans la milliseconde.
 
-**Réconciliation** — quand le snapshot arrive, il contient `s`, le numéro de la
-dernière commande que le serveur a traitée. Le client repart de la position
-officielle, jette les commandes déjà prises en compte, et **rejoue** celles qui
-sont encore en vol :
+**Réconciliation** — le snapshot contient `s`, le numéro de la dernière
+commande que le serveur a traitée. Le client repart de la position officielle,
+jette les commandes déjà prises en compte, et **rejoue** celles encore en vol :
 
 ```js
 monPerso.x = officiel.x;
@@ -162,77 +194,75 @@ for (const c of enAttente) simuler(monPerso, c.e, c.dt);
 ```
 
 Si la prédiction était juste, on retombe exactement au même endroit : rien ne
-bouge à l'écran. Si le serveur n'était pas d'accord (un mur, un autre joueur),
-la correction s'applique.
+bouge à l'écran. Sinon (un mur, un autre joueur), la correction s'applique.
 
-**Interpolation** — les autres joueurs ne sont pas prédits (on ne sait pas ce
-qu'ils vont appuyer). On les affiche **100 ms dans le passé**, entre les deux
-derniers snapshots reçus. On perd 100 ms de fraîcheur, on gagne un mouvement
-parfaitement lisse même si un paquet se perd.
+**Interpolation** — les autres joueurs ne sont pas prédits : on les affiche
+**100 ms dans le passé**, entre les deux derniers snapshots. On perd 100 ms de
+fraîcheur, on gagne un mouvement lisse même quand un paquet se perd.
 
-Ces trois idées viennent de Quake III et de Source (Valve) ; elles n'ont pas
-changé depuis 25 ans, et c'est encore ce qui tourne dans les jeux d'aujourd'hui.
+Ces trois idées viennent de Quake III et de Source (Valve). Elles n'ont pas
+changé depuis 25 ans.
 
 ### 5. Le pas de temps fixe
 
 Le client simule par pas de 1/30 s exactement, jamais avec le `dt` de l'écran.
-Sinon un écran 144 Hz et un écran 60 Hz ne calculeraient pas la même chose, et
+Sinon un écran 144 Hz et un écran 60 Hz ne calculeraient pas la même chose et
 la réconciliation corrigerait sans arrêt. L'affichage, lui, interpole entre le
-pas précédent et le pas courant — d'où un rendu fluide malgré 30 pas/seconde.
+pas précédent et le pas courant.
 
 ---
 
 ## Le lien avec le compte MGS
 
-La page `/game/arene/` passe le pseudo du visiteur connecté dans l'URL de
-l'iframe (`?nom=…`). Le jeu **pré-remplit** le champ, il ne se connecte pas tout
-seul : le joueur doit pouvoir corriger son nom, et une iframe qui ouvrirait une
+`/game/arene/` passe le pseudo du visiteur connecté dans l'URL de l'iframe
+(`?nom=…`). Le jeu **pré-remplit** le champ, il ne se connecte pas tout seul :
+le joueur doit pouvoir corriger son nom, et une iframe qui ouvrirait une
 connexion sans clic n'aurait de toute façon pas le clavier.
 
-Ce pseudo n'est **pas une preuve d'identité** : quelqu'un peut ouvrir l'adresse
-du Worker à la main et se déclarer comme il veut. Tant que le jeu n'a ni score
-ni classement, ça n'a aucune conséquence. Le jour où un classement arrive, il
-faudra un vrai jeton signé par le site et vérifié par le Worker — c'est le
-point à ne pas oublier.
+Ce pseudo n'est **pas une preuve d'identité** : on peut ouvrir `/jeu/` à la
+main et se déclarer comme on veut. Tant qu'il n'y a ni score ni classement, ça
+n'a aucune conséquence. Le jour où un classement remonte dans la base MGS, il
+faudra un jeton signé par le PHP et vérifié par Node — c'est le point à ne pas
+oublier.
 
-Le serveur nettoie quand même le pseudo (balises, sauts de ligne, 16
-caractères) : il est réaffiché à tous les autres joueurs.
+Le serveur nettoie quand même le pseudo (balises, guillemets, sauts de ligne,
+16 caractères) : il est réaffiché à tous les autres joueurs.
 
-## Ce que le prototype fait déjà
+## Garde-fous en place
 
-- connexion WebSocket, pseudo, plusieurs salons (`?salon=copains`)
-- déplacement ZQSD / WASD / flèches, diagonales normalisées
-- collisions avec les murs, avec glissement le long des surfaces
-- collisions entre joueurs (on se pousse)
-- caméra qui suit le joueur, bloquée aux bords du monde
-- affichage ping / nombre de joueurs / tick
-- garde-fous anti-triche de base, salle plafonnée à 32 joueurs
+| | |
+|---|---|
+| Commandes traitées par tick et par joueur | 5 |
+| `dt` accepté | 0 à 0,1 s |
+| File de commandes par joueur | 60, le surplus est jeté |
+| Joueurs par salle | 32 |
+| Salles simultanées | 20 |
+| Connexions totales | 200 |
+| Message WebSocket | 256 Ko, au-delà : fermeture |
+| File d'écriture par socket | 1 Mo, au-delà : déconnexion |
+| Mémoire du conteneur | 256 Mo (`mem_limit`) |
+| Fichiers servis | `public/` uniquement, traversée bloquée |
 
 ## La suite, dans l'ordre
 
-Chaque étape est petite et se construit sur la précédente.
-
-1. **Un sprint** — touche Maj, `VITESSE * 1.8`, avec une jauge d'endurance dans
-   l'état du joueur. Bon exercice : il faut y penser des deux côtés dans
-   `shared.js` pour que la prédiction reste juste.
+1. **Un sprint** — touche Maj, `VITESSE * 1.8`, avec une jauge d'endurance.
+   Bon exercice : il faut y penser des deux côtés dans `shared.js` pour que la
+   prédiction reste juste.
 2. **Viser à la souris** — envoyer l'angle dans la commande, dessiner un canon.
-3. **Tirer** — les projectiles sont simulés par le serveur uniquement et ajoutés
-   au snapshot. Attention : c'est là que la triche commence.
+3. **Tirer** — projectiles simulés côté serveur uniquement, ajoutés au
+   snapshot. C'est là que la triche commence.
 4. **Points de vie et score** — dégâts au serveur, réapparition après 3 s.
-5. **Persistance** — le Durable Object a un stockage intégré
-   (`this.ctx.storage`) : garder le meilleur score du salon.
-6. **Rattacher au compte MGS** — jeton signé côté PHP, vérifié par le Worker,
-   puis remontée du score dans la base MGS.
-7. **Optimisation réseau** — n'envoyer que ce qui a changé, passer en binaire,
-   ne transmettre que les joueurs visibles à l'écran.
+5. **Rattacher au compte MGS** — jeton signé côté PHP, vérifié par Node, puis
+   remontée du score dans la base.
+6. **Optimisation réseau** — n'envoyer que ce qui a changé, passer en binaire,
+   ne transmettre que les joueurs visibles.
 
 ## Petites choses à savoir
 
 - Sur contact entre deux joueurs, un léger tremblement est normal : le client
   ne prédit pas la poussée des autres, donc le serveur corrige. Se lisse en
   appliquant la correction progressivement plutôt que d'un coup.
-- La boucle utilise `setInterval`, qui tourne tant qu'un WebSocket est ouvert
-  et s'arrête quand la salle se vide. Pour un jeu qui doit continuer sans
-  joueur connecté, il faudrait utiliser les *Alarms* des Durable Objects.
+- Le conteneur n'écrit rien sur le disque (`:ro`). Une sauvegarde des scores
+  demanderait un volume dédié — pas de retirer le `:ro`.
 - Ne mets jamais de logique de jeu importante uniquement dans le client : tout
   ce qui décide de quelque chose doit être vérifié par le serveur.

@@ -1,0 +1,43 @@
+# ============================================================================
+#  Bloc à AJOUTER dans ~/apache/docker-compose.yml, sous `services:`,
+#  au même niveau d'indentation que le service `apache`.
+#
+#  Pas de Dockerfile, pas de build, pas de npm install : le jeu n'a aucune
+#  dépendance, on monte le dossier dans l'image officielle de Node et on
+#  lance le script. `update-mgs.sh` recopie les fichiers et redémarre le
+#  conteneur — c'est tout le déploiement.
+# ============================================================================
+
+  arene:
+    image: node:22-alpine
+    container_name: mgs-arene
+    restart: unless-stopped
+
+    working_dir: /app
+    # :ro — le jeu n'écrit rien sur le disque. Si un jour il devait le faire
+    # (sauvegarde des scores), il faudrait un volume dédié, pas retirer le ro.
+    volumes:
+      - ./arene:/app:ro
+    command: node server/index.js
+
+    environment:
+      - PORT=8080
+      - NODE_ENV=production
+
+    # `expose` et non `ports` : le jeu n'est joignable que depuis le réseau
+    # Docker, donc uniquement à travers Apache. Publier 8080 sur le VPS
+    # ouvrirait une deuxième porte d'entrée, sans HTTPS, qu'il faudrait
+    # penser à protéger.
+    expose:
+      - "8080"
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/sante').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+    # Le jeu tient dans quelques dizaines de Mo. Le plafonner évite qu'une
+    # fuite un jour n'emporte Apache et MySQL avec elle.
+    mem_limit: 256m
