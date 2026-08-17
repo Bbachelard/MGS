@@ -4,15 +4,15 @@ declare(strict_types=1);
 /**
  * game/arene/index.php — la page qui héberge l'Arène MGS.
  *
- * Le jeu lui-même n'est PAS ici : c'est un Worker Cloudflare, dont le code
- * vit dans `jeux/arene/` à la racine du dépôt. Cette page n'en est que le
- * cadre — navbar MGS, titre, règles — et l'affiche dans une <iframe>.
+ * Le jeu lui-même n'est PAS servi par Apache : c'est un petit serveur Node
+ * (conteneur `arene` du docker-compose), dont le code vit dans `jeux/arene/`
+ * à la racine du dépôt. Apache lui passe /jeu/ en ProxyPass. Cette page n'en
+ * est que le cadre — navbar MGS, titre, règles — et l'affiche en <iframe>.
  *
- * Pourquoi le jeu n'est pas servi par cet hébergement : il a besoin d'un
- * serveur qui garde l'état de la partie EN MÉMOIRE entre deux messages et
- * qui pousse 20 fois par seconde en WebSocket. PHP en mutualisé démarre et
- * meurt à chaque requête : il ne sait pas faire. Le Durable Object de
- * Cloudflare est exactement conçu pour ça, et il est gratuit.
+ * Pourquoi PHP ne peut pas tenir ce rôle : le jeu a besoin d'un processus qui
+ * garde l'état de la partie EN MÉMOIRE entre deux messages et qui pousse 20
+ * fois par seconde en WebSocket. Un script PHP démarre et meurt à chaque
+ * requête. Le conteneur Node, lui, reste vivant.
  *
  * Comme /game/index.php, cette page est PUBLIQUE et ne touche ni à la base
  * de données ni à config.php : une panne MySQL ne l'empêche pas de sortir.
@@ -21,15 +21,16 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../php/views/navbar.php';
 
 /* ------------------------------------------------------------------
-   L'adresse du jeu déployé.
+   L'adresse du jeu.
 
-   Après `npx wrangler deploy` dans jeux/arene/, wrangler affiche
-   l'adresse obtenue. C'est la SEULE ligne à changer ici.
+   '/jeu' = le chemin servi par Apache (ProxyPass vers le conteneur
+   `arene`, cf. jeux/arene/apache/mgs-arene.conf). Même domaine, même
+   certificat, rien à configurer côté navigateur.
 
-   Laisser la chaîne vide affiche « bientôt disponible » au lieu d'une
-   iframe cassée : on peut donc livrer la page avant le déploiement.
+   Laisser la chaîne vide affiche un encart d'attente au lieu d'une
+   iframe cassée : pratique tant que le conteneur n'est pas en place.
 ------------------------------------------------------------------ */
-const MGS_ARENE_URL = '';   // ex. 'https://mgs-arene.mon-compte.workers.dev'
+const MGS_ARENE_URL = '/jeu';
 
 /* Le salon : tous les joueurs qui ouvrent cette page se retrouvent
    ensemble. `?salon=copains` dans l'URL du site ouvre une arène séparée. */
@@ -124,10 +125,10 @@ if ($username !== '') {
         <div class="arene-indispo">
             <p><strong>Le jeu n'est pas encore en ligne.</strong></p>
             <p>
-                Le serveur de l'arène se déploie depuis <code>jeux/arene/</code>
-                avec <code>npx wrangler deploy</code>. Une fois l'adresse
-                obtenue, la renseigner dans <code>MGS_ARENE_URL</code>, en tête
-                de ce fichier.
+                Le serveur de l'arène est le conteneur <code>arene</code> du
+                <code>docker-compose.yml</code>, et Apache lui passe
+                <code>/jeu/</code>. Une fois les deux en place, renseigner
+                <code>MGS_ARENE_URL</code> en tête de ce fichier.
             </p>
         </div>
 
