@@ -7,29 +7,29 @@
    ============================================================ */
 
 /* --- Briques réutilisables --- */
-@import url("modules/messages.css");
-@import url("modules/buttons.css");
+@import url("modules/messages.css?v=14");
+@import url("modules/buttons.css?v=14");
 
 /* --- Structure de page --- */
-@import url("modules/navbar.css");
-@import url("modules/hero.css");
+@import url("modules/navbar.css?v=14");
+@import url("modules/hero.css?v=14");
 
 /* --- Blocs métier --- */
-@import url("modules/player-card.css");
-@import url("modules/riot-matches.css");
-@import url("modules/hub.css");
-@import url("modules/detail-fold.css");
-@import url("modules/games-table.css");
-@import url("modules/modal.css");
-@import url("modules/verify.css");
+@import url("modules/player-card.css?v=14");
+@import url("modules/riot-matches.css?v=14");
+@import url("modules/hub.css?v=14");
+@import url("modules/detail-fold.css?v=14");
+@import url("modules/games-table.css?v=14");
+@import url("modules/modal.css?v=14");
+@import url("modules/verify.css?v=14");
 
 /* --- Accueil --- */
-@import url("modules/library-preview.css");
-@import url("modules/home-card.css");
-@import url("modules/pseudo-suggest.css");
+@import url("modules/library-preview.css?v=14");
+@import url("modules/home-card.css?v=14");
+@import url("modules/pseudo-suggest.css?v=14");
 
 /* --- Amis --- */
-@import url("modules/friends.css");    
+@import url("modules/friends.css?v=14");    
 /* =========================================================
    CARTE DE STATS - ACCUEIL
 ========================================================= */

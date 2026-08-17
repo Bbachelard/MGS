@@ -26,12 +26,24 @@ function construireCarte(data) {
     const avatar = safeUrl(data.avatar);
     const status = data.status || {};
 
+    /* Une plateforme qui découpe ses stats par jeu (Riot : LoL et
+       Valorant) reçoit les mêmes blocs dépliables que le profil, sous
+       l'en-tête d'identité. Les autres n'ont qu'un seul jeu de stats
+       et gardent la carte à plat : la replier ne cacherait qu'elle-même
+       et ajouterait un clic pour rien à un résultat de recherche. */
+    const decoupeJeux = Array.isArray(data.metrics && data.metrics.groups)
+                        && data.metrics.groups.length > 0;
+
+    const groupes = decoupeJeux
+        ? grouperParJeu([{ platform: { slug: data.platform }, account: null, data }])
+        : [];
+
     // Ces trois rendus étaient recopiés ici et dans construireDetails() ;
     // ils vivent maintenant dans rendreHighlights / rendreSections /
     // rendreLiens, plus bas dans ce fichier.
-    const highlights = rendreHighlights(data.highlights);
-    const sections   = rendreSections(data.sections);
-    const links      = rendreLiens(data.links);
+    const highlights = groupes.length ? '' : rendreHighlights(data.highlights);
+    const sections   = groupes.length ? '' : rendreSections(data.sections);
+    const links      = groupes.length ? '' : rendreLiens(data.links);
 
     card.innerHTML = `
         <div class="platform-tag">${platformTag(data.platform, data.platformLabel || data.platform)}</div>
@@ -54,6 +66,12 @@ function construireCarte(data) {
         ${sections}
         ${links}
     `;
+
+    if (groupes.length) {
+        // masquerComptes : sur une recherche il n'y a qu'un compte, et
+        // son pseudo est déjà en gros au-dessus.
+        card.appendChild(construireFoldsDeJeux(groupes, { masquerComptes: true }));
+    }
 
     return card;
 }
@@ -512,8 +530,10 @@ function badgeHeures(heures, estime) {
 }
 
 /** Contenu de la ligne repliée d'un jeu : jaquette, nom, comptes, rang, heures. */
-function teteDeGroupe(groupe) {
-    const noms = groupe.comptes.map(c => c.nom).filter(Boolean);
+function teteDeGroupe(groupe, options = {}) {
+    const noms = options.masquerComptes
+        ? []
+        : groupe.comptes.map(c => c.nom).filter(Boolean);
 
     const comptes = noms.length
         ? `<span class="fold-accounts">${escapeHtml(noms.join(' · '))}</span>`
@@ -602,18 +622,21 @@ function corpsDeCompte(compte, plusieursComptes) {
     return bloc;
 }
 
-/** Toutes les stats détaillées, en lignes dépliables groupées par jeu. */
-function construireDetails(resultats) {
-    const groupes = grouperParJeu(resultats);
-
-    if (!groupes.length) return null;
-
+/**
+ * La pile de blocs dépliables, à partir de groupes déjà constitués.
+ *
+ * Partagée par le profil (construireDetails, plusieurs comptes) et par
+ * la recherche de l'accueil (construireCarte, un seul compte) : les
+ * deux écrans affichent exactement les mêmes blocs LoL et Valorant, et
+ * une correction sur l'un profite à l'autre.
+ */
+function construireFoldsDeJeux(groupes, options = {}) {
     const bloc = document.createElement('div');
     bloc.className = 'hub-details';
 
     groupes.forEach(groupe => {
         const fold = MGS.creerFold({
-            head:    teteDeGroupe(groupe),
+            head:    teteDeGroupe(groupe, options),
             classe:  'detail-fold--jeu',
             dataset: { platform: groupe.platform, game: groupe.cle },
         });
@@ -661,4 +684,11 @@ function construireDetails(resultats) {
     });
 
     return bloc;
+}
+
+/** Toutes les stats détaillées du profil, groupées par jeu. */
+function construireDetails(resultats) {
+    const groupes = grouperParJeu(resultats);
+
+    return groupes.length ? construireFoldsDeJeux(groupes) : null;
 }

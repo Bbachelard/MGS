@@ -269,6 +269,26 @@
 }
 
 /* ------------------------------------------------------------
+   Dans la carte de résultat de l'accueil
+   ------------------------------------------------------------ */
+
+/* .player-card est un inline-flex centré : sans largeur imposée, la
+   pile de blocs se réduirait à la largeur de sa ligne la plus longue
+   et flotterait au milieu de la carte.
+
+   Le min-width compense l'effet de bord du repli : la carte se
+   dimensionnait auparavant sur sa grille d'encadrés, désormais cachée,
+   et elle rétrécissait donc jusqu'à écraser cette même grille une fois
+   le bloc ouvert. Le calc() borne la valeur à la fenêtre — un
+   pourcentage vaudrait zéro dans un parent qui se dimensionne sur son
+   contenu. */
+.player-card > .hub-details {
+    align-self: stretch;
+    width: 100%;
+    min-width: min(520px, calc(100vw - 120px));
+}
+
+/* ------------------------------------------------------------
    Second niveau : un bloc par compte, à l'intérieur d'un jeu
 
    Riot uniquement, et seulement à partir de deux comptes. La carte

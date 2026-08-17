@@ -7,12 +7,31 @@ declare(strict_types=1);
  *  Les 7 pages avaient chacune leur propre <head>, avec des versions
  *  de cache différentes sur les mêmes feuilles de style (?v=1 ici,
  *  ?v=6 là) et, sur deux d'entre elles, ni charset, ni lang, ni
- *  viewport. MGS_ASSET_VERSION centralise le cache-busting : une seule
- *  valeur à incrémenter après un déploiement.
+ *  viewport. MGS_ASSET_VERSION centralise le cache-busting.
+ *
+ *  ATTENTION : cette constante ne versionne que les URL écrites par
+ *  mgs_asset(), c'est-à-dire les 4 feuilles racines et les scripts.
+ *  Les modules de content/css/modules/ sont tirés par des @import
+ *  DEPUIS ces feuilles : un @import sans « ?v= » est servi depuis le
+ *  cache du navigateur indéfiniment, même après incrémentation.
+ *  Un correctif CSS pouvait donc n'atteindre personne.
+ *  Les @import portent maintenant le même « ?v= », écrit en dur.
  * ================================================================== */
 
-/** À incrémenter à chaque mise en production touchant le CSS ou le JS. */
-const MGS_ASSET_VERSION = '12';
+/*
+ * À incrémenter à chaque mise en production touchant le CSS ou le JS.
+ *
+ * Le numéro apparaît aussi, en dur, dans les @import des 4 feuilles
+ * racines et dans index.html (page statique). Tout se met à jour d'un
+ * coup, depuis site_web/ :
+ *
+ *   sed -i 's/?v=14/?v=15/g' index.html content/css/*.css
+ *
+ * puis la constante ci-dessous. Un contrôle rapide avant de livrer :
+ *
+ *   grep -c '?v=14' index.html content/css/*.css   # 0 partout
+ */
+const MGS_ASSET_VERSION = '14';
 
 /** Ajoute le numéro de version à une URL d'asset. */
 function mgs_asset(string $chemin): string

@@ -6,5 +6,5 @@
    applicatifs. L'ORDRE COMPTE (cascade CSS).
    ============================================================ */
 
-@import url("modules/base.css");
-@import url("modules/navbar-layout.css");
+@import url("modules/base.css?v=14");
+@import url("modules/navbar-layout.css?v=14");
