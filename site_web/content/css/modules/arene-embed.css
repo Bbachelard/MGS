@@ -1,0 +1,184 @@
+/* ============================================================
+   ARÈNE MGS — la page qui héberge le jeu (game/arene/)
+   ------------------------------------------------------------
+   Ce module n'est PAS tiré par un @import : game/arene/index.php
+   le passe directement à mgs_head(), qui lui ajoute le « ?v= ».
+   Une seule page l'utilise, inutile de le charger partout.
+
+   Les variables (--accent, --card-bg, --border…) viennent de
+   modules/base.css, chargé par stylesheet.css.
+   ============================================================ */
+
+.arene-page {
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 28px 20px 48px;
+}
+
+/* --- En-tête --- */
+
+.arene-fil {
+    margin: 0 0 6px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #9292a3;
+}
+
+.arene-fil a {
+    color: #9292a3;
+    text-decoration: none;
+}
+
+.arene-fil a:hover {
+    color: #fff;
+}
+
+.arene-titre {
+    margin: 0 0 8px;
+    font-size: 28px;
+    color: #fff;
+}
+
+.arene-resume {
+    margin: 0 0 22px;
+    max-width: 640px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #c9c9d4;
+}
+
+/* --- Le cadre du jeu ---
+   L'iframe n'a pas de hauteur intrinsèque : sans ratio elle s'affiche
+   sur 150 px. 16/9 correspond au monde du jeu (1600 × 900), donc la
+   caméra tient le terrain entier sur un grand écran. */
+
+.arene-cadre {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    overflow: hidden;
+
+    border: 1px solid rgba(124, 92, 255, 0.28);
+    border-radius: 12px;
+    background: #121218;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.arene-iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+}
+
+/* Repli pour les navigateurs sans aspect-ratio (Safari < 15). */
+@supports not (aspect-ratio: 16 / 9) {
+    .arene-cadre {
+        height: 0;
+        padding-bottom: 56.25%;
+    }
+}
+
+/* --- Note sous le jeu --- */
+
+.arene-note {
+    margin: 14px 0 0;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #9292a3;
+}
+
+.arene-lien {
+    color: #9b83ff;
+    text-decoration: none;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.arene-lien:hover {
+    text-decoration: underline;
+}
+
+/* --- Jeu pas encore déployé --- */
+
+.arene-indispo {
+    padding: 28px;
+    border: 1px dashed #45455a;
+    border-radius: 12px;
+    background: #1d1d24;
+    color: #c9c9d4;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.arene-indispo p {
+    margin: 0 0 10px;
+}
+
+.arene-indispo p:last-child {
+    margin-bottom: 0;
+}
+
+.arene-indispo code {
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(124, 92, 255, 0.14);
+    color: #b7a4ff;
+    font-size: 13px;
+}
+
+/* --- Bandeau d'informations --- */
+
+.arene-infos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-top: 26px;
+}
+
+.arene-info {
+    padding: 12px 14px;
+    border: 1px solid #363641;
+    border-radius: 9px;
+    background: #1d1d24;
+    text-align: center;
+}
+
+.arene-info .info-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #9292a3;
+}
+
+.arene-info .info-value {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+}
+
+/* --- Mobile ---
+   En dessous de 720 px, le 16/9 devient une bande de 200 px de haut :
+   injouable. On passe sur une hauteur fixe, quitte à rogner la caméra. */
+
+@media (max-width: 720px) {
+    .arene-page {
+        padding: 20px 14px 36px;
+    }
+
+    .arene-titre {
+        font-size: 23px;
+    }
+
+    .arene-cadre {
+        aspect-ratio: auto;
+        height: 70vh;
+        min-height: 380px;
+    }
+}
