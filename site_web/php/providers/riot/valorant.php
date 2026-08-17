@@ -375,6 +375,12 @@ function riot_val_normaliser_matches(array $brutes): array
             'map'     => (string)($meta['map']['name']       ?? ''),
             'mode'    => (string)($meta['mode']              ?? ''),
             'agent'   => (string)($stats['character']['name'] ?? ''),
+
+            // Le fournisseur donne déjà l'UUID de l'agent : c'est lui qui
+            // indexe le portrait sur le CDN. Quand il manque, on retombe
+            // sur le catalogue nom -> UUID (riot_val_agent_icon()).
+            'agentId' => (string)($stats['character']['id'] ?? ''),
+
             'kills'   => $kills,
             'deaths'  => $morts,
             'assists' => (int)($stats['assists'] ?? 0),
@@ -407,7 +413,19 @@ function riot_val_agents(array $matches): array
         }
 
         if (!isset($parAgent[$nom])) {
-            $parAgent[$nom] = ['name' => $nom, 'matches' => 0, 'kills' => 0, 'deaths' => 0, 'wins' => 0];
+            $parAgent[$nom] = [
+                'name'    => $nom,
+                'id'      => (string)($m['agentId'] ?? ''),
+                'matches' => 0,
+                'kills'   => 0,
+                'deaths'  => 0,
+                'wins'    => 0,
+            ];
+        }
+
+        // La première partie peut ne pas porter l'UUID ; une suivante, si.
+        if ($parAgent[$nom]['id'] === '' && ($m['agentId'] ?? '') !== '') {
+            $parAgent[$nom]['id'] = (string)$m['agentId'];
         }
 
         $parAgent[$nom]['matches']++;
@@ -541,6 +559,72 @@ function riot_val_rank_icon(int $tierId): string
 
     // L'emblème distant est indexé sur le tier.id brut, pas sur le slug.
     return $tierId >= 3 ? sprintf(RIOT_VAL_RANK_EMBLEM, $tierId) : '';
+}
+
+/**
+ * Catalogue des agents jouables : nom en minuscules => UUID.
+ *
+ * Mis en cache 7 jours sur disque, comme les catalogues Data Dragon.
+ * Aucune clé n'est requise, et rien n'est bloquant : le distant est
+ * fusionné PAR-DESSUS la table fixe RIOT_VAL_AGENT_IDS. Si valorant-api.com
+ * ne répond pas, les agents déjà sortis restent résolus.
+ */
+function riot_val_agent_ids(): array
+{
+    static $memo = null;
+
+    if ($memo !== null) {
+        return $memo;
+    }
+
+    $fichier = sys_get_temp_dir() . '/mgs_valorant_agents.json';
+
+    if (is_file($fichier) && (time() - filemtime($fichier)) < RIOT_VAL_AGENT_TTL) {
+        $cache = json_decode((string)file_get_contents($fichier), true);
+        if (is_array($cache) && $cache !== []) {
+            return $memo = $cache + RIOT_VAL_AGENT_IDS;
+        }
+    }
+
+    $data = mgs_http_get_json(RIOT_VAL_AGENT_CATALOGUE);
+    $map  = [];
+
+    foreach ($data['data'] ?? [] as $agent) {
+        $nom  = strtolower(trim((string)($agent['displayName'] ?? '')));
+        $uuid = (string)($agent['uuid'] ?? '');
+
+        if ($nom !== '' && $uuid !== '') {
+            $map[$nom] = $uuid;
+        }
+    }
+
+    if ($map !== []) {
+        @file_put_contents($fichier, json_encode($map));
+    }
+
+    return $memo = $map + RIOT_VAL_AGENT_IDS;
+}
+
+/**
+ * Portrait d'un agent. L'UUID rendu par le fournisseur prime ; le
+ * catalogue ne sert que de repli. Chaîne vide si l'agent reste inconnu :
+ * la liste affiche alors une pastille neutre plutôt qu'une image cassée.
+ */
+function riot_val_agent_icon(string $nom, string $uuid = ''): string
+{
+    $uuid = trim($uuid);
+
+    if ($uuid === '') {
+        $uuid = riot_val_agent_ids()[strtolower(trim($nom))] ?? '';
+    }
+
+    // Un UUID Valorant est un UUID canonique : on ne concatène rien d'autre
+    // dans une URL servie telle quelle au navigateur.
+    if (!preg_match('/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i', $uuid)) {
+        return '';
+    }
+
+    return sprintf(RIOT_VAL_AGENT_ICON, $uuid);
 }
 
 /** Couleur d'accent d'un tier. Gris neutre pour les non classés. */
@@ -702,7 +786,7 @@ function riot_valorant_sections(array $val): array
             'name'  => $a['name'],
             'value' => $a['matches'] . ($a['matches'] > 1 ? ' parties · ' : ' partie · ')
                        . riot_val_nb($a['kd'], 2) . ' K/D',
-            'image' => sprintf(RIOT_VAL_AGENT_ICON, rawurlencode(strtolower($a['name']))),
+            'image' => riot_val_agent_icon($a['name'], $a['id'] ?? ''),
             'bar'   => $maxJoue > 0 ? (int)round($a['matches'] / $maxJoue * 100) : 0,
         ];
     }
@@ -737,9 +821,7 @@ function riot_valorant_sections(array $val): array
             'name'  => $titre,
             'value' => $m['kills'] . '/' . $m['deaths'] . '/' . $m['assists']
                        . ($m['agent'] !== '' ? ' · ' . $m['agent'] : ''),
-            'image' => $m['agent'] !== ''
-                       ? sprintf(RIOT_VAL_AGENT_ICON, rawurlencode(strtolower($m['agent'])))
-                       : '',
+            'image' => riot_val_agent_icon($m['agent'], $m['agentId'] ?? ''),
         ];
     }
 

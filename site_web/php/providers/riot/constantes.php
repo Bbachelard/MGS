@@ -200,8 +200,66 @@ const RIOT_VAL_TIER_COULEUR = [
 const RIOT_VAL_RANK_EMBLEM =
     'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/%d/largeicon.png';
 
-/** Portrait d'agent. %s = nom de l'agent en minuscules. */
-const RIOT_VAL_AGENT_ICON = 'https://valorant-api.com/v1/agents/%s/displayicon';
+/**
+ * Portrait d'agent, sur le CDN. %s = UUID de l'agent.
+ *
+ * L'ancienne forme `valorant-api.com/v1/agents/<nom>/displayicon` n'existe
+ * pas : /v1/agents n'accepte qu'un UUID, et la sous-ressource
+ * « displayicon » n'a jamais existé. Chaque portrait renvoyait donc un 404
+ * dans la console. Les images vivent sur media.valorant-api.com, indexées
+ * par UUID — d'où RIOT_VAL_AGENT_CATALOGUE, qui traduit un nom en UUID.
+ */
+const RIOT_VAL_AGENT_ICON = 'https://media.valorant-api.com/agents/%s/displayicon.png';
+
+/**
+ * Catalogue des agents (nom -> UUID), mis en cache 7 jours.
+ * Ni clé, ni version à suivre. Un agent ajouté par Riot est pris en
+ * compte tout seul à l'expiration du cache.
+ */
+const RIOT_VAL_AGENT_CATALOGUE =
+    'https://valorant-api.com/v1/agents?isPlayableCharacter=true&language=en-US';
+
+/** Durée de vie du catalogue d'agents, en secondes. */
+const RIOT_VAL_AGENT_TTL = 604800;
+
+/**
+ * Socle du catalogue : les agents sortis à ce jour, nom en minuscules
+ * => UUID. Il sert de repli quand valorant-api.com ne répond pas, pour
+ * que les portraits ne dépendent pas d'un appel réseau au chargement.
+ * Le catalogue distant est fusionné PAR-DESSUS : un agent ajouté par Riot
+ * apparaît tout seul, sans toucher à cette table.
+ */
+const RIOT_VAL_AGENT_IDS = [
+    'astra'     => '41fb69c1-4189-7b37-f117-bcaf1e96f1bf',
+    'breach'    => '5f8d3a7f-467b-97f3-062c-13acf203c006',
+    'brimstone' => '9f0d8ba9-4140-b941-57d3-a7ad57c6b417',
+    'chamber'   => '22697a3d-45bf-8dd7-4fec-84a9e28c69d7',
+    'clove'     => '1dbf2edd-4729-0984-3115-daa5eed44993',
+    'cypher'    => '117ed9e3-49f3-6512-3ccf-0cada7e3823b',
+    'deadlock'  => 'cc8b64c8-4b25-4ff9-6e7f-37b4da43d235',
+    'fade'      => 'dade69b4-4f5a-8528-247b-219e5a1facd6',
+    'gekko'     => 'e370fa57-4757-3604-3648-499e1f642d3f',
+    'harbor'    => '95b78ed7-4637-86d9-7e41-71ba8c293152',
+    'iso'       => '0e38b510-41a8-5780-5e8f-568b2a4f2d6c',
+    'jett'      => 'add6443a-41bd-e414-f6ad-e58d267f4e95',
+    'kay/o'     => '601dbbe7-43ce-be57-2a40-4abd24953621',
+    'killjoy'   => '1e58de9c-4950-5125-93e9-a0aee9f98746',
+    'miks'      => '7c8a4701-4de6-9355-b254-e09bc2a34b72',
+    'neon'      => 'bb2a4828-46eb-8cd1-e765-15848195d751',
+    'omen'      => '8e253930-4c05-31dd-1b6c-968525494517',
+    'phoenix'   => 'eb93336a-449b-9c1b-0a54-a891f7921d69',
+    'raze'      => 'f94c3b30-42be-e959-889c-5aa313dba261',
+    'reyna'     => 'a3bfb853-43b2-7238-a4f1-ad90e9e46bcc',
+    'sage'      => '569fdd95-4d10-43ab-ca70-79becc718b46',
+    'skye'      => '6f2a04ca-43e0-be17-7f36-b3908627744d',
+    'sova'      => '320b2a48-4d9b-a075-30f1-1f93a9b638fa',
+    'tejo'      => 'b444168c-4e35-8076-db47-ef9bf368f384',
+    'veto'      => '92eeef5d-43b5-1d4a-8d03-b3927a09034b',
+    'viper'     => '707eab51-4836-f488-046a-cda6bf494859',
+    'vyse'      => 'efba5359-4016-a1e5-7626-b1ae76895940',
+    'waylay'    => 'df1cb487-4902-002e-5c17-d28e83e78588',
+    'yoru'      => '7f94d92c-4234-0a36-9646-3a87eb8b5c89',
+];
 
 /**
  * Jaquette du jeu, affichée dans le tableau des jeux et sur la carte

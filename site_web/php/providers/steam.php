@@ -9,6 +9,13 @@ const STEAM_PRIX_CACHE_JOURS = 30;
 /** Nombre d'appels au Store par chargement. Le cache se remplit progressivement. */
 const STEAM_PRIX_PAR_APPEL = 25;
 
+/**
+ * Jeux détaillés dans metrics.topGames, pour la ventilation du hub.
+ * Au-delà, la barre devient un peigne illisible : le reste part dans
+ * un segment « Autres jeux » reconstitué côté client.
+ */
+const STEAM_TOP_GAMES = 4;
+
 /** Base des SteamID64 : 76561197960265728 = [U:1:0]. */
 const STEAM_ID64_BASE = '76561197960265728';
 
@@ -394,16 +401,38 @@ function steam_fetch_stats(array $cfg, string $accountId): array
         $playedMinutes += (int)($game['playtime_forever'] ?? 0);
     }
 
-    $topGame = null;
-    foreach ($ownedGames as $game) {
-        if ($topGame === null || ($game['playtime_forever'] ?? 0) > ($topGame['playtime_forever'] ?? 0)) {
-            $topGame = $game;
-        }
-    }
+    // Copie triée du plus joué au moins joué : elle sert au jeu principal
+    // ET à la ventilation envoyée au hub, au lieu de deux parcours séparés.
+    $jeuxTries = $ownedGames;
+    usort($jeuxTries, fn($a, $b) => ($b['playtime_forever'] ?? 0) <=> ($a['playtime_forever'] ?? 0));
+
+    $topGame = $jeuxTries[0] ?? null;
 
     $playedCount = 0;
     foreach ($ownedGames as $game) {
         if ((int)($game['playtime_forever'] ?? 0) > 0) $playedCount++;
+    }
+
+    /* --- Les jeux les plus joués, pour la barre du hub -----------------
+       Le hub découpe le temps cumulé jeu par jeu. Une bibliothèque Steam
+       en compte des centaines : on n'en envoie que les plus gros, le
+       client agrège le reste en « Autres jeux » à partir de totalHours.
+       Une entrée à 0 h ne produirait qu'un segment invisible. */
+    $topGames = [];
+    foreach (array_slice($jeuxTries, 0, STEAM_TOP_GAMES) as $game) {
+        $minutes = (int)($game['playtime_forever'] ?? 0);
+
+        if ($minutes <= 0) {
+            break;   // la liste est triée : les suivants sont à 0 aussi
+        }
+
+        $topGames[] = [
+            'name'     => $game['name'] ?? 'Jeu inconnu',
+            'hours'    => round($minutes / 60, 1),
+            'image'    => 'https://cdn.cloudflare.steamstatic.com/steam/apps/'
+                          . (int)($game['appid'] ?? 0) . '/header.jpg',
+            'platform' => 'steam',
+        ];
     }
 
     $heuresTotales = round($playedMinutes / 60);
@@ -460,6 +489,10 @@ function steam_fetch_stats(array $cfg, string $accountId): array
                                 . (int)$topGame['appid'] . '/header.jpg',
                     'platform' => 'Steam',
                 ] : null,
+                // Découpage de la barre du hub : top jeux + « Autres »
+                // reconstitué côté client (totalHours moins la somme).
+                'topGames'      => $topGames,
+
                 'recentTop'     => $recentTop,
 
                 'yearHours'     => $annee['hours'],

@@ -40,17 +40,48 @@ function hubHexHsl(hex) {
     return { h: (Math.round(h * 60) + 360) % 360, s: s * 100, l: l * 100 };
 }
 
-/* Même teinte que la plateforme, luminosité alternée autour de la base :
-   2 comptes restent très contrastés, 5 tiennent encore. */
-function hubNuance(slug, rang = 0, total = 1) {
-    const base = hubCouleur(slug);
+/* Une couleur CSS -> {h,s,l}, que la source soit un #hex ou un hsl().
+   Décliner une teinte demande de repartir de sa décomposition, et les
+   nuances de jeu servent elles-mêmes de base aux nuances de compte. */
+function hubHsl(couleur) {
+    const m = /^hsl\(\s*([\d.]+)\s+([\d.]+)%\s+([\d.]+)%\s*\)$/.exec(String(couleur));
+
+    return m
+        ? { h: parseFloat(m[1]), s: parseFloat(m[2]), l: parseFloat(m[3]) }
+        : hubHexHsl(couleur);
+}
+
+/* Même teinte, luminosité en RAMPE continue : le bloc reste
+   reconnaissable d'un coup d'œil (tout Riot est rouge) et l'ordre des
+   segments se lit dans le dégradé.
+
+   Une alternance clair/sombre autour de la base donnerait des couleurs
+   plus contrastées deux à deux, mais cinq jeux Steam ressembleraient
+   alors à cinq plateformes différentes. La rampe dit l'inverse : même
+   famille, rang décroissant.
+
+   pas   = écart entre deux crans, plafonné pour que la rampe entière
+           reste dans la teinte (jamais plus de 34 points de luminosité).
+   sens  = +1 vers le clair, -1 vers le sombre, 0 pour laisser la
+           fonction fuir le bord le plus proche. */
+function hubNuance(base, rang = 0, total = 1, pas = 14, sens = 0) {
     if (total <= 1 || rang === 0) return base;
 
-    const { h, s, l } = hubHexHsl(base);
-    const ecart = Math.ceil(rang / 2) * 13 * (rang % 2 === 1 ? 1 : -1);
-    const lum   = Math.min(82, Math.max(26, l + ecart));
+    const { h, s, l } = hubHsl(base);
 
-    return `hsl(${h} ${Math.round(s)}% ${Math.round(lum)}%)`;
+    const amplitude = Math.min(34, pas * (total - 1));
+    const direction = sens !== 0 ? sens : (l >= 52 ? -1 : 1);
+    const lum       = l + direction * amplitude * (rang / (total - 1));
+
+    return `hsl(${Math.round(h)} ${Math.round(s)}% ${Math.round(Math.min(86, Math.max(22, lum)))}%)`;
+}
+
+/* Le segment « Autres jeux » n'est pas un jeu : il est désaturé pour se
+   lire comme un reliquat, sans quitter la teinte de sa plateforme. */
+function hubNuanceReste(base) {
+    const { h, s, l } = hubHsl(base);
+
+    return `hsl(${Math.round(h)} ${Math.round(s * 0.35)}% ${Math.round(Math.min(70, l + 4))}%)`;
 }
 
 /* Le formatage numérique lui-même est mutualisé ; seul le choix des
@@ -76,21 +107,77 @@ function hubDate(iso) {
         : d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 }
 
-/* ============================================================
-   PATCH hub-resume.js
+/* ------------------------------------------------------------
+   Ventilation du temps d'un compte, jeu par jeu
+   ------------------------------------------------------------
+   Trois sources, dans cet ordre :
 
-   Remplace INTÉGRALEMENT deux fonctions existantes :
-     - hubAgreger()
-     - hubCompteurs()
+     metrics.virtualGames — Riot : LoL et Valorant, heures propres ;
+     metrics.topGames     — Steam (les plus joués) et Epic (Fortnite) ;
+     repli                — aucune ventilation : un seul « jeu », nommé
+                            d'après topGame quand la plateforme n'en
+                            connaît qu'un, sinon d'après la plateforme.
 
-   Tout le reste du fichier (hubHero, hubCarteJeuPrincipal,
-   hubCarteRang, hubBrancherRangs, hubCarteRecent, construireResume)
-   ne bouge pas : la structure produite est identique, seule la
-   façon de la remplir change.
-   ============================================================ */
+   La somme rendue vaut TOUJOURS metrics.totalHours : c'est elle qui
+   fixe la largeur des segments, et le chiffre héros en dépend.
+   Steam n'envoie que ses plus gros jeux -> le reliquat devient
+   « Autres jeux ». À l'inverse, si les arrondis font dépasser la
+   ventilation, on la ramène au total au prorata.
+   ------------------------------------------------------------ */
+
+function hubVentilation(resultat, m) {
+    const total = Number(m.totalHours) || 0;
+    if (total <= 0) return [];
+
+    const source = (Array.isArray(m.virtualGames) && m.virtualGames.length)
+        ? m.virtualGames
+        : (Array.isArray(m.topGames) ? m.topGames : []);
+
+    const jeux = source
+        .filter(jeu => jeu && jeu.name && Number(jeu.hours) > 0)
+        .map(jeu => ({
+            name:   String(jeu.name),
+            image:  jeu.image || "",
+            hours:  Number(jeu.hours) || 0,
+            estime: !!jeu.estimated || !!m.hoursEstimated,
+            reste:  false,
+        }));
+
+    if (!jeux.length) {
+        // Une plateforme qui ne déclare qu'un jeu mérite son nom dans la
+        // légende ; au-delà, « Steam » est plus honnête qu'un nom de jeu
+        // qui ne couvrirait qu'une part du total.
+        const seul = m.topGame && m.topGame.name && (Number(m.games) || 0) <= 1;
+
+        return [{
+            name:   seul ? String(m.topGame.name) : resultat.platform.label,
+            image:  (m.topGame && m.topGame.image) || "",
+            hours:  total,
+            estime: !!m.hoursEstimated,
+            reste:  false,
+        }];
+    }
+
+    const couvert = jeux.reduce((somme, jeu) => somme + jeu.hours, 0);
+
+    if (couvert > total) {
+        const facteur = total / couvert;
+        jeux.forEach(jeu => { jeu.hours *= facteur; });
+    } else if (total - couvert > 0.5) {
+        jeux.push({
+            name:   "Autres jeux",
+            image:  "",
+            hours:  total - couvert,
+            estime: !!m.hoursEstimated,
+            reste:  true,
+        });
+    }
+
+    return jeux;
+}
 
 /* ------------------------------------------------------------
-   Agrégation — désormais une entrée PAR COMPTE, plus par plateforme
+   Agrégation — un arbre plateforme > jeu > compte
    ------------------------------------------------------------ */
 
 function hubAgreger(resultats) {
@@ -107,7 +194,7 @@ function hubAgreger(resultats) {
         games:         0,
         playedGames:   0,
         gamesDetail:   [],
-        parts:         [],   // { slug, label, hours } pour la barre
+        parts:         [],   // un segment PAR JEU, à plat, pour la barre
         inconnues:     [],   // plateformes sans estimation d'heures
         topGame:       null,
         ranks:         [],
@@ -115,11 +202,12 @@ function hubAgreger(resultats) {
         heuresPayantes: 0,
     };
 
-    // Les heures sont cumulées PAR PLATEFORME, pas par compte : la barre
-    // du hero doit montrer 3 segments (Steam / Riot / Epic), pas un
-    // segment par smurf.
-    const parts      = new Map();
-    const inconnues  = new Set();
+    /* Les heures sont cumulées à trois niveaux d'un coup :
+       plateforme (le bloc de couleur), jeu (le segment), compte (le
+       détail révélé au survol). La barre lit le niveau « jeu » ; les
+       deux autres servent au regroupement et aux nuances. */
+    const plateformes = new Map();
+    const inconnues   = new Set();
     const topGames   = new Map();
     const recentJeux = new Map();
     const jeuxParPlateforme = new Map();
@@ -160,21 +248,49 @@ function hubAgreger(resultats) {
             agg.libraryMesure.total   += m.libraryMeasured.total    || 0;
         }
 
-        if ((m.totalHours || 0) > 0) {
-            // Une entrée par COMPTE : c'est ce que la barre doit montrer.
-            const cle = r.platform.slug + '|' +
-                        (r.account ? String(r.account.id ?? r.account.accountId) : '-');
+        const ventilation = hubVentilation(r, m);
 
-            const p = parts.get(cle) || {
-                slug:   r.platform.slug,
-                label:  r.platform.label,
-                compte: (r.account && r.account.displayName) || null,
-                hours:  0,
-                estime: false,
+        if (ventilation.length) {
+            const plateforme = plateformes.get(r.platform.slug) || {
+                slug:  r.platform.slug,
+                label: r.platform.label,
+                hours: 0,
+                jeux:  new Map(),
             };
-            p.hours += m.totalHours;
-            p.estime = p.estime || !!m.hoursEstimated;
-            parts.set(cle, p);
+
+            const cleCompte = r.account
+                ? String(r.account.id ?? r.account.accountId ?? r.account.displayName)
+                : '-';
+            const nomCompte = (r.account && r.account.displayName) || null;
+
+            ventilation.forEach(v => {
+                // Deux comptes Riot qui jouent au même jeu alimentent le
+                // MÊME segment : c'est ce que le survol vient détailler.
+                const jeu = plateforme.jeux.get(v.name) || {
+                    name:    v.name,
+                    image:   v.image,
+                    reste:   v.reste,
+                    hours:   0,
+                    estime:  false,
+                    comptes: new Map(),
+                };
+
+                jeu.hours  += v.hours;
+                jeu.estime = jeu.estime || v.estime;
+                if (!jeu.image && v.image) jeu.image = v.image;
+
+                const compte = jeu.comptes.get(cleCompte)
+                    || { nom: nomCompte, hours: 0, estime: false };
+
+                compte.hours  += v.hours;
+                compte.estime = compte.estime || v.estime;
+
+                jeu.comptes.set(cleCompte, compte);
+                plateforme.jeux.set(v.name, jeu);
+            });
+
+            plateforme.hours += ventilation.reduce((s, v) => s + v.hours, 0);
+            plateformes.set(r.platform.slug, plateforme);
         } else if (m.hoursUnknown || m.hoursEstimated) {
             inconnues.add(r.platform.label);
         }
@@ -234,23 +350,54 @@ function hubAgreger(resultats) {
         });
     });
 
-    /* Les comptes d'une même plateforme doivent être COLLÉS dans la barre,
-       sinon les nuances de rouge se retrouvent séparées par du bleu. */
-    const totalPlateforme = new Map();
-    parts.forEach(p => totalPlateforme.set(p.slug, (totalPlateforme.get(p.slug) || 0) + p.hours));
+    /* --- Mise à plat de l'arbre en segments de barre ------------------
+       Les jeux d'une même plateforme doivent être COLLÉS, sinon les
+       nuances de rouge se retrouvent séparées par du bleu. On trie donc
+       d'abord les plateformes, puis les jeux à l'intérieur de chacune. */
 
-    agg.parts = Array.from(parts.values()).sort((a, b) =>
-        (totalPlateforme.get(b.slug) - totalPlateforme.get(a.slug)) || (b.hours - a.hours)
-    );
+    agg.parts = [];
 
-    // rang = position du compte dans sa plateforme (-> nuance)
-    const rangs = new Map();
-    agg.parts.forEach(p => {
-        p.rang = rangs.get(p.slug) || 0;
-        rangs.set(p.slug, p.rang + 1);
-    });
-    agg.parts.forEach(p => { p.total = rangs.get(p.slug); });
-    agg.parts.forEach(p => { agg.totalHours += p.hours; });
+    Array.from(plateformes.values())
+        .sort((a, b) => b.hours - a.hours)
+        .forEach(plateforme => {
+            const base = hubCouleur(plateforme.slug);
+
+            const jeux = Array.from(plateforme.jeux.values()).sort((a, b) =>
+                // « Autres jeux » ferme toujours la marche, quel que soit
+                // son poids : ce n'est pas un jeu, c'est ce qui reste.
+                (a.reste - b.reste) || (b.hours - a.hours)
+            );
+
+            jeux.forEach((jeu, rang) => {
+                const couleur = jeu.reste
+                    ? hubNuanceReste(base)
+                    : hubNuance(base, rang, jeux.length);
+
+                // Les comptes vont TOUJOURS vers le clair : au survol,
+                // le segment actif est la seule zone non estompée de la
+                // barre, autant que sa subdivision aille vers la lumière.
+                const comptes = Array.from(jeu.comptes.values())
+                    .sort((a, b) => b.hours - a.hours)
+                    .map((compte, i, tous) => Object.assign({}, compte, {
+                        couleur: hubNuance(couleur, i, tous.length, 11, 1),
+                    }));
+
+                agg.parts.push({
+                    slug:      plateforme.slug,
+                    label:     plateforme.label,
+                    plateformeHours: plateforme.hours,
+                    jeu:       jeu.name,
+                    reste:     jeu.reste,
+                    hours:     jeu.hours,
+                    estime:    jeu.estime,
+                    couleur:   couleur,
+                    comptes:   comptes,
+                    premier:   rang === 0,
+                });
+
+                agg.totalHours += jeu.hours;
+            });
+        });
 
     agg.inconnues = Array.from(inconnues);
 
@@ -280,23 +427,73 @@ function hubAgreger(resultats) {
 function hubHero(agg) {
     const jours = Math.round(agg.totalHours / 24);
 
-    const segments = agg.parts.map(p => {
+    /* Un segment par JEU. Chaque segment porte déjà, sous une façade
+       unie, sa ventilation par compte : le survol se contente de faire
+       disparaître la façade, sans rien recalculer ni redessiner. */
+    const segments = agg.parts.map((p, i) => {
         const pct = agg.totalHours > 0 ? (p.hours / agg.totalHours) * 100 : 0;
-        const nom = p.compte ? `${p.label} — ${p.compte}` : p.label;
-        return `<span class="hero-seg"
-                      title="${escapeHtml(nom)} : ${hubNombre(p.hours)} h"
-                      style="width:${pct.toFixed(2)}%;background:${hubNuance(p.slug, p.rang, p.total)};${p.estime ? "opacity:.75;" : ""}"></span>`;
+
+        const sous = p.comptes.map(c => `
+            <i style="flex:${Math.max(c.hours, 0.0001).toFixed(4)} 1 0;background:${c.couleur}"
+               title="${escapeHtml(c.nom || p.label)} : ${c.estime ? "≈ " : ""}${hubNombre(c.hours)} h"></i>
+        `).join("");
+
+        const classes = [
+            "hero-seg",
+            p.comptes.length > 1 ? "hero-seg--multi" : "",
+            // Hachure légère plutôt que façade translucide : une façade
+            // à demi transparente laisserait voir la ventilation par
+            // compte en permanence, y compris sur un segment estompé.
+            p.estime ? "hero-seg--estime" : "",
+        ].filter(Boolean).join(" ");
+
+        return `
+            <span class="${classes}"
+                  data-seg="${i}"
+                  title="${escapeHtml(p.jeu)} · ${escapeHtml(p.label)} : ${p.estime ? "≈ " : ""}${hubNombre(p.hours)} h"
+                  style="width:${pct.toFixed(2)}%">
+                <span class="hero-seg-parts">${sous}</span>
+                <span class="hero-seg-face" style="background:${p.couleur}"></span>
+            </span>
+        `;
     }).join("");
 
-    const legende = agg.parts.map(p => {
-        const multi = p.total > 1 && p.compte;
-        const texte = multi
-            ? `<b>${escapeHtml(p.compte)}</b> <em>${escapeHtml(p.label)}</em>`
-            : escapeHtml(p.label);
+    /* Légende de repos : une entrée par jeu, la plateforme en second
+       plan. Le nom de la plateforme n'est rappelé que sur son premier
+       jeu — le répéter cinq fois pour Steam n'apprend rien. */
+    const legende = agg.parts.map((p, i) => {
+        // Une plateforme sans ventilation nomme son segment d'après
+        // elle-même : rappeler « Steam » juste après « Steam » n'apprend
+        // rien, on saute le rappel.
+        const rappel = p.premier && p.jeu !== p.label
+            ? `<em>${escapeHtml(p.label)}</em>`
+            : "";
 
-        return `<span class="hero-leg">
-                    <i style="background:${hubNuance(p.slug, p.rang, p.total)}"></i>${texte} ${p.estime ? "≈ " : ""}${hubNombre(p.hours)} h
-                </span>`;
+        return `
+            <span class="hero-leg${p.comptes.length > 1 ? " hero-leg--multi" : ""}" data-leg="${i}">
+                <i style="background:${p.couleur}"></i><b>${escapeHtml(p.jeu)}</b>
+                ${rappel}
+                ${p.estime ? "≈ " : ""}${hubNombre(p.hours)} h
+            </span>
+        `;
+    }).join("");
+
+    /* Légende de survol : les comptes du jeu pointé. Pré-rendue et
+       masquée, pour que le passage de la souris ne coûte qu'un attribut.
+       Elle existe même pour un jeu à un seul compte : le survol répond
+       alors la même chose partout, au lieu de ne rien faire ici et
+       quelque chose là. */
+    const detail = agg.parts.map((p, i) => {
+        const lignes = p.comptes.map(c => `
+            <span class="hero-leg">
+                <i style="background:${c.couleur}"></i><b>${escapeHtml(c.nom || "Compte")}</b>
+                ${c.estime ? "≈ " : ""}${hubNombre(c.hours)} h
+            </span>
+        `).join("");
+
+        return `<div class="hero-legend hero-legend--detail" data-detail="${i}" hidden>
+                    <span class="hero-leg hero-leg--titre">${escapeHtml(p.jeu)}</span>${lignes}
+                </div>`;
     }).join("");
 
     const inconnues = agg.inconnues.length
@@ -347,12 +544,76 @@ function hubHero(agg) {
                     <span class="hero-aside">soit ${hubNombre(jours)} jours non-stop</span>
                 </div>
 
-                <div class="hero-bar">${segments}</div>
-                <div class="hero-legend">${legende}${inconnues}</div>
+                <div class="hero-bar" data-hero-bar>${segments}</div>
+
+                <div class="hero-legend" data-legend-base>${legende}${inconnues}</div>
+                <div class="hero-detail-slot">${detail}</div>
             </div>
             ${cote}
         </section>
     `;
+}
+
+/* Survol de la barre. Appelée avant insertion dans le document :
+   bloc est déjà un vrai élément, querySelector fonctionne.
+
+   Deux entrées pour un même segment — la barre et la légende — et un
+   seul état : data-actif sur .hero-main, is-actif sur le segment et
+   sa ligne de légende. Le CSS fait le reste (façade effacée, voisins
+   estompés) ; le JS ne pose que des classes. */
+function hubBrancherHero(bloc) {
+    const main  = bloc.querySelector(".hero-main");
+    const barre = bloc.querySelector("[data-hero-bar]");
+    if (!main || !barre) return;
+
+    const details   = Array.from(main.querySelectorAll("[data-detail]"));
+    const marqueurs = Array.from(main.querySelectorAll("[data-seg],[data-leg]"));
+
+    let actif = null;
+
+    function activer(index) {
+        if (actif === index) return;
+        actif = index;
+
+        if (index === null) {
+            main.removeAttribute("data-actif");
+        } else {
+            main.setAttribute("data-actif", String(index));
+        }
+
+        const cle = index === null ? null : String(index);
+
+        marqueurs.forEach(el => {
+            el.classList.toggle("is-actif", cle !== null && (el.dataset.seg ?? el.dataset.leg) === cle);
+        });
+
+        const cible = cle === null
+            ? null
+            : details.find(d => d.dataset.detail === cle) || null;
+
+        details.forEach(d => { d.hidden = d !== cible; });
+    }
+
+    function indexDepuis(evenement) {
+        const cible = evenement.target.closest
+            ? evenement.target.closest("[data-seg],[data-leg]")
+            : null;
+
+        if (!cible || !main.contains(cible)) return null;
+
+        const brut = cible.dataset.seg ?? cible.dataset.leg;
+        return brut === undefined ? null : Number(brut);
+    }
+
+    main.addEventListener("mouseover", e => activer(indexDepuis(e)));
+    main.addEventListener("mouseleave", () => activer(null));
+
+    // Sans souris, un appui sur un segment ouvre le détail ; un second
+    // appui le referme. Rien ne dépend du survol pour être atteignable.
+    main.addEventListener("click", e => {
+        const index = indexDepuis(e);
+        if (index !== null) activer(actif === index ? null : index);
+    });
 }
 
 /* ------------------------------------------------------------
@@ -578,6 +839,7 @@ function construireResume(resultats) {
     `;
 
     hubBrancherRangs(bloc);
+    hubBrancherHero(bloc);
 
     return bloc;
 }

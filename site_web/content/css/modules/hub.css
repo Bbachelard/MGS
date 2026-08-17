@@ -189,196 +189,6 @@
     }
 }
 
-/* ------------------------------------------------------------
-   Résumé global — hero + vedettes + compteurs
-   ------------------------------------------------------------ */
-
-.hub-global {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-/* --- Étage 1 : le chiffre héros --- */
-
-.hub-hero {
-    padding: 24px;
-    background: linear-gradient(145deg, #2f2f38, #232329);
-    border: 1px solid #3a3a45;
-    border-radius: 14px;
-}
-
-.hero-label {
-    display: block;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    color: #8f8fa5;
-    margin-bottom: 8px;
-}
-
-.hero-line {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.hero-value {
-    font-size: 52px;
-    font-weight: 800;
-    line-height: 1;
-    color: #b3a0ff;
-}
-
-.hero-unit { font-size: 20px; color: #8f8fa5; }
-
-.hero-aside {
-    font-size: 13px;
-    color: #6f6f85;
-    margin-left: auto;
-}
-
-.hero-bar {
-    display: flex;
-    height: 10px;
-    border-radius: 5px;
-    overflow: hidden;
-    background: #1f1f26;
-    margin: 18px 0 10px;
-}
-
-.hero-seg { transition: width 0.4s ease; }
-
-.hero-legend {
-    display: flex;
-    gap: 18px;
-    flex-wrap: wrap;
-    font-size: 12px;
-    color: #8f8fa5;
-}
-
-.hero-leg i {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
-    margin-right: 6px;
-}
-
-.hero-leg--muted { color: #5f5f70; font-style: italic; }
-
-/* --- Étage 2 : les cartes vedettes --- */
-
-.hub-featured {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 16px;
-}
-
-.feature-card {
-    padding: 16px;
-    background: #2a2a33;
-    border: 1px solid #3a3a45;
-    border-radius: 14px;
-}
-
-.feature-label {
-    display: block;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    color: #8f8fa5;
-    margin-bottom: 12px;
-}
-
-
-
-.feature-title {
-    margin: 0 0 3px;
-    font-size: 15px;
-    font-weight: 600;
-    color: #fff;
-}
-
-.feature-sub {
-    margin: 0;
-    font-size: 13px;
-    color: #8f8fa5;
-}
-
-.feature-sub strong { color: #b3a0ff; font-weight: 600; }
-
-/* --- Étage 3 : compteurs secondaires --- */
-
-.hub-counters {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 16px;
-    padding: 18px 20px;
-    background: #2a2a33;
-    border: 1px solid #3a3a45;
-    border-radius: 14px;
-}
-
-.hub-counters .summary-value { font-size: 22px; }
-
-@media (max-width: 720px) {
-    .hero-value { font-size: 38px; }
-    .hero-aside { margin-left: 0; flex-basis: 100%; }
-}
-
-.recent-total {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 14px;
-}
-
-.recent-value {
-    font-size: 28px;
-    font-weight: 800;
-    line-height: 1;
-    color: #b3a0ff;
-}
-
-.recent-unit { font-size: 14px; color: #8f8fa5; }
-
-.recent-row { margin-bottom: 10px; }
-.recent-row:last-child { margin-bottom: 0; }
-
-.recent-head {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    margin-bottom: 5px;
-}
-
-.recent-name {
-    color: #fff;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.recent-hours {
-    color: #8f8fa5;
-    flex-shrink: 0;
-    margin-left: 10px;
-}
-
-.recent-track {
-    height: 5px;
-    border-radius: 3px;
-    background: #1f1f26;
-}
-
-.recent-fill {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 0.4s ease;
-}
-
 /* ============================================================
    RÉSUMÉ GLOBAL — hero + cartes vedettes + compteurs
    À coller à la fin de content/css/modules/hub.css
@@ -439,18 +249,89 @@
     color: #6f6f85;
 }
 
+/* --- La barre : un segment par jeu ---------------------------------
+   Chaque segment est un empilement de deux couches : sa ventilation
+   par compte au fond, une façade unie par-dessus. Au repos on ne voit
+   que la façade — un jeu, une couleur. Au survol la façade s'efface
+   et les comptes apparaissent, sans que rien ne soit redessiné. */
+
 .hero-bar {
     display: flex;
-    height: 10px;
+    height: 12px;
     margin: 18px 0 10px;
     background: #1f1f26;
-    border-radius: 5px;
+    border-radius: 6px;
     overflow: hidden;
 }
 
 .hero-seg {
-    transition: width 0.4s ease;
+    position: relative;
+    min-width: 2px;
+    transition: width 0.4s ease, opacity 0.18s ease;
 }
+
+.hero-seg-parts {
+    display: flex;
+    height: 100%;
+}
+
+.hero-seg-parts i {
+    height: 100%;
+    min-width: 1px;
+}
+
+/* Un liseré entre deux comptes, seulement quand ils sont révélés :
+   au repos la façade le recouvre de toute façon. */
+.hero-seg-parts i + i {
+    box-shadow: inset 1px 0 0 rgba(15, 15, 20, 0.55);
+}
+
+.hero-seg-face {
+    position: absolute;
+    inset: 0;
+    transition: opacity 0.18s ease;
+}
+
+/* Heures déduites (maîtrise LoL, parties Valorant, Fortnite) : la
+   hachure reprend le « ≈ » de la légende sans toucher à la couleur,
+   donc sans brouiller la lecture du bloc de plateforme. */
+.hero-seg--estime::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.16) 0 2px,
+        rgba(255, 255, 255, 0) 2px 5px
+    );
+}
+
+/* --- État survolé --------------------------------------------------
+   data-actif est posé sur .hero-main : la barre ET la légende
+   réagissent au même attribut, qu'on soit entré par l'une ou l'autre. */
+
+.hero-main[data-actif] .hero-seg { opacity: 0.32; }
+
+.hero-main[data-actif] .hero-seg.is-actif {
+    opacity: 1;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.hero-main[data-actif] .hero-seg.is-actif .hero-seg-face { opacity: 0; }
+
+.hero-main[data-actif] [data-legend-base] .hero-leg { opacity: 0.45; }
+.hero-main[data-actif] [data-legend-base] .hero-leg.is-actif { opacity: 1; }
+
+.hero-seg--multi,
+.hero-leg--multi { cursor: pointer; }
+
+/* --- Légendes ------------------------------------------------------
+   La légende des jeux reste toujours lisible ; le détail par compte
+   s'écrit sur une ligne RÉSERVÉE en dessous. Une ligne réservée plutôt
+   qu'ajoutée : sinon la page saute d'une ligne à chaque survol. Et
+   plutôt qu'un calque par-dessus : un calque intercepterait la souris
+   et on ne pourrait plus passer d'un jeu à l'autre. */
 
 .hero-legend {
     display: flex;
@@ -460,19 +341,64 @@
     color: #8f8fa5;
 }
 
+/* [hidden] ne pèse rien face à display:flex : sans cette règle, toutes
+   les légendes détaillées resteraient affichées en permanence. */
+.hero-legend[hidden] { display: none; }
+
+.hero-detail-slot {
+    min-height: 17px;
+    margin-top: 9px;
+}
+
+.hero-legend--detail {
+    gap: 14px;
+    color: #a9a9c0;
+}
+
+.hero-leg {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: opacity 0.18s ease;
+}
+
 .hero-leg i {
     display: inline-block;
     width: 8px;
     height: 8px;
-    margin-right: 6px;
+    margin-right: 2px;
     border-radius: 2px;
+    flex: none;
 }
 .hero-leg b  { font-weight: 600; color: #c9c9dc; }
 .hero-leg em { font-style: normal; color: #6f6f85; }
 
+/* Rappelle de quel jeu on détaille les comptes. */
+.hero-leg--titre {
+    font-weight: 600;
+    color: #6f6f85;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+}
+
+.hero-leg--titre::after {
+    content: "";
+    width: 1px;
+    height: 11px;
+    margin-left: 12px;
+    background: #3a3a46;
+}
+
 .hero-leg--muted {
     color: #5f5f70;
     font-style: italic;
+}
+
+/* Le survol est un confort, pas le seul chemin : sans lui la légende
+   de repos donne déjà les heures de chaque jeu. */
+@media (hover: none) {
+    .hero-seg--multi { cursor: default; }
 }
 
 /* ------------------------------------------------------------

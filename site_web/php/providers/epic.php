@@ -610,6 +610,17 @@ function epic_fetch_stats(array $cfg, string $accountId): array
                     // Ne couvre que Fortnite : le hub affichera "≈"
                     'estimated' => true,
                 ],
+                // Un seul jeu connu : la ventilation du hub tient en une
+                // ligne, mais elle est déclarée comme partout ailleurs
+                // pour que la barre porte « Fortnite » et pas « Epic Games ».
+                'topGames'    => $heures > 0 ? [[
+                    'name'      => 'Fortnite',
+                    'hours'     => $heures,
+                    'image'     => '/content/image/games/fortnite.jpg',
+                    'platform'  => 'epic',
+                    'estimated' => true,
+                ]] : [],
+
                 'recentTop'   => [],
                 'ranks'       => [],
                 'mainRank'    => null,
