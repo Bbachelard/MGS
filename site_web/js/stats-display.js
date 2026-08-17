@@ -460,7 +460,26 @@ function grouperParJeu(resultats) {
                 liens:      liens,
                 highlights: highlights,
                 sections:   sections,
+
+                // Le rang et les heures de CE compte sur CE jeu. Le
+                // groupe n'en garde que le meilleur et la somme : sans
+                // les conserver ici, une ligne de compte repliée
+                // n'aurait rien à afficher qui la distingue.
+                rang:       jeu.rank || null,
+                heures:     Number(jeu.hours) || 0,
+                estime:     jeu.hoursEstimated === true,
             });
+        });
+    });
+
+    /* Le meilleur compte en tête : c'est le main qu'on vient lire, pas
+       le smurf. À rang égal (ou sans rang du tout), les heures
+       départagent. */
+    groupes.forEach(g => {
+        g.comptes.sort((a, b) => {
+            const ra = a.rang ? (a.rang.score ?? -1) : -1;
+            const rb = b.rang ? (b.rang.score ?? -1) : -1;
+            return rb === ra ? b.heures - a.heures : rb - ra;
         });
     });
 
@@ -470,28 +489,34 @@ function grouperParJeu(resultats) {
         .sort((a, b) => b.heures - a.heures);
 }
 
-/** Contenu de la ligne repliée : jaquette, nom, comptes, rang, heures. */
+/** Pastille de rang : emblème + libellé. Vide si le rang est inconnu. */
+function badgeRang(rang) {
+    if (!rang) return '';
+
+    return `<span class="fold-rank"${rang.queue ? ` title="${escapeHtml(rang.queue)}"` : ''}>
+                ${rang.icon
+                    ? `<img src="${escapeHtml(rang.icon)}" alt="" loading="lazy"
+                            onerror="this.remove()">`
+                    : ''}
+                <span>${escapeHtml(rang.label || '')}</span>
+            </span>`;
+}
+
+/** Pastille d'heures. Le « ≈ » signale une estimation, comme ailleurs. */
+function badgeHeures(heures, estime) {
+    if (!(heures > 0)) return '';
+
+    return `<span class="fold-hours"${estime ? ' title="Estimation"' : ''}>${
+                estime ? '≈ ' : ''
+            }${MGS.formaterNombre(Math.round(heures))} h</span>`;
+}
+
+/** Contenu de la ligne repliée d'un jeu : jaquette, nom, comptes, rang, heures. */
 function teteDeGroupe(groupe) {
     const noms = groupe.comptes.map(c => c.nom).filter(Boolean);
 
     const comptes = noms.length
         ? `<span class="fold-accounts">${escapeHtml(noms.join(' · '))}</span>`
-        : '';
-
-    const rang = groupe.rang
-        ? `<span class="fold-rank"${groupe.rang.queue ? ` title="${escapeHtml(groupe.rang.queue)}"` : ''}>
-               ${groupe.rang.icon
-                    ? `<img src="${escapeHtml(groupe.rang.icon)}" alt="" loading="lazy"
-                            onerror="this.remove()">`
-                    : ''}
-               <span>${escapeHtml(groupe.rang.label || '')}</span>
-           </span>`
-        : '';
-
-    const heures = groupe.heures > 0
-        ? `<span class="fold-hours"${groupe.estime ? ' title="Estimation"' : ''}>${
-               groupe.estime ? '≈ ' : ''
-           }${MGS.formaterNombre(Math.round(groupe.heures))} h</span>`
         : '';
 
     return `
@@ -506,7 +531,36 @@ function teteDeGroupe(groupe) {
             <span class="fold-title">${escapeHtml(groupe.nom)}</span>
             ${comptes}
         </span>
-        <span class="fold-meta">${rang}${heures}</span>
+        <span class="fold-meta">
+            ${badgeRang(groupe.rang)}${badgeHeures(groupe.heures, groupe.estime)}
+        </span>
+    `;
+}
+
+/**
+ * Ligne repliée d'un COMPTE, à l'intérieur d'un jeu.
+ *
+ * Le rang et les heures sont ceux de ce compte sur ce jeu — c'est
+ * précisément ce qui sépare un main d'un smurf, et donc ce qui permet
+ * de choisir lequel ouvrir sans avoir à les ouvrir tous les deux.
+ */
+function teteDeCompte(compte) {
+    return `
+        <span class="fold-cover fold-cover--avatar">
+            <em>${escapeHtml(initialesJeu(compte.nom))}</em>
+            ${compte.avatar
+                ? `<img src="${compte.avatar}" alt="" loading="lazy" onerror="this.remove()">`
+                : ''}
+        </span>
+        <span class="fold-ident">
+            <span class="fold-title fold-title--compte">${escapeHtml(compte.nom)}</span>
+            ${compte.sousTitre
+                ? `<span class="fold-accounts">${escapeHtml(compte.sousTitre)}</span>`
+                : ''}
+        </span>
+        <span class="fold-meta">
+            ${badgeRang(compte.rang)}${badgeHeures(compte.heures, compte.estime)}
+        </span>
     `;
 }
 
@@ -566,10 +620,43 @@ function construireDetails(resultats) {
 
         const plusieurs = groupe.comptes.length > 1;
 
+        /* Second niveau de repli, réservé à Riot : LoL et Valorant sont
+           les seuls jeux où un même joueur cumule plusieurs comptes qui
+           méritent d'être lus séparément (main et smurf, chacun son
+           rang). Un seul compte reste affiché directement — le replier
+           imposerait deux clics pour rien. */
+        const imbrique = plusieurs && groupe.platform === 'riot';
+
+        if (!imbrique) {
+            groupe.comptes.forEach(compte => {
+                fold.body.appendChild(corpsDeCompte(compte, plusieurs));
+            });
+
+            bloc.appendChild(fold.el);
+            return;
+        }
+
+        // Les sous-blocs sont empilés dans un conteneur : c'est lui qui
+        // porte le rembourrage de .fold-body > *, pas chaque carte.
+        const pile = document.createElement('div');
+        pile.className = 'fold-comptes';
+
         groupe.comptes.forEach(compte => {
-            fold.body.appendChild(corpsDeCompte(compte, plusieurs));
+            const sousFold = MGS.creerFold({
+                head:    teteDeCompte(compte),
+                classe:  'detail-fold--compte',
+                dataset: { platform: groupe.platform },
+            });
+
+            // false : le pseudo et l'avatar sont déjà sur la ligne
+            // repliée du compte, les répéter juste en dessous ferait
+            // exactement le doublon qu'on vient d'enlever ailleurs.
+            sousFold.body.appendChild(corpsDeCompte(compte, false));
+
+            pile.appendChild(sousFold.el);
         });
 
+        fold.body.appendChild(pile);
         bloc.appendChild(fold.el);
     });
 

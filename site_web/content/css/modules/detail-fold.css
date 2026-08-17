@@ -111,6 +111,18 @@
     background: rgba(124, 92, 255, 0.12);
 }
 
+/* Variante compte : un avatar, donc un rond et un format plus discret
+   que la jaquette du jeu au-dessus. */
+.fold-cover--avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+}
+
+.fold-cover--avatar em {
+    font-size: 11px;
+}
+
 /* --- Nom du jeu + comptes concernés --- */
 
 .fold-ident {
@@ -199,7 +211,7 @@
     border-color: #c9c9d8;
 }
 
-.detail-fold.is-open .fold-chevron {
+.detail-fold.is-open > .fold-head .fold-chevron {
     transform: rotate(-135deg) translate(-2px, -2px);
 }
 
@@ -219,7 +231,20 @@
     transition: grid-template-rows 0.22s ease;
 }
 
-.detail-fold.is-open .fold-wrap {
+/* `display: grid` ci-dessus l'emporte sur le `display: none` que la
+   feuille du navigateur applique à [hidden] : sans cette règle,
+   l'attribut posé par creerFold() n'aurait aucun effet et le contenu
+   replié resterait dans l'arbre d'accessibilité. */
+.fold-wrap[hidden] {
+    display: none;
+}
+
+/* Le combinateur direct « > » est indispensable sur les trois règles
+   qui suivent. En descendant (« .detail-fold.is-open .fold-wrap »), un
+   bloc de jeu ouvert forçait aussi à 1fr le .fold-wrap des blocs de
+   COMPTE fermés qu'il contient : ouvrir League of Legends dépliait
+   d'office ses deux comptes. */
+.detail-fold.is-open > .fold-wrap {
     grid-template-rows: 1fr;
 }
 
@@ -230,7 +255,7 @@
     overflow: hidden;
 }
 
-.detail-fold.is-open .fold-body {
+.detail-fold.is-open > .fold-wrap > .fold-body {
     /* Rendu visible seulement une fois ouvert, sinon un menu ou une
        infobulle du contenu serait rognée par l'overflow. */
     overflow: visible;
@@ -241,6 +266,48 @@
    36 px de haut. */
 .fold-body > * {
     padding: 4px 18px 20px;
+}
+
+/* ------------------------------------------------------------
+   Second niveau : un bloc par compte, à l'intérieur d'un jeu
+
+   Riot uniquement, et seulement à partir de deux comptes. La carte
+   imbriquée s'éclaircit au lieu de se réassombrir : deux cartes
+   sombres l'une dans l'autre se lisent comme une seule.
+   ------------------------------------------------------------ */
+
+.fold-comptes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.detail-fold--compte {
+    background: rgba(255, 255, 255, 0.035);
+    border-color: #3f3f4c;
+    border-radius: 11px;
+}
+
+.detail-fold--compte .fold-head {
+    gap: 12px;
+    padding: 10px 14px;
+}
+
+.fold-title--compte {
+    font-size: 15px;
+}
+
+.detail-fold--compte .fold-chevron {
+    width: 8px;
+    height: 8px;
+}
+
+/* Le liseré de plateforme est déjà porté par le bloc du jeu : le
+   répéter sur chaque compte ferait trois barres verticales pour une
+   seule information. */
+.detail-fold--compte {
+    border-left-width: 1px;
+    border-left-color: #3f3f4c;
 }
 
 /* ------------------------------------------------------------
