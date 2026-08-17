@@ -25,15 +25,31 @@ if (PHP_SAPI !== 'cli') {
     exit("Ce script ne s'exécute qu'en ligne de commande.\n");
 }
 
-// Sans cette garde, bootstrap.php répond une page d'erreur HTML — illisible
-// dans un terminal, et sans dire quel fichier manque.
-if (!is_file(dirname(__DIR__) . '/config.php')) {
-    exit("config.php introuvable : " . dirname(__DIR__) . "/config.php\n"
-       . "Le copier depuis config.example.php et le remplir.\n\n");
+/* bootstrap.php lit TOUJOURS dirname(__DIR__, 2) . '/config.php'. Le
+   rappeler ici évite le piège classique du déploiement conteneurisé :
+   sur l'hôte ce chemin peut pointer vers un fichier périmé, alors que
+   le vrai config.php n'existe qu'à l'intérieur du conteneur. */
+$mgsConf   = dirname(__DIR__) . '/config.php';
+$dansDocker = is_file('/.dockerenv') || is_file('/run/.containerenv');
+
+echo "\n=== Environnement ===\n";
+printf("config.php lu   : %s\n", $mgsConf);
+printf("Exécution       : %s\n", $dansDocker ? 'dans un conteneur' : "sur l'hôte");
+
+if (!is_file($mgsConf)) {
+    exit("\nCe fichier n'existe pas.\n" . diag_aide_docker($dansDocker));
 }
 
+// Sans cette garde, bootstrap.php répondrait une page d'erreur HTML,
+// illisible dans un terminal.
 require_once __DIR__ . '/core/bootstrap.php';
 require_once __DIR__ . '/providers/riot.php';
+
+if (!mgs_config('PLATFORMS')) {
+    exit("\nCe fichier existe mais ne fournit aucune plateforme : ce n'est pas\n"
+       . "le config.php du site (il ne renvoie pas de tableau, ou il est périmé).\n"
+       . diag_aide_docker($dansDocker));
+}
 
 $cfg   = mgs_platform_config('riot');
 $cle   = (string)($cfg['valorant_api_key'] ?? '');
@@ -47,6 +63,21 @@ if ($cle === '') {
     exit("\nLa clé Valorant n'est pas lue. Vérifier que config.php contient bien :\n"
        . "  'riot' => ['api_key' => '…', 'valorant_api_key' => 'HDEV-…'],\n"
        . "et que la clé est DANS le bloc 'riot', pas à côté.\n\n");
+}
+
+/** Le cas de loin le plus fréquent : bon fichier, mauvais environnement. */
+function diag_aide_docker(bool $dansDocker): string
+{
+    if ($dansDocker) {
+        return "\nOn est bien dans le conteneur : c'est donc le montage de config.php\n"
+             . "qu'il faut revoir dans docker-compose.yml.\n\n";
+    }
+
+    return "\nLe site tourne visiblement dans Docker (config.php est monté dans le\n"
+         . "conteneur, pas posé à côté du code sur l'hôte). Relancer DEDANS :\n\n"
+         . "  docker compose ps                      # repérer le service web\n"
+         . "  docker compose exec web php php/diag-valorant.php Pseudo#TAG\n\n"
+         . "En remplaçant « web » par le nom réel du service.\n\n";
 }
 
 if (!str_starts_with($cle, 'HDEV-')) {
