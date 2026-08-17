@@ -1,0 +1,14 @@
+{
+  "name": "mgs-arene",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Arène MGS — prototype multijoueur temps réel (Cloudflare Workers + Durable Objects)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
