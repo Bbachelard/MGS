@@ -135,6 +135,27 @@ function riot_val_get_multi(array $urls, string $cle): array
     return $resultats;
 }
 
+/**
+ * Journal de diagnostic. N'écrit QUE sur échec : la carte affiche un
+ * message générique au visiteur (on ne lui doit pas l'état de notre
+ * configuration), il faut bien que le code réel atterrisse quelque part.
+ * Jamais la clé, évidemment.
+ */
+function riot_val_log(string $message): void
+{
+    error_log('VALORANT ' . $message);
+
+    $dir = MGS_ROOT . '/cache';
+
+    if (is_dir($dir) && is_writable($dir)) {
+        @file_put_contents(
+            $dir . '/valorant-debug.log',
+            date('Y-m-d H:i:s') . ' ' . $message . "\n",
+            FILE_APPEND | LOCK_EX
+        );
+    }
+}
+
 /** Traduit un code HTTP du fournisseur en état interne. */
 function riot_val_state(int $status): string
 {
@@ -169,7 +190,18 @@ function riot_valorant_fetch(array $cfg, string $puuid, string $region): array
 
     // Le MMR fait foi : sans lui on ne sait rien dire du compte.
     if ($mmr['status'] !== 200 || !is_array($mmr['data']['data'] ?? null)) {
-        return ['state' => riot_val_state($mmr['status'])];
+        $etat = riot_val_state($mmr['status']);
+
+        riot_val_log(sprintf(
+            'MMR http=%d state=%s region=%s puuid=%s… erreurs=%s',
+            $mmr['status'],
+            $mmr['status'] === 200 ? $etat . ' (200 mais forme inattendue)' : $etat,
+            $region,
+            substr($puuid, 0, 8),
+            json_encode($mmr['data']['errors'] ?? $mmr['data'] ?? null)
+        ));
+
+        return ['state' => $etat];
     }
 
     $d = $mmr['data']['data'];
