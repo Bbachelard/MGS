@@ -133,6 +133,127 @@
        d'un nettoyage. Ils délèguent tous à formaterNombre() ci-dessus. */
 
     /* ========================================================
+       Bloc dépliable
+
+       Une seule mécanique pour les stats détaillées et pour la
+       bibliothèque : sans ça les deux écrans auraient chacun leur
+       accordéon, et les deux auraient divergé sur l'accessibilité.
+    ======================================================== */
+
+    var foldSeq = 0;
+
+    /* Doit rester >= à la transition de .fold-wrap dans
+       modules/detail-fold.css. */
+    var FOLD_DUREE = 240;
+
+    /**
+     * Fabrique une section repliable.
+     *
+     * La ligne repliée est un <button> : c'est ce qui donne
+     * gratuitement le focus clavier, Entrée/Espace et l'annonce
+     * « développé / réduit » aux lecteurs d'écran. Un <div> avec un
+     * onclick n'aurait rien de tout ça.
+     *
+     * @param options.head    HTML de la ligne repliée (sans le chevron)
+     * @param options.classe  classes additionnelles sur la section
+     * @param options.dataset paires posées en data-* sur la section
+     * @param options.ouvert  true pour arriver déplié
+     * @returns {{el: HTMLElement, body: HTMLElement, ouvrir: Function}}
+     */
+    function creerFold(options) {
+        var opts = options || {};
+        var id   = "mgs-fold-" + (++foldSeq);
+
+        var section = document.createElement("section");
+        section.className = "detail-fold" + (opts.classe ? " " + opts.classe : "");
+
+        Object.keys(opts.dataset || {}).forEach(function (cle) {
+            var valeur = opts.dataset[cle];
+            if (valeur !== null && valeur !== undefined) {
+                section.dataset[cle] = valeur;
+            }
+        });
+
+        var tete = document.createElement("button");
+        tete.type = "button";
+        tete.className = "fold-head";
+        tete.setAttribute("aria-expanded", "false");
+        tete.setAttribute("aria-controls", id);
+        tete.innerHTML = (opts.head || "")
+            + '<span class="fold-chevron" aria-hidden="true"></span>';
+
+        var enveloppe = document.createElement("div");
+        enveloppe.className = "fold-wrap";
+        enveloppe.id = id;
+        enveloppe.setAttribute("role", "region");
+
+        var corps = document.createElement("div");
+        corps.className = "fold-body";
+        enveloppe.appendChild(corps);
+
+        section.appendChild(tete);
+        section.appendChild(enveloppe);
+
+        var minuteur = null;
+
+        /**
+         * `hidden` en plus de la hauteur nulle : sans lui, le contenu
+         * replié resterait tabulable et lisible par un lecteur d'écran
+         * — une liste de parties invisible capterait le focus.
+         *
+         * Mais le poser dès le clic couperait la fermeture net : il
+         * n'arrive donc qu'une fois l'animation finie. À l'inverse, à
+         * l'ouverture il faut le retirer AVANT d'ajouter la classe,
+         * sinon les deux tombent dans le même frame et le bloc
+         * apparaît d'un coup.
+         *
+         * @param etat      true ouvre, false ferme, rien bascule
+         * @param immediat  saute l'animation (état initial)
+         */
+        function ouvrir(etat, immediat) {
+            var actif = etat === undefined
+                ? !section.classList.contains("is-open")
+                : !!etat;
+
+            clearTimeout(minuteur);
+            tete.setAttribute("aria-expanded", actif ? "true" : "false");
+
+            if (actif) {
+                enveloppe.hidden = false;
+
+                if (!immediat) {
+                    void enveloppe.offsetHeight;   // reflow forcé
+                }
+
+                section.classList.add("is-open");
+
+            } else {
+                section.classList.remove("is-open");
+
+                if (immediat) {
+                    enveloppe.hidden = true;
+                } else {
+                    minuteur = setTimeout(function () {
+                        if (!section.classList.contains("is-open")) {
+                            enveloppe.hidden = true;
+                        }
+                    }, FOLD_DUREE);
+                }
+            }
+
+            return actif;
+        }
+
+        tete.addEventListener("click", function () {
+            ouvrir();
+        });
+
+        ouvrir(opts.ouvert === true, true);
+
+        return { el: section, body: corps, ouvrir: ouvrir };
+    }
+
+    /* ========================================================
        Réseau
     ======================================================== */
 
@@ -177,6 +298,7 @@
         platformIcon: platformIcon,
         platformLabel: platformLabel,
         formaterNombre: formaterNombre,
+        creerFold: creerFold,
         fetchJson: fetchJson
     };
 

@@ -268,6 +268,9 @@ const RIOT_VAL_AGENT_IDS = [
  */
 const RIOT_VAL_JAQUETTE = '/content/image/games/valorant.jpg';
 
+/** Idem pour League of Legends. Ce fichier-là est bien présent. */
+const RIOT_LOL_JAQUETTE = '/content/image/ranks/lol.jpg';
+
 /** Parties demandées au fournisseur (sert aussi aux agents favoris). */
 const RIOT_VAL_MATCHES_MAX = 20;
 

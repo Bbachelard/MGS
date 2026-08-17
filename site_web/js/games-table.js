@@ -284,6 +284,67 @@ function formaterDate(timestamp) {
     return new Date(timestamp * 1000).toLocaleDateString("fr-FR");
 }
 
+/* ------------------------------------------------------------
+   Coquille dépliable
+
+   Le tableau se redessine à chaque tri, chaque frappe dans la
+   recherche et chaque changement de page. Si la coquille était
+   reconstruite avec lui, le bloc se refermerait sous les doigts de
+   l'utilisateur : elle est donc créée UNE fois, et seul son
+   intérieur est réécrit.
+   ------------------------------------------------------------ */
+
+let bibliothequeFold = null;
+
+function coquilleBibliotheque(zone) {
+    // zone.contains() suffit à détecter que la zone a été vidée
+    // entre-temps (message de chargement, profil rechargé).
+    if (bibliothequeFold && zone.contains(bibliothequeFold.el)) {
+        return bibliothequeFold;
+    }
+
+    bibliothequeFold = MGS.creerFold({
+        classe:  "detail-fold--bibliotheque",
+        dataset: { fold: "bibliotheque" },
+    });
+
+    zone.innerHTML = "";
+    zone.appendChild(bibliothequeFold.el);
+
+    return bibliothequeFold;
+}
+
+/** Ligne repliée : titre, plateformes couvertes, nombre de jeux, heures. */
+function teteBibliotheque() {
+    const t = gamesState.totals || {};
+    const nb = t.count ?? 0;
+
+    const plateformes = (gamesState.plateformes || [])
+        .map(slug => MGS.platformLabel(slug, slug))
+        .join(" · ");
+
+    return `
+        <span class="fold-cover fold-cover--icone" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none"
+                 stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="5" height="16" rx="1"></rect>
+                <rect x="10" y="4" width="5" height="16" rx="1"></rect>
+                <path d="M17.6 5.1 21 18.8"></path>
+            </svg>
+        </span>
+        <span class="fold-ident">
+            <span class="fold-title">${gamesState.lectureSeule ? "Sa bibliothèque" : "Ma bibliothèque"}</span>
+            ${plateformes ? `<span class="fold-accounts">${escapeHtml(plateformes)}</span>` : ""}
+        </span>
+        <span class="fold-meta">
+            <span class="fold-count">${MGS.formaterNombre(nb)} jeu${nb > 1 ? "x" : ""}</span>
+            <span class="fold-count">${MGS.formaterNombre(t.played ?? 0)} lancé${(t.played ?? 0) > 1 ? "s" : ""}</span>
+            <span class="fold-hours">${MGS.formaterNombre(t.hours ?? 0, 0, 1)} h</span>
+        </span>
+    `;
+}
+
 function dessinerTableau() {
     const zone = document.getElementById("games-table");
     if (!zone) return;
@@ -337,8 +398,6 @@ function dessinerTableau() {
         `;
     }).join("");
 
-    const t = gamesState.totals || {};
-
     const alerte = (gamesState.avertissements || []).length
         ? `<p class="games-warning">${escapeHtml(gamesState.avertissements.join(" · "))}</p>`
         : "";
@@ -350,25 +409,18 @@ function dessinerTableau() {
             return `<option value="${escapeHtml(slug)}"${sel}>${escapeHtml(meta.label)}</option>`;
         }))
         .join("");
-    zone.innerHTML = `
-        <div class="games-head">
-            <h2 class="games-title">${gamesState.lectureSeule ? "Sa bibliothèque" : "Ma bibliothèque"}</h2>
-        </div>
+    const fold = coquilleBibliotheque(zone);
 
-        <div class="games-totals">
-            <div class="summary-box">
-                <span class="summary-value">${t.count ?? 0}</span>
-                <span class="summary-label">Jeux possédés</span>
-            </div>
-            <div class="summary-box">
-                <span class="summary-value">${t.played ?? 0}</span>
-                <span class="summary-label">Jeux lancés</span>
-            </div>
-            <div class="summary-box">
-                <span class="summary-value">${(t.hours ?? 0).toLocaleString("fr-FR")}h</span>
-                <span class="summary-label">Temps total</span>
-            </div>
-        </div>
+    // Le titre part dans la ligne repliée : le répéter juste en dessous
+    // ferait doublon dès que le bloc est ouvert.
+    fold.el.querySelector(".fold-head").innerHTML =
+        teteBibliotheque() + '<span class="fold-chevron" aria-hidden="true"></span>';
+
+    /* Le pavé des trois totaux a disparu d'ici : la ligne repliée porte
+       déjà les mêmes chiffres, et les lire deux fois à 40 px d'écart
+       n'apprenait rien — c'est exactement le genre de place que ce
+       chantier cherche à rendre. */
+    fold.body.innerHTML = `
 
         ${alerte}
 

@@ -26,38 +26,12 @@ function construireCarte(data) {
     const avatar = safeUrl(data.avatar);
     const status = data.status || {};
 
-    const highlights = typeof mgsHighlights === 'function'
-        ? mgsHighlights(data.highlights)
-        : (data.highlights || []).map(item => `
-            <div class="info-box">
-                <span class="info-label">${escapeHtml(item.label)}</span>
-                <span class="info-value">${escapeHtml(item.value ?? '-')}</span>
-            </div>
-        `).join('');
-
-    const sections = typeof mgsSections === 'function'
-        ? mgsSections(data.sections)
-        : (data.sections || []).map(section => {
-            const items = (section.items || []).map(item => `
-                <li>${escapeHtml(item.name)} <span>${escapeHtml(item.value ?? '')}</span></li>
-            `).join('');
-
-            return `
-                <div class="recent-games-box">
-                    <span class="info-label">${escapeHtml(section.title)}</span>
-                    <ul class="recent-games-list">
-                        ${items || `<li>${escapeHtml(section.empty || 'Aucune donnée')}</li>`}
-                    </ul>
-                </div>
-            `;
-        }).join('');
-
-    const links = (data.links || []).map(link => {
-        const url = safeUrl(link.url);
-        return url
-            ? `<a href="${url}" target="_blank" rel="noopener" class="profile-link">${escapeHtml(link.label)}</a>`
-            : '';
-    }).join('');
+    // Ces trois rendus étaient recopiés ici et dans construireDetails() ;
+    // ils vivent maintenant dans rendreHighlights / rendreSections /
+    // rendreLiens, plus bas dans ce fichier.
+    const highlights = rendreHighlights(data.highlights);
+    const sections   = rendreSections(data.sections);
+    const links      = rendreLiens(data.links);
 
     card.innerHTML = `
         <div class="platform-tag">${platformTag(data.platform, data.platformLabel || data.platform)}</div>
@@ -332,59 +306,272 @@ function chipAjouter(platform) {
     return chip;
 }
 
-/** Toutes les stats détaillées, groupées par plateforme. */
+/* ============================================================
+   STATS DÉTAILLÉES — un bloc dépliable par JEU
+
+   Avant : un pavé par compte. Deux comptes Riot donnaient deux
+   blocs « Riot Games » de trois écrans chacun, LoL et Valorant
+   mélangés à l'intérieur, sans qu'on puisse rien refermer.
+
+   Maintenant : une ligne repliée par jeu, tous comptes confondus.
+   Le découpage vient de metrics.groups, envoyé par le provider ;
+   une plateforme qui n'en déclare pas (Steam, Epic) garde un bloc
+   unique à son nom.
+   ============================================================ */
+
+/** Rendu de repli des encadrés, quand match-detail.js n'est pas chargé. */
+function rendreHighlights(liste) {
+    if (typeof mgsHighlights === 'function') {
+        return mgsHighlights(liste);
+    }
+
+    return (liste || []).map(item => `
+        <div class="info-box">
+            <span class="info-label">${escapeHtml(item.label)}</span>
+            <span class="info-value">${escapeHtml(item.value ?? '-')}</span>
+        </div>
+    `).join('');
+}
+
+/** Idem pour les sections. */
+function rendreSections(liste) {
+    if (typeof mgsSections === 'function') {
+        return mgsSections(liste);
+    }
+
+    return (liste || []).map(section => {
+        const items = (section.items || []).map(item => `
+            <li>${escapeHtml(item.name)} <span>${escapeHtml(item.value ?? '')}</span></li>
+        `).join('');
+
+        return `
+            <div class="recent-games-box">
+                <span class="info-label">${escapeHtml(section.title)}</span>
+                <ul class="recent-games-list">
+                    ${items || `<li>${escapeHtml(section.empty || 'Aucune donnée')}</li>`}
+                </ul>
+            </div>
+        `;
+    }).join('');
+}
+
+/** Liens externes d'un compte, rendus en une chaîne HTML. */
+function rendreLiens(liste) {
+    return (liste || []).map(l => {
+        const url = safeUrl(l.url);
+        return url
+            ? `<a href="${url}" target="_blank" rel="noopener" class="profile-link">${escapeHtml(l.label)}</a>`
+            : '';
+    }).join('');
+}
+
+/**
+ * Ne garde que ce qui concerne un jeu.
+ *
+ * Sans découpage déclaré, tout appartient au bloc unique. Avec
+ * découpage, les entrées non étiquetées reviennent au PREMIER jeu :
+ * un provider qui ajouterait demain un encadré commun ne le verrait
+ * pas disparaître silencieusement de la page.
+ */
+function filtrerParJeu(liste, cle, decoupe, rang) {
+    const items = liste || [];
+
+    if (!decoupe) return items.slice();
+
+    return items.filter(item =>
+        item && (item.game === cle || (rang === 0 && item.game === undefined))
+    );
+}
+
+/** Initiales affichées tant que la jaquette n'a pas chargé. */
+function initialesJeu(nom) {
+    return String(nom || '?')
+        .split(/[\s:—-]+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(mot => mot[0].toUpperCase())
+        .join('');
+}
+
+/** Rassemble les stats de tous les comptes, jeu par jeu. */
+function grouperParJeu(resultats) {
+    const groupes = new Map();   // Map : l'ordre d'insertion est conservé
+
+    (resultats || []).forEach(entree => {
+        const d = entree.data;
+        if (!d) return;
+
+        const metrics = d.metrics || {};
+
+        const decoupe = Array.isArray(metrics.groups) && metrics.groups.length
+            ? metrics.groups
+            : null;
+
+        const jeux = decoupe || [{
+            key:            d.platform,
+            name:           MGS.platformLabel(d.platform, d.platformLabel),
+            image:          MGS.platformIcon(d.platform),
+            hours:          Number(metrics.totalHours) || 0,
+            hoursEstimated: metrics.hoursEstimated === true,
+            rank:           (metrics.ranks || [])[0] || null,
+        }];
+
+        jeux.forEach((jeu, rang) => {
+            const highlights = filtrerParJeu(d.highlights, jeu.key, decoupe, rang);
+            const sections   = filtrerParJeu(d.sections,   jeu.key, decoupe, rang);
+            const liens      = filtrerParJeu(d.links,      jeu.key, decoupe, rang);
+
+            /* Ce compte n'a rien à dire sur ce jeu : pas de ligne
+               fantôme. C'est le cas d'un compte Riot dont le
+               fournisseur Valorant est muet — sans ce filtre, la page
+               affichait un « Valorant » vide et impossible à déplier. */
+            if (!highlights.length && !sections.length) return;
+
+            const cle = d.platform + ':' + jeu.key;
+
+            if (!groupes.has(cle)) {
+                groupes.set(cle, {
+                    cle:      cle,
+                    platform: d.platform,
+                    nom:      jeu.name,
+                    image:    jeu.image || MGS.platformIcon(d.platform),
+                    heures:   0,
+                    estime:   false,
+                    rang:     null,
+                    comptes:  [],
+                });
+            }
+
+            const g = groupes.get(cle);
+
+            g.heures += Number(jeu.hours) || 0;
+            g.estime  = g.estime || jeu.hoursEstimated === true;
+
+            // Deux comptes sur le même jeu : la ligne repliée montre le
+            // meilleur des deux rangs, le détail les montre tous.
+            if (jeu.rank && (!g.rang || (jeu.rank.score ?? -1) > (g.rang.score ?? -1))) {
+                g.rang = jeu.rank;
+            }
+
+            g.comptes.push({
+                nom:        (entree.account && entree.account.displayName) || d.displayName || '',
+                avatar:     safeUrl(d.avatar),
+                sousTitre:  d.subtitle || '',
+                liens:      liens,
+                highlights: highlights,
+                sections:   sections,
+            });
+        });
+    });
+
+    // Le jeu le plus joué en premier : c'est celui qu'on vient ouvrir.
+    return Array.from(groupes.values())
+        .filter(g => g.comptes.length)
+        .sort((a, b) => b.heures - a.heures);
+}
+
+/** Contenu de la ligne repliée : jaquette, nom, comptes, rang, heures. */
+function teteDeGroupe(groupe) {
+    const noms = groupe.comptes.map(c => c.nom).filter(Boolean);
+
+    const comptes = noms.length
+        ? `<span class="fold-accounts">${escapeHtml(noms.join(' · '))}</span>`
+        : '';
+
+    const rang = groupe.rang
+        ? `<span class="fold-rank"${groupe.rang.queue ? ` title="${escapeHtml(groupe.rang.queue)}"` : ''}>
+               ${groupe.rang.icon
+                    ? `<img src="${escapeHtml(groupe.rang.icon)}" alt="" loading="lazy"
+                            onerror="this.remove()">`
+                    : ''}
+               <span>${escapeHtml(groupe.rang.label || '')}</span>
+           </span>`
+        : '';
+
+    const heures = groupe.heures > 0
+        ? `<span class="fold-hours"${groupe.estime ? ' title="Estimation"' : ''}>${
+               groupe.estime ? '≈ ' : ''
+           }${MGS.formaterNombre(Math.round(groupe.heures))} h</span>`
+        : '';
+
+    return `
+        <span class="fold-cover">
+            <em>${escapeHtml(initialesJeu(groupe.nom))}</em>
+            ${groupe.image
+                ? `<img src="${escapeHtml(groupe.image)}" alt="" loading="lazy"
+                        onerror="this.remove()">`
+                : ''}
+        </span>
+        <span class="fold-ident">
+            <span class="fold-title">${escapeHtml(groupe.nom)}</span>
+            ${comptes}
+        </span>
+        <span class="fold-meta">${rang}${heures}</span>
+    `;
+}
+
+/** Un compte à l'intérieur d'un bloc déplié. */
+function corpsDeCompte(compte, plusieursComptes) {
+    const bloc = document.createElement('div');
+    bloc.className = 'fold-account';
+
+    const liens = rendreLiens(compte.liens);
+
+    // Le nom du compte n'est rappelé ici que s'il y a de quoi confondre :
+    // sur un seul compte, il est déjà sur la ligne repliée.
+    const entete = (plusieursComptes || liens)
+        ? `<div class="fold-account-head">
+               ${plusieursComptes
+                    ? `<span class="fold-account-who">
+                           ${compte.avatar
+                                ? `<img src="${compte.avatar}" alt=""
+                                        onclick="openImageModal(this.src)">`
+                                : ''}
+                           <span class="fold-account-name">${escapeHtml(compte.nom)}</span>
+                           ${compte.sousTitre
+                                ? `<span class="fold-account-sub">${escapeHtml(compte.sousTitre)}</span>`
+                                : ''}
+                       </span>`
+                    : ''}
+               ${liens ? `<span class="fold-account-links">${liens}</span>` : ''}
+           </div>`
+        : '';
+
+    const highlights = rendreHighlights(compte.highlights);
+
+    bloc.innerHTML = `
+        ${entete}
+        ${highlights ? `<div class="info-grid">${highlights}</div>` : ''}
+        ${rendreSections(compte.sections)}
+    `;
+
+    return bloc;
+}
+
+/** Toutes les stats détaillées, en lignes dépliables groupées par jeu. */
 function construireDetails(resultats) {
+    const groupes = grouperParJeu(resultats);
+
+    if (!groupes.length) return null;
+
     const bloc = document.createElement('div');
     bloc.className = 'hub-details';
 
-    resultats.forEach(r => {
-        if (!r.data) return;
-        const d = r.data;
+    groupes.forEach(groupe => {
+        const fold = MGS.creerFold({
+            head:    teteDeGroupe(groupe),
+            classe:  'detail-fold--jeu',
+            dataset: { platform: groupe.platform, game: groupe.cle },
+        });
 
-        const highlights = typeof mgsHighlights === 'function'
-            ? mgsHighlights(d.highlights)
-            : (d.highlights || []).map(item => `
-                <div class="info-box">
-                    <span class="info-label">${escapeHtml(item.label)}</span>
-                    <span class="info-value">${escapeHtml(item.value ?? '-')}</span>
-                </div>
-            `).join('');
+        const plusieurs = groupe.comptes.length > 1;
 
-        const sections = typeof mgsSections === 'function'
-            ? mgsSections(d.sections)
-            : (d.sections || []).map(section => {
-                const items = (section.items || []).map(item => `
-                    <li>${escapeHtml(item.name)} <span>${escapeHtml(item.value ?? '')}</span></li>
-                `).join('');
-                return `
-                    <div class="recent-games-box">
-                        <span class="info-label">${escapeHtml(section.title)}</span>
-                        <ul class="recent-games-list">
-                            ${items || `<li>${escapeHtml(section.empty || 'Aucune donnée')}</li>`}
-                        </ul>
-                    </div>
-                `;
-            }).join('');
+        groupe.comptes.forEach(compte => {
+            fold.body.appendChild(corpsDeCompte(compte, plusieurs));
+        });
 
-        const links = (d.links || []).map(l => {
-            const url = safeUrl(l.url);
-            return url ? `<a href="${url}" target="_blank" rel="noopener" class="profile-link">${escapeHtml(l.label)}</a>` : '';
-        }).join('');
-
-        const groupe = document.createElement('section');
-        groupe.className = 'detail-group';
-        groupe.dataset.platform = d.platform;
-        groupe.innerHTML = `
-            <div class="detail-head">
-                <span class="platform-tag">${platformTag(d.platform, d.platformLabel)}</span>
-                ${links}
-            </div>
-            ${highlights ? `<div class="info-grid">${highlights}</div>` : ''}
-            ${sections}
-        `;
-
-        bloc.appendChild(groupe);
+        bloc.appendChild(fold.el);
     });
 
-    return bloc.children.length ? bloc : null;
+    return bloc;
 }

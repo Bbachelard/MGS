@@ -231,7 +231,7 @@ function riot_fetch_stats(array $cfg, string $accountId): array
     $jeuxLoL = $heuresEstimees > 0 ? [
         'name'      => 'League of Legends',
         'hours'     => (float)$heuresEstimees,
-        'image'     => '/content/image/ranks/lol.jpg',
+        'image'     => RIOT_LOL_JAQUETTE,
         'platform'  => 'Riot',
         'estimated' => true,
     ] : null;
@@ -249,6 +249,7 @@ function riot_fetch_stats(array $cfg, string $accountId): array
        un lien mort vers un profil vide serait pire que pas de lien. */
     $liens = [[
         'label' => 'Voir sur OP.GG',
+        'game'  => 'lol',
         'url'   => 'https://www.op.gg/summoners/' . rawurlencode($region)
                    . '/' . rawurlencode(str_replace('#', '-', $riotId)),
     ]];
@@ -256,10 +257,47 @@ function riot_fetch_stats(array $cfg, string $accountId): array
     if ($valorant['state'] === 'ok') {
         $liens[] = [
             'label' => 'Valorant sur Tracker.gg',
+            'game'  => 'valorant',
             'url'   => 'https://tracker.gg/valorant/profile/riot/'
                        . rawurlencode($riotId) . '/overview',   // # -> %23
         ];
     }
+
+    /* --- Les deux blocs dépliables du front -------------------------
+       Le rang est repris ici, déjà résolu, plutôt que laissé à
+       retrouver côté client : `ranks` désigne le jeu par son libellé
+       lisible ('League of Legends'), pas par la clé technique, et
+       faire correspondre les deux dans le JS serait une jointure sur
+       une chaîne d'affichage. */
+    $rangLol = null;
+    $rangVal = null;
+
+    foreach ($rangs as $rang) {
+        if (($rang['game'] ?? '') === 'Valorant') {
+            $rangVal ??= $rang;
+        } else {
+            $rangLol ??= $rang;
+        }
+    }
+
+    $groupes = [
+        [
+            'key'            => 'lol',
+            'name'           => 'League of Legends',
+            'image'          => RIOT_LOL_JAQUETTE,
+            'hours'          => (float)$heuresEstimees,
+            'hoursEstimated' => true,
+            'rank'           => $rangLol,
+        ],
+        [
+            'key'            => 'valorant',
+            'name'           => 'Valorant',
+            'image'          => RIOT_VAL_JAQUETTE,
+            'hours'          => $heuresValorant,
+            'hoursEstimated' => true,
+            'rank'           => $rangVal,
+        ],
+    ];
 
     return [
         'ok'   => true,
@@ -276,43 +314,50 @@ function riot_fetch_stats(array $cfg, string $accountId): array
                 'online' => false,
             ],
             'activity'      => null,
+            /* Chaque encadré et chaque section porte le jeu dont il parle.
+               Un compte Riot en couvre deux, et le front les affiche
+               désormais en deux blocs séparés : sans cette étiquette il
+               devrait deviner à partir des libellés. */
             'highlights'    => array_merge(
-                riot_highlights(
-                    $sum, $solo, $flex, $wins, $losses, $total,
-                    $matchItems, $victoires, $heuresEstimees, $partiesEstimees
+                riot_marquer_jeu(
+                    riot_highlights(
+                        $sum, $solo, $flex, $wins, $losses, $total,
+                        $matchItems, $victoires, $heuresEstimees, $partiesEstimees
+                    ),
+                    'lol'
                 ),
-                riot_valorant_highlights($valorant)
+                riot_marquer_jeu(riot_valorant_highlights($valorant), 'valorant')
             ),
-            'sections'      => array_merge([
-                [
-                    'type'       => 'matches',
-                    'title'      => 'Dernières parties',
-                    'items'      => $matchItems,
-                    'empty'      => 'Aucune partie récente',
-                    'assets'     => riot_assets(),
-                    'context'    => [
-                        'platform'  => 'riot',
-                        'accountId' => $region . ':' . $puuid,
+            'sections'      => array_merge(
+                riot_marquer_jeu([
+                    [
+                        'type'       => 'matches',
+                        'title'      => 'Dernières parties',
+                        'items'      => $matchItems,
+                        'empty'      => 'Aucune partie récente',
+                        'assets'     => riot_assets(),
+                        'context'    => [
+                            'platform'  => 'riot',
+                            'accountId' => $region . ':' . $puuid,
+                        ],
+                        'pagination' => [
+                            'start'   => 0,
+                            'loaded'  => count($matchItems),
+                            'page'    => RIOT_MATCHES_PAGE,
+                            'max'     => RIOT_MATCHES_MAX,
+                            'hasMore' => $plusDeParties,
+                        ],
                     ],
-                    'pagination' => [
-                        'start'   => 0,
-                        'loaded'  => count($matchItems),
-                        'page'    => RIOT_MATCHES_PAGE,
-                        'max'     => RIOT_MATCHES_MAX,
-                        'hasMore' => $plusDeParties,
+                    [
+                        'type'    => 'list',
+                        'title'   => 'Champions favoris',
+                        'items'   => $masteryItems,
+                        'empty'   => 'Aucune maîtrise',
+                        'variant' => 'champions',
                     ],
-                ],
-                [
-                    'type'    => 'list',
-                    'title'   => 'Champions favoris',
-                    'items'   => $masteryItems,
-                    'empty'   => 'Aucune maîtrise',
-                    'variant' => 'champions',
-                ],
-
-                ],
-                riot_valorant_sections($valorant),
-                riot_valorant_section_degradee($valorant)
+                ], 'lol'),
+                riot_marquer_jeu(riot_valorant_sections($valorant), 'valorant'),
+                riot_marquer_jeu(riot_valorant_section_degradee($valorant), 'valorant')
             ),
             'links'         => $liens,
             'metrics' => [
@@ -347,6 +392,10 @@ function riot_fetch_stats(array $cfg, string $accountId): array
 
                 // Conservé pour stats-display.js tant qu'il lit encore mainRank.
                 'mainRank'       => $rangs[0] ?? null,
+
+                // Un bloc dépliable par jeu. Une plateforme qui n'en
+                // déclare pas retombe sur un bloc unique à son nom.
+                'groups'         => $groupes,
             ],
         ],
     ];
@@ -356,6 +405,26 @@ function riot_fetch_stats(array $cfg, string $accountId): array
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
+
+/**
+ * Étiquette une liste d'encadrés ou de sections avec le jeu concerné.
+ *
+ * Une étiquette déjà posée n'est jamais écrasée : si un jour une section
+ * commune aux deux jeux arrive, elle décidera elle-même de sa clé.
+ *
+ * @param array  $items liste d'encadrés ou de sections
+ * @param string $jeu   'lol' ou 'valorant'
+ */
+function riot_marquer_jeu(array $items, string $jeu): array
+{
+    foreach ($items as $i => $item) {
+        if (is_array($item) && !isset($item['game'])) {
+            $items[$i]['game'] = $jeu;
+        }
+    }
+
+    return array_values($items);
+}
 
 /** Emblème du niveau de maîtrise. Les niveaux > 10 réutilisent le crest 10. */
 function riot_mastery_emblem(int $niveau): string

@@ -157,30 +157,18 @@
 }
 
 /* ------------------------------------------------------------
-   Détails par plateforme
+   Détails par jeu
+
+   Le pavé ouvert par plateforme (.detail-group / .detail-head) a
+   laissé place aux lignes dépliables de modules/detail-fold.css.
+   Il ne reste ici que l'empilement : des lignes fermées se serrent
+   plus qu'un pavé de trois écrans, d'où 24 -> 12 px.
    ------------------------------------------------------------ */
 
 .hub-details {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-}
-
-.detail-group {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 22px;
-    background-color: #2a2a33;
-    border-radius: 14px;
-}
-
-.detail-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
+    gap: 12px;
 }
 
 @media (max-width: 720px) {

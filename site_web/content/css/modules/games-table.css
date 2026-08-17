@@ -8,27 +8,10 @@
     padding: 0 20px;
 }
 
-.games-head {
-    margin-bottom: 18px;
-}
-
-.games-title {
-    margin: 0;
-    font-size: 24px;
-    color: #fff;
-}
-
-/* Réutilise .summary-box / .summary-value / .summary-label du hub */
-.games-totals {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 16px;
-    padding: 20px;
-    margin-bottom: 18px;
-    background: linear-gradient(145deg, #2f2f38, #232329);
-    border: 1px solid #3a3a45;
-    border-radius: 14px;
-}
+/* Le titre et les trois totaux vivent désormais dans la ligne repliée
+   (.fold-title, .fold-count, .fold-hours de modules/detail-fold.css) :
+   .games-head, .games-title et .games-totals n'avaient plus d'élément
+   à styler. */
 
 /* ------------------------------------------------------------
    Barre d'outils : nombre par page + recherche

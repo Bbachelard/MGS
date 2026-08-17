@@ -1,0 +1,395 @@
+/* ============================================================
+   BLOC DÉPLIABLE — stats détaillées et bibliothèque
+   ------------------------------------------------------------
+   Une ligne repliée par jeu (League of Legends, Valorant, Steam,
+   Epic) et une pour la bibliothèque. Tout arrive fermé : la page
+   tient sur un écran, on ouvre ce qu'on veut lire.
+
+   Le balisage vient de MGS.creerFold() (js/core/mgs-core.js) :
+
+     section.detail-fold
+       button.fold-head          ← la ligne repliée, cliquable
+         .fold-cover  .fold-ident  .fold-meta  .fold-chevron
+       div.fold-wrap             ← la boîte qui s'ouvre
+         div.fold-body
+   ============================================================ */
+
+.detail-fold {
+    background: linear-gradient(145deg, #2f2f38, #262630);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+
+    /* Sans ça, l'angle du contenu déborde du rayon pendant
+       l'ouverture, le temps que la boîte atteigne sa hauteur. */
+    overflow: hidden;
+
+    transition: border-color 0.18s ease;
+}
+
+.detail-fold:hover {
+    border-color: #4b4b5c;
+}
+
+.detail-fold.is-open {
+    border-color: #4f4f60;
+}
+
+/* ------------------------------------------------------------
+   La ligne repliée
+   ------------------------------------------------------------ */
+
+.fold-head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 16px;
+
+    width: 100%;
+    box-sizing: border-box;
+    padding: 14px 18px;
+
+    /* C'est un <button> : sans remise à zéro il hérite du gris
+       système, d'une bordure et de la police du navigateur. */
+    margin: 0;
+    background: none;
+    border: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    transition: background-color 0.18s ease;
+}
+
+.fold-head:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.fold-head:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+/* --- Jaquette du jeu / icône de plateforme --- */
+
+.fold-cover {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 46px;
+    height: 46px;
+
+    border-radius: 9px;
+    background: #1f1f26;
+    overflow: hidden;
+}
+
+/* Initiales visibles tant que la jaquette n'a pas chargé — et
+   définitivement si le fichier manque (onerror retire l'image). */
+.fold-cover em {
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #6f6f80;
+}
+
+.fold-cover img {
+    position: absolute;
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Variante bibliothèque : un pictogramme, pas une jaquette. */
+.fold-cover--icone {
+    color: var(--accent);
+    background: rgba(124, 92, 255, 0.12);
+}
+
+/* --- Nom du jeu + comptes concernés --- */
+
+.fold-ident {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.fold-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.fold-accounts {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* --- Rang, heures, nombre de jeux --- */
+
+.fold-meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.fold-rank {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    font-size: 13px;
+    font-weight: 600;
+    color: #e6e6ef;
+}
+
+.fold-rank img {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+}
+
+.fold-hours,
+.fold-count {
+    white-space: nowrap;
+
+    padding: 4px 10px;
+
+    border: 1px solid #3d3d49;
+    border-radius: 999px;
+
+    background: rgba(0, 0, 0, 0.18);
+
+    font-size: 12px;
+    font-weight: 700;
+    color: #cfcfdd;
+}
+
+.fold-hours {
+    color: #9d84ff;
+}
+
+/* --- Chevron --- */
+
+.fold-chevron {
+    width: 10px;
+    height: 10px;
+
+    /* Deux côtés d'un carré tourné : une flèche sans image ni
+       police d'icônes à charger. */
+    border-right: 2px solid #8b8b9c;
+    border-bottom: 2px solid #8b8b9c;
+
+    transform: rotate(45deg) translate(-2px, -2px);
+
+    transition: transform 0.22s ease, border-color 0.18s ease;
+}
+
+.fold-head:hover .fold-chevron {
+    border-color: #c9c9d8;
+}
+
+.detail-fold.is-open .fold-chevron {
+    transform: rotate(-135deg) translate(-2px, -2px);
+}
+
+/* ------------------------------------------------------------
+   L'ouverture
+
+   grid-template-rows 0fr -> 1fr : la seule façon d'animer vers
+   une hauteur inconnue sans max-height arbitraire. Une valeur
+   plafond trop basse aurait tronqué les longues listes de
+   parties, trop haute aurait rendu la fermeture molle.
+   ------------------------------------------------------------ */
+
+.fold-wrap {
+    display: grid;
+    grid-template-rows: 0fr;
+
+    transition: grid-template-rows 0.22s ease;
+}
+
+.detail-fold.is-open .fold-wrap {
+    grid-template-rows: 1fr;
+}
+
+.fold-body {
+    /* Obligatoire : sans min-height, le contenu d'une piste 0fr
+       impose quand même sa hauteur et rien ne se replie. */
+    min-height: 0;
+    overflow: hidden;
+}
+
+.detail-fold.is-open .fold-body {
+    /* Rendu visible seulement une fois ouvert, sinon un menu ou une
+       infobulle du contenu serait rognée par l'overflow. */
+    overflow: visible;
+}
+
+/* Le rembourrage vit sur un enfant, pas sur .fold-body : une piste
+   de grille à 0fr conserve ses paddings, et le bloc fermé garderait
+   36 px de haut. */
+.fold-body > * {
+    padding: 4px 18px 20px;
+}
+
+/* ------------------------------------------------------------
+   Un compte à l'intérieur d'un bloc
+   ------------------------------------------------------------ */
+
+.fold-account + .fold-account {
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    padding-top: 18px;
+}
+
+.fold-account-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+
+    margin-bottom: 14px;
+}
+
+.fold-account-who {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.fold-account-who img {
+    width: 30px;
+    height: 30px;
+
+    border-radius: 6px;
+    object-fit: cover;
+    background: #1f1f26;
+
+    cursor: pointer;
+}
+
+.fold-account-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.fold-account-sub {
+    padding: 2px 8px;
+
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+
+    font-size: 11px;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+}
+
+.fold-account-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    /* Sur un compte unique, le nom n'est pas répété ici : sans cette
+       marge, le lien se retrouverait seul à gauche, décalé par rapport
+       à tous les autres blocs à un compte. */
+    margin-left: auto;
+}
+
+/* ------------------------------------------------------------
+   Teinte de la plateforme sur le liseré gauche
+
+   Rappelle la couleur des segments de la barre du hub, pour que
+   l'œil relie une ligne repliée à sa part du temps cumulé.
+   ------------------------------------------------------------ */
+
+.detail-fold--jeu {
+    border-left: 3px solid #3a3a45;
+}
+
+.detail-fold--jeu[data-platform="steam"]  { border-left-color: #66c0f4; }
+.detail-fold--jeu[data-platform="riot"]   { border-left-color: #e84057; }
+.detail-fold--jeu[data-platform="epic"]   { border-left-color: #7c5cff; }
+
+/* Valorant partage la plateforme de LoL : sans nuance distincte,
+   les deux lignes Riot auraient exactement le même liseré. */
+.detail-fold--jeu[data-game="riot:valorant"] {
+    border-left-color: #ff8a72;
+}
+
+.detail-fold--bibliotheque {
+    border-left: 3px solid var(--accent);
+}
+
+/* Le tableau apporte déjà ses marges internes. */
+.detail-fold--bibliotheque .fold-body > * {
+    padding: 4px 18px 18px;
+}
+
+/* ------------------------------------------------------------
+   Mobile
+   ------------------------------------------------------------ */
+
+@media (max-width: 720px) {
+
+    .fold-head {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 12px;
+        padding: 12px 14px;
+    }
+
+    /* Le rang et les heures passent sous le titre : sur 360 px, les
+       garder en bout de ligne écrasait le nom du jeu à trois
+       lettres. */
+    .fold-meta {
+        grid-column: 2;
+        grid-row: 2;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 2px;
+    }
+
+    .fold-chevron {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+    }
+
+    .fold-cover {
+        grid-row: 1 / span 2;
+        width: 40px;
+        height: 40px;
+    }
+
+    .fold-title {
+        font-size: 15px;
+    }
+
+    .fold-body > *,
+    .detail-fold--bibliotheque .fold-body > * {
+        padding: 4px 14px 16px;
+    }
+}
+
+/* ------------------------------------------------------------
+   Animations réduites
+   ------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .fold-wrap,
+    .fold-chevron {
+        transition: none;
+    }
+}
