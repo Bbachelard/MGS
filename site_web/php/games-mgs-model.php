@@ -91,18 +91,19 @@ function mgs_group_games(): array
 
         /* ------------- EXEMPLE : jeu en ligne, multijoueur ------------- */
         [
-            'slug'        => 'exemple-arene',
+            'slug'        => 'arene',
             'nom'         => 'Arène MGS',
             'type'        => 'web',
-            'url'         => 'https://my-gamers-stats.com/jeux/arene/',
-            'resume'      => 'Deux joueurs, une arène, un navigateur chacun.',
-            'description' => "Duel en temps réel dans le navigateur. On crée un salon, on "
-                           . "partage le lien, et la partie démarre. Fonctionne aussi sur "
-                           . "téléphone.",
+            'url'         => '/game/arene/',
+            'resume'      => 'Une arène 2D où tout le monde bouge en même temps.',
+            'description' => "Prototype multijoueur temps réel : on se déplace, on se "
+                           . "bouscule, on glisse le long des murs. Serveur autoritaire, "
+                           . "prédiction côté client et interpolation — les techniques de "
+                           . "Quake III, en 500 lignes. Rien à installer.",
             'image'       => null,
             'plateformes' => ['Navigateur'],
-            'joueurs'     => '2 joueurs en ligne',
-            'version'     => '',
+            'joueurs'     => 'Multijoueur en ligne',
+            'version'     => 'v0.1',
             'poids'       => '',
             'statut'      => 'disponible',
             'auteur'      => 'MGS',
