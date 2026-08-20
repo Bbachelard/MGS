@@ -51,8 +51,9 @@ jeux/arene/                     ← ne part PAS dans apache/site/
 │   ├── sons.js                 tes sons, avec repli synthétisé
 │   ├── shared.js               ⭐ la physique + les règles chiffrées, partagées
 │   ├── perso/                  tes personnages (+ gabarit.png et son README)
+│   ├── decor/                  meteorite.png, à remplacer (voir son README)
 │   └── sons/                   tes enregistrements (voir son README)
-├── test/arene.test.js          60 contrôles, `npm test`
+├── test/arene.test.js          89 contrôles, `npm test`
 ├── apache/mgs-arene.conf       le ProxyPass à inclure dans le vhost
 └── docker/service-arene.yml    le bloc à coller dans docker-compose.yml
 
@@ -84,20 +85,22 @@ par `node server/index.js`. Conséquences concrètes :
 | | |
 |---|---|
 | Points de vie | **20** |
-| Missile | **5 dégâts** — 4 touches pour éliminer |
-| Cadence | **0,25 s** (4 tirs/s), munitions illimitées |
+| Arme de départ | **4 dégâts**, **0,5 s** entre deux tirs (2 tirs/s) |
+| Progression | **tous les 10 kills** : +25 % de cadence **ou** +25 % de puissance, au choix, sans plafond |
 | Vitesse du missile | 480 px/s — assez lent pour être esquivé |
 | Mort | réapparition **immédiate**, à un endroit **tiré au sort**, 1 s d'invulnérabilité |
+| Éliminer | remet à **pleine vie** |
 | Zones de soin | **4**, rendent **toute** la vie, reviennent **15 s** après |
+| Boucliers | **2**, annulent **une** attaque quelle qu'elle soit, reviennent 20 s après |
+| Météorites | toutes les **30 à 45 s**, **sans prévenir**, élimination |
 | Charge d'ulti | **+10 %** par missile touché — 10 touches pour une ulti |
-| Ulti | **pause temporelle**, 2,4 s, projectile en spirale sur 1,5 tour |
-| Dégâts de l'ulti | 20 — c'est-à-dire une élimination |
+| Ulti | **pause temporelle** de 3 s : une aiguille tourne, on tire au bon moment |
 
 Tout se règle en un seul endroit : le bloc `COMBAT` de `public/shared.js`. Le
 client reçoit ces valeurs dans le message `init` plutôt que de les redéclarer,
 donc rééquilibrer le jeu ne demande pas de toucher au HUD.
 
-### Le tir
+### Le tir, et l'arme qui progresse
 
 Le client envoie deux choses en plus dans chaque commande : `a`, l'angle vers
 la souris, et `f`, « je maintiens le tir ». **Il ne crée jamais de missile.**
@@ -106,29 +109,74 @@ envoyer 100 ordres de tir dans le même tick ne produit qu'un seul missile.
 C'est vérifié par les tests, parce que c'est très exactement ce qu'on essaiera
 en premier depuis la console.
 
-Le missile naît un peu devant le tireur (sinon il se cognerait à son propre
-corps en marchant) et meurt au premier mur, au premier joueur, ou au bout de
-2,2 s.
+L'arme de départ est **volontairement médiocre** : 4 dégâts, 2 tirs/s, cinq
+touches pour éliminer. C'est le point bas d'une progression.
+
+**Tous les 10 kills**, un palier est mis de côté — mais il n'est **pas**
+appliqué tout de suite : il est proposé **à la mort suivante**, sous la forme
+d'un choix entre *cadence* et *puissance*. On ne coupe pas un duel pour
+afficher un menu ; en revanche, mourir devient un moment où l'on gagne quelque
+chose.
+
+```
+cadence = 0,5 s × 0,8^n        puissance = arrondi(4 × 1,25^n)
+n=0 : 2,0 tirs/s               n=0 : 4 dégâts
+n=3 : 3,9 tirs/s               n=3 : 8 dégâts
+n=6 : 7,6 tirs/s               n=6 : 15 dégâts
+```
+
+Les paliers se cumulent **sans plafond** et ne se perdent pas à la mort. Le
+projectile change d'allure avec eux : la tête grossit avec la puissance (teintes
+chaudes), la traînée s'allonge avec la cadence (teintes froides). On voit donc
+à qui on a affaire avant même d'encaisser.
+
+Les dégâts sont **figés au départ du missile** : améliorer son arme n'augmente
+pas les tirs déjà en vol.
+
+### Les boucliers
+
+Deux emplacements seulement, au milieu du terrain — c'est un enjeu de
+position, pas un bonbon qu'on ramasse en passant. Un bouclier **annule une
+attaque entière**, qu'elle vienne d'un missile, d'une météorite ou du rayon
+d'ulti, puis disparaît. Il ne survit pas à son porteur et ne s'empile pas.
+
+Détail volontaire : le tireur dont le missile est absorbé **charge quand même
+son ulti**. Un bouclier annule des dégâts, pas la progression de l'adversaire —
+sinon il punirait deux fois.
+
+### Les météorites
+
+Toutes les 30 à 45 secondes, une météorite traverse la carte **sans le
+moindre avertissement** et **élimine** ce qu'elle touche, quel que soit le
+nombre de PV. Elle **vole au-dessus des murs** : se cacher ne protège pas.
+Elle peut faucher plusieurs joueurs d'affilée et n'est créditée à personne —
+le fil affiche « l'arène ⇒ *nom* ».
+
+Seul le bouclier l'arrête.
+
+L'image se remplace : `public/decor/meteorite.png` (voir le README du
+dossier). Elle tourne sur elle-même en vol, donc il n'y a pas de « devant » à
+respecter.
 
 ### La pause temporelle
 
 À 100 %, <kbd>E</kbd> (ou le clic droit) fige **toute la salle** : plus
-personne ne bouge, plus rien ne vole, les pastilles de soin ne rechargent
-plus. Une aiguille part du lanceur et décrit **une spirale d'un tour et demi**
-en 2,4 s, du rayon 40 au rayon 380. Le premier joueur qu'elle traverse est
-éliminé. Si elle finit son tour et demi sans rien toucher, l'ulti est perdue.
+personne ne bouge, plus rien ne vole, les pastilles ne rechargent plus, les
+météorites restent suspendues.
 
-Deux détails qui font toute la différence à l'usage :
+Une **aiguille** se met alors à tourner autour du lanceur : un tour et demi en
+3 secondes. À lui de **cliquer au bon moment** — le rayon part dans l'axe de
+l'aiguille, en ligne droite, et **élimine** le premier joueur rencontré. Un mur
+l'arrête net. Pas de clic au bout d'un tour et demi : l'ulti est perdue.
 
-- **Ni le bord du terrain ni les murs n'arrêtent l'aiguille.** Sinon l'ulti
-  serait perdue d'avance partout sauf au centre exact de l'arène : le rayon
-  monte à 380 px dans une arène qui fait 900 px de haut.
-- **Un mur protège quand même** : on ne touche pas quelqu'un à travers. Le
-  serveur trace une ligne de vue entre le lanceur et la cible avant de
-  valider la touche.
+C'est donc un exercice de **rythme**, pas de visée. Pour que ce soit un
+exercice et non une loterie, le cadran affiche un **repère de la couleur de
+chaque adversaire**, à sa direction exacte : on sait où il faut tirer, il reste
+à le faire au bon instant.
 
-Le vrai choix du joueur, c'est donc **le moment** : déclencher quand un
-adversaire est à portée de spirale et à découvert.
+Le même bouton sert à tirer normalement et à déclencher le rayon : pendant sa
+propre ulti, le clic gauche (ou <kbd>espace</kbd>) lance le rayon au lieu d'un
+missile. Un geste à retenir, pas deux.
 
 ### Ce que le client ne calcule jamais
 
@@ -149,10 +197,13 @@ Deux dossiers sont faits pour être remplis à la main, et chacun a son README :
   Le jeu le fait pivoter vers la souris : un seul dessin suffit, pas huit.
   `gabarit.png` donne les repères (limite utile, rayon de collision, avant).
   Une ligne dans `persos.json` et il apparaît dans l'écran d'accueil.
-- **`public/sons/`** — neuf sons (`tir`, `impact`, `touche`, `mort`, `kill`,
-  `soin`, `ulti`, `ulti-touche`, `ulti-rate`). Chaque fichier trouvé remplace
-  automatiquement le son synthétisé de secours. Rien à déclarer : le jeu
-  cherche le nom, et se tait poliment s'il ne le trouve pas.
+- **`public/decor/`** — `meteorite.png`, à écraser tel quel. Elle tourne en
+  vol : aucune orientation à respecter.
+- **`public/sons/`** — treize sons (`tir`, `impact`, `touche`, `mort`, `kill`,
+  `soin`, `bouclier`, `meteorite`, `palier`, `ulti`, `ulti-tir`,
+  `ulti-touche`, `ulti-rate`). Chaque fichier trouvé remplace automatiquement
+  le son synthétisé de secours. Rien à déclarer : le jeu cherche le nom, et se
+  tait poliment s'il ne le trouve pas.
 
 Les quatre personnages livrés (`defaut`, `vaisseau`, `robot`, `fantome`) sont
 des placeholders assumés : écrase leurs fichiers, rien d'autre à changer.
@@ -169,7 +220,7 @@ node server/index.js        # http://localhost:8080
 Deux onglets sur cette adresse = deux joueurs qui se voient bouger.
 
 ```bash
-npm test                    # 60 contrôles, ~8 s, aucune dépendance
+npm test                    # 89 contrôles, ~8 s, aucune dépendance
 ```
 
 Les tests font deux choses. D'abord ils démarrent le vrai serveur et s'y
@@ -265,17 +316,25 @@ pastilles de soin, diffuser un *snapshot*.
 ```json
 { "t": "etat", "tick": 1042,
   "joueurs": [ { "i":1, "n":"Ben", "c":"#7c5cff", "sp":"robot", "x":812.4, "y":301.0,
-                 "a":-1.2, "s":412, "pv":15, "k":3, "m":1, "d":45, "u":30, "iv":0 } ],
-  "pr": [ { "i":88, "x":640, "y":210, "a":0.8, "p":1 } ],
+                 "a":-1.2, "s":412, "pv":15, "k":3, "m":1, "d":45, "u":30, "iv":0,
+                 "b":1, "nc":2, "nd":0, "kp":3, "ch":0 } ],
+  "pr": [ { "i":88, "x":640, "y":210, "a":0.8, "p":1, "td":0, "tv":2 } ],
+  "mt": [ { "i":4, "x":-40, "y":700, "a":0.31 } ],
   "so": [ 0, 12.4, 0, 0 ],
+  "bo": [ 0, 18.2 ],
   "ev": [ { "t":"tir", "x":830, "y":300 } ] }
 ```
 
 Les noms de champs font une lettre : à 20 messages par seconde et par joueur,
-chaque octet compte. `pr` ce sont les missiles, `so` la recharge des quatre
-pastilles, `ev` ce qui vient de se passer (le client en tire les sons et le
-fil des éliminations). Quand une ulti est en cours, un champ `g` décrit le gel
-et la position de l'aiguille.
+chaque octet compte. `pr` ce sont les missiles (avec `td`/`tv`, les paliers du
+tireur, pour dessiner le bon projectile), `mt` les météorites, `so` et `bo` la
+recharge des pastilles, `ev` ce qui vient de se passer (le client en tire les
+sons et le fil des éliminations). Côté joueur : `b` le bouclier, `nc`/`nd` les
+paliers d'arme, `kp` les kills depuis le dernier palier, `ch` le nombre
+d'améliorations à choisir.
+
+Quand une ulti est en cours, un champ `g` décrit le gel, l'angle courant de
+l'aiguille et, une fois le clic parti, la position du rayon.
 
 La trame WebSocket est fabriquée **une seule fois** par tick puis écrite telle
 quelle sur chaque socket.
@@ -348,9 +407,11 @@ Le serveur nettoie quand même le pseudo (balises, guillemets, sauts de ligne,
 | File d'écriture par socket | 1 Mo, au-delà : déconnexion |
 | Mémoire du conteneur | 256 Mo (`mem_limit`) |
 | Fichiers servis | `public/` uniquement, traversée bloquée |
-| Cadence de tir | 0,25 s, imposée par les ticks, pas par le client |
+| Cadence de tir | imposée par les ticks, pas par le client |
 | Identifiant de personnage | `[a-z0-9-]`, 24 caractères, filtré des deux côtés |
 | Ulti | refusée en dessous de 100 %, une seule à la fois par salle |
+| Rayon d'ulti | seul le lanceur peut le déclencher, une seule fois |
+| Amélioration d'arme | refusée sans palier en réserve et hors proposition |
 
 ## La suite, dans l'ordre
 
@@ -366,9 +427,14 @@ Le serveur nettoie quand même le pseudo (balises, guillemets, sauts de ligne,
    par deux dans une salle pleine.
 4. **Modes de jeu** — équipes, manche à 10 kills, chrono. Tout est déjà là :
    `Salle` compte les kills, il ne manque qu'une condition de fin.
-5. **Deuxième compétence** — la charge d'ulti, le gel et la spirale sont
-   isolés dans `salle.js` ; en ajouter une autre revient à écrire un
-   `avancerXxx()` et un dessin.
+5. **Deuxième compétence** — la charge d'ulti, le gel et le rayon sont isolés
+   dans `salle.js` ; en ajouter une autre revient à écrire un `avancerXxx()`
+   et un dessin.
+6. **Surveiller l'écart de puissance.** Les paliers d'arme se cumulent sans
+   plafond : dans une salle où quelqu'un reste très longtemps, l'écart avec un
+   nouvel arrivant devient énorme. Deux garde-fous possibles le jour où ça se
+   voit — plafonner à 5 paliers, ou faire repartir les paliers à zéro quand le
+   salon se vide.
 
 ## Petites choses à savoir
 

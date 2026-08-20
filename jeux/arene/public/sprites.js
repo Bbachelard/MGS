@@ -87,3 +87,28 @@ export function image(id) {
 
   return images.get(id) || null;
 }
+
+/* ==========================================================================
+   Le décor : les images qui ne sont pas des personnages.
+
+   Pour l'instant une seule, `decor/meteorite.png`. Même principe que les
+   personnages : remplace le fichier, le jeu s'en sert au prochain
+   rechargement. S'il manque, le rendu retombe sur une boule de feu dessinée
+   en code.
+   ========================================================================== */
+
+const decors = new Map();
+const decorsEnCours = new Set();
+
+export function decor(nom) {
+  if (decors.has(nom)) return decors.get(nom);
+  if (decorsEnCours.has(nom)) return null;
+
+  decorsEnCours.add(nom);
+  const img = new Image();
+  img.onload = () => decors.set(nom, img);
+  img.onerror = () => decors.set(nom, null);
+  img.src = `decor/${nom}.png`;
+
+  return null;
+}

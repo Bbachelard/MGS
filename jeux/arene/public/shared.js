@@ -113,8 +113,7 @@ export function positionDeDepart() {
    ========================================================================== */
 
 // --- points de vie -------------------------------------------------------
-export const PV_MAX = 20;             // 4 missiles encaissés = mort
-export const DEGATS_MISSILE = 5;
+export const PV_MAX = 20;             // 5 missiles de base encaissés = mort
 
 // Après la mort : réapparition IMMÉDIATE, à un endroit tiré au sort.
 // Une seconde d'invulnérabilité, juste assez pour ne pas mourir deux fois
@@ -122,14 +121,41 @@ export const DEGATS_MISSILE = 5;
 // Mettre 0 pour l'enlever complètement.
 export const INVULN_RESPAWN = 1.0;    // secondes
 
+// Éliminer quelqu'un remet à pleine vie. C'est la règle qui récompense
+// l'agressivité : finir un adversaire vaut mieux que fuir se soigner.
+export const SOIN_AU_KILL = true;
+
 // --- missiles ------------------------------------------------------------
-export const CADENCE_TIR = 0.25;      // secondes entre deux tirs (4 tirs/s)
+// L'arme de DÉPART est volontairement lente et faible : c'est le point bas
+// d'une progression. Chaque palier (voir plus bas) la rapproche de ce qu'elle
+// était avant, puis la dépasse.
+export const CADENCE_TIR = 0.5;       // secondes entre deux tirs (2 tirs/s)
+export const DEGATS_MISSILE = 4;      // 5 touches pour éliminer
 export const VITESSE_MISSILE = 480;   // px/s — volontairement esquivable
 export const RAYON_MISSILE = 6;
 export const DUREE_MISSILE = 2.2;     // s de vol avant disparition
 // Le missile naît un peu devant le joueur, sinon il se cogne à son propre
 // corps quand on tire en marchant.
 export const AVANCE_TIR = RAYON + RAYON_MISSILE + 2;
+
+// --- progression de l'arme ----------------------------------------------
+// Tous les 10 kills, un palier est mis de côté. Il est proposé À LA MORT
+// SUIVANTE : le joueur choisit alors de gagner en cadence ou en puissance.
+// Les paliers se cumulent sans plafond et ne se perdent pas.
+export const KILLS_PAR_PALIER = 10;
+export const GAIN_CADENCE = 0.8;      // ×0,8 sur le délai = +25 % de tirs/s
+export const GAIN_DEGATS = 1.25;      // ×1,25 sur les dégâts
+
+/** Le délai entre deux tirs, pour un joueur ayant `n` paliers de cadence. */
+export function cadenceDe(n) {
+  return CADENCE_TIR * Math.pow(GAIN_CADENCE, n || 0);
+}
+
+/** Les dégâts d'un missile, pour un joueur ayant `n` paliers de puissance. */
+export function degatsDe(n) {
+  // Arrondi : un joueur doit pouvoir compter ses touches. 4 → 5 → 6 → 8 → 10.
+  return Math.round(DEGATS_MISSILE * Math.pow(GAIN_DEGATS, n || 0));
+}
 
 // --- zones de soin -------------------------------------------------------
 export const SOIN_RAYON = 26;         // rayon de la pastille
@@ -141,33 +167,51 @@ export const SOINS = [
   { x: 1440, y: 740 },
 ];
 
+// --- boucliers -----------------------------------------------------------
+// Deux emplacements seulement, au milieu du terrain : le bouclier est un
+// enjeu de position, pas un consommable qu'on ramasse en passant.
+// Un bouclier annule UNE attaque, quelle qu'elle soit — missile, météorite
+// ou rayon d'ulti — puis disparaît.
+export const BOUCLIER_RAYON = 26;
+export const BOUCLIER_RECHARGE = 20;  // s avant réapparition
+export const BOUCLIERS = [
+  { x: 620, y: 120 },
+  { x: 980, y: 780 },
+];
+
+// --- météorites ----------------------------------------------------------
+// Elles traversent la carte en ligne droite, SANS prévenir, et éliminent ce
+// qu'elles touchent. Elles volent au-dessus des murs : rien ne les arrête
+// avant l'autre bord du terrain.
+export const METEORITE_RAYON = 34;
+export const METEORITE_VITESSE = 620;  // px/s
+export const METEORITE_DEGATS = 999;   // c'est une élimination, pas un chiffre
+export const METEORITE_DELAI_MIN = 30; // s entre deux météorites
+export const METEORITE_DELAI_MAX = 45;
+export const METEORITE_ROTATION = 2.4; // rad/s — juste pour le rendu
+
 // --- attaque spéciale : la pause temporelle ------------------------------
+// À 100 %, le temps s'arrête pour TOUT LE MONDE et une aiguille se met à
+// tourner autour du lanceur. À lui de tirer au bon moment : le rayon part
+// dans l'axe de l'aiguille et élimine le premier joueur rencontré. S'il ne
+// tire pas au bout d'un tour et demi, l'ulti est perdue.
 export const ULTI_MAX = 100;
-export const ULTI_PAR_TOUCHE = 10;    // 10 missiles touchés = 1 ulti
-export const ULTI_TOURS = 1.5;        // tours d'horloge décrits par le projectile
-export const ULTI_DUREE = 2.4;        // s — durée du gel ET du vol
-export const ULTI_RAYON_DEBUT = 40;   // le projectile part collé au lanceur
-export const ULTI_RAYON_FIN = 380;    // et finit loin : la spirale balaie large
-export const RAYON_ULTI = 12;
-export const DEGATS_ULTI = 20;        // touche = mort, c'est le prix de 10 touches
+export const ULTI_PAR_TOUCHE = 10;     // 10 missiles touchés = 1 ulti
+export const ULTI_TOURS = 1.5;         // tours décrits par l'aiguille
+export const ULTI_DUREE = 3.0;         // s — le temps qu'on a pour tirer
+export const ULTI_LONGUEUR = 300;      // longueur de l'aiguille à l'écran
+export const RAYON_ULTI = 16;          // rayon du rayon (généreux : c'est dur)
+export const VITESSE_RAYON = 1600;     // px/s — pendant que le temps est figé
+export const DUREE_RAYON = 0.8;        // s de vol maximum
 
 /**
- * Position du projectile d'ulti à l'instant `t` (0 → ULTI_DUREE).
- * Une spirale : l'angle tourne à vitesse constante, le rayon grandit.
- * Client et serveur appellent LA MÊME fonction — sinon le joueur voit le
- * projectile passer à côté alors que le serveur le compte comme touché.
+ * Direction de l'aiguille à l'instant `t` (0 → ULTI_DUREE).
+ * Client et serveur appellent LA MÊME fonction : ce que le joueur voit au
+ * moment où il clique est exactement ce que le serveur calcule.
  */
-export function positionUlti(gel, t) {
+export function angleAiguille(gel, t) {
   const p = Math.min(Math.max(t / ULTI_DUREE, 0), 1);
-  const angle = gel.angle + 2 * Math.PI * ULTI_TOURS * p;
-  const rayon = ULTI_RAYON_DEBUT + (ULTI_RAYON_FIN - ULTI_RAYON_DEBUT) * p;
-
-  return {
-    x: gel.x + Math.cos(angle) * rayon,
-    y: gel.y + Math.sin(angle) * rayon,
-    angle,
-    rayon,
-  };
+  return gel.angle + 2 * Math.PI * ULTI_TOURS * p;
 }
 
 /** Un disque de rayon r placé en (x, y) touche-t-il un mur ? */

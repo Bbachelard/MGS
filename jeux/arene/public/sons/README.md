@@ -5,7 +5,7 @@ cherche chaque nom au démarrage, et chaque fichier trouvé remplace le son
 synthétique de secours. Un fichier absent n'est pas une erreur — le jeu
 continue avec sa version « arcade » générée en WebAudio.
 
-## Les neuf sons attendus
+## Les treize sons attendus
 
 | Fichier | Quand il joue | Durée conseillée |
 |---|---|---|
@@ -14,10 +14,17 @@ continue avec sa version « arcade » générée en WebAudio.
 | `touche.ogg` | missile qui touche un joueur | 100 – 200 ms |
 | `mort.ogg` | une élimination (fort si c'est toi) | 300 – 700 ms |
 | `kill.ogg` | tu viens d'éliminer quelqu'un | 250 – 600 ms |
-| `soin.ogg` | croix verte ramassée | 200 – 400 ms |
+| `soin.ogg` | croix verte ramassée, ou pleine vie gagnée sur un kill | 200 – 400 ms |
+| `bouclier.ogg` | bouclier ramassé **et** bouclier qui encaisse | 150 – 350 ms |
+| `meteorite.ogg` | une météorite entre dans l'arène — grondement | 800 ms – 1,5 s |
+| `palier.ogg` | arme améliorable, puis arme améliorée | 300 – 700 ms |
 | `ulti.ogg` | la pause temporelle se déclenche | 600 ms – 1,2 s |
-| `ulti-touche.ogg` | le projectile d'horloge a touché | 400 – 800 ms |
+| `ulti-tir.ogg` | le rayon part | 100 – 250 ms |
+| `ulti-touche.ogg` | le rayon a touché | 400 – 800 ms |
 | `ulti-rate.ogg` | 1 tour et demi pour rien | 300 – 500 ms |
+
+Si tu n'en enregistres que trois, prends `tir`, `mort` et `meteorite` : ce
+sont ceux qui donnent le plus de caractère au jeu.
 
 ## Formats acceptés
 

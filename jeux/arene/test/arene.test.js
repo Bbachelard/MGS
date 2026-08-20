@@ -18,15 +18,20 @@ import { Salle } from "../server/salle.js";
 import {
   PV_MAX,
   DEGATS_MISSILE,
-  DEGATS_ULTI,
   CADENCE_TIR,
   ULTI_MAX,
   ULTI_PAR_TOUCHE,
   ULTI_DUREE,
   SOINS,
   SOIN_RECHARGE,
+  BOUCLIERS,
+  BOUCLIER_RECHARGE,
+  METEORITE_DEGATS,
+  KILLS_PAR_PALIER,
+  GAIN_CADENCE,
+  cadenceDe,
+  degatsDe,
   TICK_MS,
-  positionUlti,
 } from "../public/shared.js";
 
 const RACINE = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -316,7 +321,7 @@ try {
 
     ticks(salle, 6);
     verifier(
-      "le missile retire 5 PV",
+      "le missile de base retire 4 PV",
       cible.pv === PV_MAX - DEGATS_MISSILE,
       `pv=${cible.pv}`
     );
@@ -329,6 +334,7 @@ try {
     );
 
     // La cadence est la première chose qu'un tricheur essaie de contourner.
+    ticks(salle, 6); // le temps que la recharge de 0,5 s redescende
     for (let i = 0; i < 10; i++) {
       salle.message(tireur, JSON.stringify({ t: "cmd", seq: 20 + i, dt: 0, e: {}, a: 0, f: true }));
     }
@@ -339,10 +345,8 @@ try {
       salle.missiles.length + " missile(s)"
     );
 
-    // ... et la cadence, c'est bien 0,25 s.
     salle.message(tireur, JSON.stringify({ t: "cmd", seq: 40, dt: 0, e: {}, a: 0, f: true }));
     salle.pas();
-    verifier("pas de second tir au tick suivant", salle.missiles.length === 1);
     verifier(
       "la recharge vaut la cadence annoncée",
       Math.abs(tireur.rechargeTir - (CADENCE_TIR - TICK_MS / 1000)) < 0.001,
@@ -357,6 +361,7 @@ try {
     const tireur = poser(salle, "A", 400, 820);
     const cible = poser(salle, "B", 520, 820);
     tireur.angle = 0;
+    tireur.pv = 8; // amoché : le kill doit le remettre à neuf
     cible.pv = DEGATS_MISSILE; // un missile de plus et c'est fini
 
     const avant = { x: cible.x, y: cible.y };
@@ -366,6 +371,7 @@ try {
 
     verifier("une mort est comptée à la victime", cible.morts === 1);
     verifier("un kill est compté au tireur", tireur.kills === 1);
+    verifier("éliminer remet à pleine vie", tireur.pv === PV_MAX, `pv=${tireur.pv}`);
     verifier("réapparition immédiate à pleine vie", cible.pv === PV_MAX);
     verifier(
       "réapparition ailleurs",
@@ -407,6 +413,138 @@ try {
     verifier("à pleine vie, la pastille reste en place", salle2.soins[1].recharge === 0);
   }
 
+  console.log("\nBoucliers");
+
+  {
+    const salle = salleDeTest();
+    const porteur = poser(salle, "A", BOUCLIERS[0].x, BOUCLIERS[0].y);
+
+    salle.pas();
+    verifier("le bouclier se ramasse", porteur.bouclier === 1);
+    verifier(
+      "l'emplacement se met à recharger",
+      Math.abs(salle.boucliers[0].recharge - BOUCLIER_RECHARGE) < 0.2,
+      salle.boucliers[0].recharge + " s"
+    );
+
+    const autre = poser(salle, "B", BOUCLIERS[0].x, BOUCLIERS[0].y);
+    salle.pas();
+    verifier("on n'en ramasse pas deux d'un coup", autre.bouclier === 0);
+
+    // Il annule une attaque entière, puis disparaît.
+    const tireur = poser(salle, "C", 200, 200);
+    salle.appliquerDegats(porteur, tireur, 12, true);
+    verifier("le bouclier annule toute l'attaque", porteur.pv === PV_MAX);
+    verifier("et il est consommé", porteur.bouclier === 0);
+    verifier(
+      "le tireur charge quand même son ulti",
+      tireur.ulti === ULTI_PAR_TOUCHE,
+      tireur.ulti + " %"
+    );
+
+    // Y compris contre une météorite, qui éliminerait sans lui.
+    porteur.bouclier = 1;
+    salle.appliquerDegats(porteur, null, METEORITE_DEGATS, false);
+    verifier("il arrête même une météorite", porteur.pv === PV_MAX && porteur.morts === 0);
+
+    salle.appliquerDegats(porteur, null, METEORITE_DEGATS, false);
+    verifier("sans bouclier, la météorite élimine", porteur.morts === 1);
+  }
+
+  console.log("\nMétéorites");
+
+  {
+    const salle = salleDeTest();
+    const victime = poser(salle, "A", 300, 400);
+    const temoin = poser(salle, "B", 300, 800);
+
+    // On la pose à la main : lancerMeteorite() tire sa trajectoire au sort.
+    salle.meteorites.push({ id: 1, x: -120, y: 400, a: 0 });
+
+    ticks(salle, 30); // 620 px/s × 1,5 s : elle traverse largement
+    verifier("la météorite élimine ce qu'elle traverse", victime.morts === 1);
+    verifier("elle ne touche pas ce qui n'est pas sur sa route", temoin.morts === 0);
+    verifier(
+      "l'élimination n'est créditée à personne",
+      victime.kills === 0 && temoin.kills === 0
+    );
+
+    ticks(salle, 60);
+    verifier("elle finit par sortir du terrain", salle.meteorites.length === 0);
+
+    // Elle vole au-dessus des murs : un joueur derrière un obstacle n'est pas
+    // à l'abri. Le mur { x:300, y:200, l:40, h:300 } couvre x 300→340.
+    const salle2 = salleDeTest();
+    const cache = poser(salle2, "A", 320, 350); // dans l'axe du mur
+    salle2.meteorites.push({ id: 1, x: -120, y: 350, a: 0 });
+    ticks(salle2, 30);
+    verifier("les murs ne l'arrêtent pas", cache.morts === 1);
+  }
+
+  console.log("\nProgression de l'arme");
+
+  {
+    const salle = salleDeTest();
+    const heros = poser(salle, "A", 400, 820);
+    const soufre = poser(salle, "B", 900, 200);
+
+    verifier(
+      "l'arme de départ est la plus faible",
+      degatsDe(0) === DEGATS_MISSILE && cadenceDe(0) === CADENCE_TIR
+    );
+
+    // Dix éliminations : un palier tombe.
+    for (let i = 0; i < KILLS_PAR_PALIER; i++) {
+      soufre.invuln = 0;
+      salle.appliquerDegats(soufre, heros, PV_MAX, false);
+    }
+
+    verifier("10 kills = 1 palier en réserve", heros.paliers === 1, "kills=" + heros.kills);
+    verifier(
+      "mais rien n'est proposé tant qu'on n'est pas mort",
+      heros.choixOuvert === false
+    );
+
+    // Le serveur refuse un choix qui n'a pas été proposé.
+    salle.appliquerAmelioration(heros, "cadence");
+    verifier("amélioration refusée hors proposition", heros.nivCadence === 0);
+
+    // On le tue : c'est là que le choix arrive.
+    heros.invuln = 0;
+    salle.appliquerDegats(heros, soufre, PV_MAX, false);
+    verifier("le choix est proposé à la mort suivante", heros.choixOuvert === true);
+
+    salle.appliquerAmelioration(heros, "cadence");
+    verifier("le palier est dépensé", heros.paliers === 0 && heros.choixOuvert === false);
+    verifier("la cadence augmente", heros.nivCadence === 1);
+    verifier(
+      "et elle s'applique vraiment au tir",
+      Math.abs(cadenceDe(1) - CADENCE_TIR * GAIN_CADENCE) < 1e-9,
+      cadenceDe(1).toFixed(3) + " s entre deux tirs"
+    );
+
+    salle.appliquerAmelioration(heros, "degats");
+    verifier("un palier déjà dépensé ne se rejoue pas", heros.nivDegats === 0);
+
+    verifier(
+      "un palier de puissance monterait les dégâts à 5",
+      degatsDe(1) === 5,
+      degatsDe(1) + " dégâts"
+    );
+
+    // Le missile emporte les dégâts du moment où il part.
+    heros.nivDegats = 2;
+    heros.rechargeTir = 0;
+    heros.angle = 0;
+    salle.tirer(heros);
+    const dernier = salle.missiles[salle.missiles.length - 1];
+    verifier(
+      "le missile emporte les dégâts de l'arme au moment du tir",
+      dernier.degats === degatsDe(2),
+      dernier.degats + " dégâts"
+    );
+  }
+
   console.log("\nAttaque spéciale — pause temporelle");
 
   const TICKS_ULTI = Math.ceil(ULTI_DUREE / (TICK_MS / 1000)) + 2;
@@ -414,7 +552,7 @@ try {
   {
     const salle = salleDeTest();
     const lanceur = poser(salle, "A", 500, 800);
-    const temoin = poser(salle, "B", 200, 200); // hors de portée de la spirale
+    const temoin = poser(salle, "B", 200, 200);
 
     lanceur.ulti = ULTI_MAX - 10;
     salle.message(lanceur, JSON.stringify({ t: "ulti" }));
@@ -442,36 +580,55 @@ try {
       "seq=" + temoin.dernierSeq
     );
 
+    // Seul le lanceur peut déclencher le rayon.
+    salle.message(temoin, JSON.stringify({ t: "ultiTir" }));
+    verifier("un autre joueur ne peut pas tirer le rayon", salle.gel.rayon === null);
+
+    verifier("l'aiguille tourne pendant l'attente", salle.gel.t > 0, "t=" + salle.gel.t);
+
     ticks(salle, TICKS_ULTI);
-    verifier("sans personne sur la trajectoire, l'ulti est perdue", salle.gel === null);
+    verifier("sans tir, l'ulti est perdue au bout d'1,5 tour", salle.gel === null);
     verifier("et elle ne se recharge pas toute seule", lanceur.ulti === 0);
   }
 
   {
     const salle = salleDeTest();
     const lanceur = poser(salle, "A", 500, 800);
-    lanceur.angle = 0;
+    lanceur.angle = Math.PI; // vers la gauche, dégagé de tout mur
     lanceur.ulti = ULTI_MAX;
 
-    // La victime est posée exactement sur la trajectoire, à mi-course.
-    const passage = positionUlti({ x: lanceur.x, y: lanceur.y, angle: 0 }, ULTI_DUREE / 2);
-    const victime = poser(salle, "B", passage.x, passage.y);
+    // La victime est posée dans l'axe de l'aiguille à t = 0 : on tire tout de
+    // suite, donc l'aiguille n'a pas encore tourné.
+    const victime = poser(salle, "B", 200, 800);
 
     salle.message(lanceur, JSON.stringify({ t: "ulti" }));
-    ticks(salle, TICKS_ULTI);
+    salle.message(lanceur, JSON.stringify({ t: "ultiTir" }));
+    verifier("le rayon part au clic", salle.gel.rayon !== null);
 
+    ticks(salle, 10);
     verifier(
-      "le projectile d'horloge élimine ce qu'il traverse",
+      "le rayon élimine ce qu'il traverse",
       victime.morts === 1 && lanceur.kills === 1,
       `morts=${victime.morts} kills=${lanceur.kills}`
     );
-    verifier(
-      `l'ulti inflige ${DEGATS_ULTI} dégâts`,
-      lanceur.degats === DEGATS_ULTI,
-      lanceur.degats + " dégâts"
-    );
+    verifier("une touche d'ulti est une élimination", victime.pv === PV_MAX);
     verifier("l'ulti ne recharge pas l'ulti", lanceur.ulti === 0);
     verifier("le gel s'arrête dès la touche", salle.gel === null);
+  }
+
+  {
+    const salle = salleDeTest();
+    const lanceur = poser(salle, "A", 500, 800);
+    lanceur.angle = 0; // vers la droite : le mur { x:760, y:640, l:60, h:160 }
+    lanceur.ulti = ULTI_MAX;
+    const abri = poser(salle, "B", 900, 800); // juste derrière ce mur
+
+    salle.message(lanceur, JSON.stringify({ t: "ulti" }));
+    salle.message(lanceur, JSON.stringify({ t: "ultiTir" }));
+    ticks(salle, 10);
+
+    verifier("un mur arrête le rayon", abri.morts === 0 && lanceur.kills === 0);
+    verifier("et l'ulti est perdue", salle.gel === null);
   }
 
   console.log("\nDéconnexion");

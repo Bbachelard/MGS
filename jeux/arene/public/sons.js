@@ -23,8 +23,12 @@ export const SONS = [
   "mort",        // je me fais éliminer
   "kill",        // j'élimine quelqu'un
   "soin",        // pastille de soin ramassée
+  "bouclier",    // bouclier ramassé, ou bouclier qui encaisse
+  "meteorite",   // une météorite entre dans l'arène
+  "palier",      // arme améliorée
   "ulti",        // pause temporelle déclenchée
-  "ulti-touche", // le projectile d'horloge a touché
+  "ulti-tir",    // le rayon part
+  "ulti-touche", // le rayon a touché
   "ulti-rate",   // 1 tour et demi pour rien
 ];
 
@@ -182,6 +186,24 @@ function synthese(nom, volume) {
       break;
     case "soin":
       bip({ de: 520, vers: 1040, duree: 0.22, type: "sine", volume: 0.24 * volume });
+      break;
+    case "bouclier":
+      // Un « ting » métallique : quelque chose a rebondi.
+      bip({ de: 1400, vers: 900, duree: 0.18, type: "triangle", volume: 0.22 * volume });
+      break;
+    case "meteorite":
+      // Un grondement long et grave : ça arrive de loin.
+      souffle({ duree: 1.2, coupure: 420, volume: 0.32 * volume });
+      bip({ de: 90, vers: 40, duree: 1.1, type: "sine", volume: 0.22 * volume });
+      break;
+    case "palier":
+      // Trois notes qui montent : l'arme change.
+      bip({ de: 520, vers: 520, duree: 0.1, type: "triangle", volume: 0.24 * volume });
+      setTimeout(() => actif && bip({ de: 660, vers: 660, duree: 0.1, type: "triangle", volume: 0.24 * volume }), 100);
+      setTimeout(() => actif && bip({ de: 880, vers: 880, duree: 0.2, type: "triangle", volume: 0.26 * volume }), 200);
+      break;
+    case "ulti-tir":
+      bip({ de: 1800, vers: 300, duree: 0.16, type: "sawtooth", volume: 0.3 * volume });
       break;
     case "ulti":
       // Descente lente : le temps qui se fige.

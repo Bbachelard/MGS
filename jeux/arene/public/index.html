@@ -81,6 +81,28 @@
   }
   #hud b { color: var(--texte); font-weight: 600; }
   #etatCo.ko { color: #ff6b6b; }
+  #arme { color: #fbbf24; }
+
+  /* --- le choix d'amélioration, proposé à la mort --- */
+  /* En bas à GAUCHE, jamais au centre : le centre, c'est là où on joue. */
+  #panneau {
+    position: fixed; left: 10px; bottom: 16px;
+    z-index: 6; width: min(92vw, 330px);
+    background: rgba(29,29,36,.94); border: 1px solid #4a4130;
+    border-radius: 12px; padding: 12px 14px; text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+  #panneau .titre { font-size: 12px; font-weight: 700; letter-spacing: .1em;
+                    text-transform: uppercase; color: #fbbf24; margin-bottom: 10px; }
+  #panneau .choix { display: flex; gap: 10px; }
+  #panneau button {
+    flex: 1; padding: 10px 8px; cursor: pointer; border: 1px solid var(--bord);
+    border-radius: 8px; background: #16161d; color: var(--texte);
+    font-size: 13px; font-weight: 600; line-height: 1.5;
+  }
+  #panneau button:hover { border-color: var(--accent); background: #1f1f2a; }
+  #panneau button small { display: block; font-weight: 500; font-size: 11px;
+                          color: var(--texte-doux); }
 
   /* --- jauges du bas : vie et ulti --- */
   #jauges {
@@ -137,7 +159,22 @@
 
 <div id="hud" hidden>
   joueurs <b id="nbJoueurs">0</b> · ping <b id="ping">–</b> ms · tick <b id="tick">0</b><br />
-  <span id="etatCo">connecté</span> · <span id="etatSon">son (M)</span>
+  <span id="etatCo">connecté</span> · <span id="etatSon">son (M)</span><br />
+  <span id="arme">4 dég. · 2.0 tirs/s</span>
+</div>
+
+<div id="panneau" hidden>
+  <div class="titre" id="restePalier">Améliore ton arme</div>
+  <div class="choix">
+    <button id="choixCadence" type="button">
+      Cadence +25 %
+      <small>tirer plus souvent</small>
+    </button>
+    <button id="choixDegats" type="button">
+      Puissance +25 %
+      <small>frapper plus fort</small>
+    </button>
+  </div>
 </div>
 
 <div id="fil"></div>
@@ -165,7 +202,7 @@
 <div id="accueil">
   <div class="boite">
     <h1>Arène MGS</h1>
-    <p class="sous">Combat en temps réel — 20 PV, 5 dégâts par missile</p>
+    <p class="sous">Combat en temps réel — 20 PV, arme qui progresse</p>
 
     <input id="nom" maxlength="16" placeholder="Ton pseudo" autocomplete="off" />
 
@@ -177,11 +214,15 @@
     <div class="aide">
       <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> se déplacer ·
       <b>souris</b> viser<br />
-      <kbd>clic</kbd> ou <kbd>espace</kbd> tirer (4 tirs/s) ·
+      <kbd>clic</kbd> ou <kbd>espace</kbd> tirer ·
       <kbd>E</kbd> ou <kbd>clic droit</kbd> pause temporelle<br />
       <kbd>Tab</kbd> tout le tableau des scores · <kbd>M</kbd> couper le son<br />
-      Les croix vertes rendent toute la vie. Chaque missile qui touche charge
-      l'ulti de 10 %.
+      Croix verte : toute la vie. Écusson bleu : une attaque annulée.
+      Éliminer quelqu'un remet à pleine vie.<br />
+      Tous les 10 kills, ton arme s'améliore — au choix, à ta mort suivante.<br />
+      <b>Ulti</b> : le temps se fige, une aiguille tourne — <kbd>clic</kbd> au
+      bon moment pour aligner le rayon sur un adversaire.<br />
+      <b>Météorites</b> : elles traversent sans prévenir et ne pardonnent pas.
     </div>
   </div>
 </div>

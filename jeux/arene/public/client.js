@@ -20,7 +20,15 @@
 //  seule façon de ne pas offrir l'arène au premier venu qui ouvre la console.
 // ===========================================================================
 
-import { PAS_CLIENT, PV_MAX, ULTI_MAX, simuler } from "./shared.js";
+import {
+  PAS_CLIENT,
+  PV_MAX,
+  ULTI_MAX,
+  KILLS_PAR_PALIER,
+  cadenceDe,
+  degatsDe,
+  simuler,
+} from "./shared.js";
 import { dessiner, camera } from "./rendu.js";
 import * as sprites from "./sprites.js";
 import * as sons from "./sons.js";
@@ -40,6 +48,9 @@ const texteePv  = document.getElementById("textePv");
 const barreUlti = document.getElementById("barreUlti");
 const texteUlti = document.getElementById("texteUlti");
 const jauges    = document.getElementById("jauges");
+const arme      = document.getElementById("arme");
+const panneau   = document.getElementById("panneau");
+const restePalier = document.getElementById("restePalier");
 
 // --- paramètres d'URL ----------------------------------------------------
 // Le site MGS ouvre le jeu avec ?nom=<pseudo>&salon=mgs : le joueur connecté
@@ -85,7 +96,7 @@ addEventListener("keydown", (e) => {
   if (t) { entree[t] = true; e.preventDefault(); return; }
 
   if (e.code === "KeyE")   { demanderUlti(); e.preventDefault(); }
-  if (e.code === "Space")  { tirEnCours = true; e.preventDefault(); }
+  if (e.code === "Space")  { appuyerTir(); e.preventDefault(); }
   if (e.code === "Tab")    { tableau.classList.add("grand"); e.preventDefault(); }
   if (e.code === "KeyM")   { basculerSon(); }
 });
@@ -113,7 +124,7 @@ addEventListener("mousemove", (e) => {
 // clavier va à la page parente. Un clic n'importe où rend la main au jeu.
 addEventListener("mousedown", (e) => {
   if (accueil.hidden) window.focus();
-  if (e.button === 0) tirEnCours = true;
+  if (e.button === 0) appuyerTir();
   if (e.button === 2) demanderUlti();
 });
 addEventListener("mouseup", (e) => {
@@ -127,7 +138,7 @@ canvas.addEventListener("touchstart", (e) => {
   const t = e.touches[0];
   souris.x = t.clientX;
   souris.y = t.clientY;
-  tirEnCours = true;
+  appuyerTir();
   e.preventDefault();
 }, { passive: false });
 canvas.addEventListener("touchmove", (e) => {
@@ -138,10 +149,27 @@ canvas.addEventListener("touchmove", (e) => {
 }, { passive: false });
 canvas.addEventListener("touchend", () => { tirEnCours = false; });
 
+function envoyer(objet) {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(objet));
+}
+
 function demanderUlti() {
   // Le client demande, le serveur vérifie la charge. Envoyer ce message à
   // 100 par seconde ne donne pas 100 ultis.
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: "ulti" }));
+  envoyer({ t: "ulti" });
+}
+
+/**
+ * Le même geste — clic gauche, espace, ou un doigt — fait deux choses selon
+ * le moment : tirer normalement, ou déclencher le rayon de l'ulti pendant sa
+ * propre pause temporelle. Un seul bouton à retenir, c'est mieux.
+ */
+function appuyerTir() {
+  if (gel && gel.par === monId && !gel.ray) {
+    envoyer({ t: "ultiTir" });
+    return;
+  }
+  tirEnCours = true;
 }
 
 let sonCoupe = false;
@@ -213,6 +241,8 @@ function connecter(nom) {
 
       gel = msg.g || null;
       derniersSoins = msg.so || [];
+      derniersBoucliers = msg.bo || [];
+      meteorites = msg.mt || [];
       reconcilier(msg.joueurs);
       if (msg.ev) traiterEvenements(msg.ev);
 
@@ -236,6 +266,8 @@ function connecter(nom) {
 }
 
 let derniersSoins = [];
+let derniersBoucliers = [];
+let meteorites = [];
 
 /* ==========================================================================
    Réconciliation
@@ -271,9 +303,37 @@ function traiterEvenements(evenements) {
       case "impact":
       case "touche":
       case "soin":
+      case "ulti-tir":
       case "ulti-touche":
       case "ulti-rate":
         sons.jouer(e.t, volumeSelonDistance(e.x, e.y));
+        break;
+
+      case "bouclier":
+      case "bouclier-pris":
+        sons.jouer("bouclier", volumeSelonDistance(e.x, e.y));
+        break;
+
+      // Une météorite naît hors du terrain : la distance ne veut rien dire,
+      // et de toute façon tout le monde doit l'entendre arriver.
+      case "meteorite":
+        sons.jouer("meteorite", 0.9);
+        ajouterAuFil("☄ météorite", "#ff9d3c");
+        break;
+
+      case "palier":
+        if (e.sur === monId) {
+          sons.jouer("palier", 1);
+          ajouterAuFil("Arme améliorable — au prochain respawn", "#fbbf24");
+        }
+        break;
+
+      case "amelioration":
+        if (e.sur === monId) sons.jouer("palier", 1);
+        ajouterAuFil(
+          `${e.nom} : arme ${e.choix === "cadence" ? "plus rapide" : "plus puissante"}`,
+          e.sur === monId ? "#fbbf24" : "#9292a3"
+        );
         break;
 
       case "ulti":
@@ -331,6 +391,30 @@ function majJauges() {
   barreUlti.style.width = (u / ULTI_MAX) * 100 + "%";
   texteUlti.textContent = u >= ULTI_MAX ? "ULTI PRÊTE — E" : `ulti ${u}%`;
   texteUlti.classList.toggle("prete", u >= ULTI_MAX);
+
+  // L'état de l'arme, et ce qu'il reste à faire pour le palier suivant.
+  const nc = moiServeur.nc || 0;
+  const nd = moiServeur.nd || 0;
+  const reste = KILLS_PAR_PALIER - (moiServeur.kp || 0);
+  arme.textContent =
+    `${degatsDe(nd)} dég. · ${(1 / cadenceDe(nc)).toFixed(1)} tirs/s` +
+    (nc + nd > 0 ? ` · niv. ${nc + nd}` : "") +
+    ` · palier dans ${reste} kill${reste > 1 ? "s" : ""}`;
+
+  // Le choix d'arme : proposé à la mort, il reste affiché tant qu'on n'a pas
+  // tranché. Il ne bloque pas la partie — on peut jouer avec le panneau
+  // ouvert, et choisir quand on a une seconde.
+  const enAttente = moiServeur.ch || 0;
+  panneau.hidden = enAttente <= 0;
+  if (enAttente > 0) {
+    restePalier.textContent =
+      enAttente > 1 ? `${enAttente} améliorations à choisir` : "Améliore ton arme";
+  }
+}
+
+function choisir(choix) {
+  envoyer({ t: "amelioration", choix });
+  panneau.hidden = true; // le serveur confirmera au prochain snapshot
 }
 
 // Le tableau bouge peu : le reconstruire 20 fois par seconde ferait clignoter
@@ -455,7 +539,9 @@ function afficher(alpha, temps) {
     my,
     liste,
     missiles,
+    meteorites,
     soins: derniersSoins,
+    boucliers: derniersBoucliers,
     gel,
     souris,
     temps,
@@ -511,6 +597,8 @@ async function lancer() {
 }
 
 document.getElementById("jouer").addEventListener("click", lancer);
+document.getElementById("choixCadence").addEventListener("click", () => choisir("cadence"));
+document.getElementById("choixDegats").addEventListener("click", () => choisir("degats"));
 champNom.addEventListener("keydown", (e) => { if (e.key === "Enter") lancer(); });
 
 // Pseudo transmis par le site : on pré-remplit le champ plutôt que de lancer
