@@ -1,0 +1,6 @@
+[
+  { "id": "defaut",   "nom": "Recrue" },
+  { "id": "vaisseau", "nom": "Vaisseau" },
+  { "id": "robot",    "nom": "Robot" },
+  { "id": "fantome",  "nom": "Fantôme" }
+]

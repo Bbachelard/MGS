@@ -103,3 +103,130 @@ export function positionDeDepart() {
   }
   return { x: MONDE.l / 2, y: MONDE.h / 2 };
 }
+
+/* ==========================================================================
+   COMBAT — tout ce qui a été ajouté à la version « simple déplacement ».
+
+   Les valeurs sont ici, et nulle part ailleurs : le client s'en sert pour
+   dessiner (barres de vie, jauge d'ulti, portée), le serveur pour décider.
+   Une seule source de vérité, sinon l'affichage ment.
+   ========================================================================== */
+
+// --- points de vie -------------------------------------------------------
+export const PV_MAX = 20;             // 4 missiles encaissés = mort
+export const DEGATS_MISSILE = 5;
+
+// Après la mort : réapparition IMMÉDIATE, à un endroit tiré au sort.
+// Une seconde d'invulnérabilité, juste assez pour ne pas mourir deux fois
+// dans le même souffle si on réapparaît sous le nez de quelqu'un.
+// Mettre 0 pour l'enlever complètement.
+export const INVULN_RESPAWN = 1.0;    // secondes
+
+// --- missiles ------------------------------------------------------------
+export const CADENCE_TIR = 0.25;      // secondes entre deux tirs (4 tirs/s)
+export const VITESSE_MISSILE = 480;   // px/s — volontairement esquivable
+export const RAYON_MISSILE = 6;
+export const DUREE_MISSILE = 2.2;     // s de vol avant disparition
+// Le missile naît un peu devant le joueur, sinon il se cogne à son propre
+// corps quand on tire en marchant.
+export const AVANCE_TIR = RAYON + RAYON_MISSILE + 2;
+
+// --- zones de soin -------------------------------------------------------
+export const SOIN_RAYON = 26;         // rayon de la pastille
+export const SOIN_RECHARGE = 15;      // s avant réapparition
+export const SOINS = [
+  { x: 160, y: 160 },
+  { x: 1440, y: 160 },
+  { x: 160, y: 740 },
+  { x: 1440, y: 740 },
+];
+
+// --- attaque spéciale : la pause temporelle ------------------------------
+export const ULTI_MAX = 100;
+export const ULTI_PAR_TOUCHE = 10;    // 10 missiles touchés = 1 ulti
+export const ULTI_TOURS = 1.5;        // tours d'horloge décrits par le projectile
+export const ULTI_DUREE = 2.4;        // s — durée du gel ET du vol
+export const ULTI_RAYON_DEBUT = 40;   // le projectile part collé au lanceur
+export const ULTI_RAYON_FIN = 380;    // et finit loin : la spirale balaie large
+export const RAYON_ULTI = 12;
+export const DEGATS_ULTI = 20;        // touche = mort, c'est le prix de 10 touches
+
+/**
+ * Position du projectile d'ulti à l'instant `t` (0 → ULTI_DUREE).
+ * Une spirale : l'angle tourne à vitesse constante, le rayon grandit.
+ * Client et serveur appellent LA MÊME fonction — sinon le joueur voit le
+ * projectile passer à côté alors que le serveur le compte comme touché.
+ */
+export function positionUlti(gel, t) {
+  const p = Math.min(Math.max(t / ULTI_DUREE, 0), 1);
+  const angle = gel.angle + 2 * Math.PI * ULTI_TOURS * p;
+  const rayon = ULTI_RAYON_DEBUT + (ULTI_RAYON_FIN - ULTI_RAYON_DEBUT) * p;
+
+  return {
+    x: gel.x + Math.cos(angle) * rayon,
+    y: gel.y + Math.sin(angle) * rayon,
+    angle,
+    rayon,
+  };
+}
+
+/** Un disque de rayon r placé en (x, y) touche-t-il un mur ? */
+export function toucheMur(x, y, r) {
+  for (const m of MURS) {
+    if (x + r > m.x && x - r < m.x + m.l && y + r > m.y && y - r < m.y + m.h) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Le disque est-il sorti du terrain ? */
+export function horsMonde(x, y, r) {
+  return x < r || y < r || x > MONDE.l - r || y > MONDE.h - r;
+}
+
+/**
+ * Avance un missile d'un pas de temps.
+ * Renvoie true s'il vit encore, false s'il doit disparaître (mur ou bord).
+ * Le serveur seul appelle ceci ; le client se contente d'interpoler ce qu'on
+ * lui envoie. Un missile est trop rapide pour valoir une prédiction.
+ */
+export function avancerMissile(m, dt) {
+  m.x += Math.cos(m.a) * VITESSE_MISSILE * dt;
+  m.y += Math.sin(m.a) * VITESSE_MISSILE * dt;
+  m.vie -= dt;
+
+  if (m.vie <= 0) return false;
+  if (horsMonde(m.x, m.y, RAYON_MISSILE)) return false;
+  if (toucheMur(m.x, m.y, RAYON_MISSILE)) return false;
+
+  return true;
+}
+
+/** Un point de réapparition libre : ni dans un mur, ni sur quelqu'un. */
+export function positionDeRespawn(occupants = []) {
+  for (let essai = 0; essai < 200; essai++) {
+    const p = positionDeDepart();
+    const libre = occupants.every(
+      (o) => Math.hypot(o.x - p.x, o.y - p.y) > RAYON * 3
+    );
+    if (libre) return p;
+  }
+  return positionDeDepart();
+}
+
+/**
+ * Y a-t-il un mur entre deux points ?
+ * Échantillonnage simple : 24 points le long du segment. C'est approximatif
+ * (un mur très fin pris de biais peut passer entre deux échantillons), mais
+ * c'est suffisant ici — les murs de l'arène font 40 px d'épaisseur minimum.
+ */
+export function ligneDeVue(x1, y1, x2, y2) {
+  const PAS = 24;
+  for (let i = 1; i < PAS; i++) {
+    const x = x1 + ((x2 - x1) * i) / PAS;
+    const y = y1 + ((y2 - y1) * i) / PAS;
+    if (toucheMur(x, y, 0)) return false;
+  }
+  return true;
+}

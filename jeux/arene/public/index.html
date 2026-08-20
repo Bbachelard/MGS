@@ -23,7 +23,7 @@
     background: var(--fond); color: var(--texte);
     font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif; }
 
-  canvas { display: block; }
+  canvas { display: block; cursor: none; }
 
   /* --- écran d'accueil --- */
   #accueil {
@@ -32,27 +32,42 @@
     z-index: 10;
   }
   #accueil .boite {
-    width: min(90vw, 380px); padding: 28px;
+    width: min(92vw, 420px); padding: 26px;
     background: var(--carte); border: 1px solid var(--bord); border-radius: 14px;
     text-align: center;
   }
   h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: .5px; }
-  p.sous { margin: 0 0 20px; font-size: 13px; color: var(--texte-doux); }
+  p.sous { margin: 0 0 18px; font-size: 13px; color: var(--texte-doux); }
   input {
     width: 100%; padding: 11px 13px; font-size: 15px;
     background: #121218; color: var(--texte);
     border: 1px solid var(--bord); border-radius: 8px; outline: none;
   }
   input:focus { border-color: var(--accent); }
-  button {
+  button#jouer {
     width: 100%; margin-top: 12px; padding: 11px;
     font-size: 15px; font-weight: 600; cursor: pointer;
     background: var(--accent); color: #fff;
     border: 0; border-radius: 8px;
   }
-  button:hover { background: var(--accent-clair); }
-  button:disabled { opacity: .5; cursor: default; }
-  .aide { margin-top: 16px; font-size: 12px; color: #6d7690; line-height: 1.6; }
+  button#jouer:hover { background: var(--accent-clair); }
+  button#jouer:disabled { opacity: .5; cursor: default; }
+
+  /* --- choix du personnage --- */
+  .titrePerso { margin: 16px 0 8px; font-size: 11px; letter-spacing: .12em;
+                text-transform: uppercase; color: var(--texte-doux); }
+  #choixPerso { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  #choixPerso:empty { display: none; }
+  .perso {
+    width: 58px; height: 58px; padding: 4px; cursor: pointer;
+    background: #16161d; border: 1px solid var(--bord); border-radius: 10px;
+  }
+  .perso img { width: 100%; height: 100%; object-fit: contain;
+               image-rendering: auto; pointer-events: none; }
+  .perso:hover { border-color: var(--accent-clair); }
+  .perso.actif { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(124,92,255,.25); }
+
+  .aide { margin-top: 16px; font-size: 12px; color: #6d7690; line-height: 1.7; text-align: left; }
   kbd { background: #26262f; border: 1px solid var(--bord); border-bottom-width: 2px;
         border-radius: 4px; padding: 1px 5px; font-size: 11px; }
 
@@ -66,6 +81,54 @@
   }
   #hud b { color: var(--texte); font-weight: 600; }
   #etatCo.ko { color: #ff6b6b; }
+
+  /* --- jauges du bas : vie et ulti --- */
+  #jauges {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    width: min(92vw, 420px); z-index: 5; pointer-events: none;
+  }
+  .jauge { position: relative; height: 20px; border-radius: 6px;
+           background: rgba(18,18,24,.8); border: 1px solid var(--bord);
+           overflow: hidden; }
+  .jauge + .jauge { margin-top: 6px; height: 14px; }
+  .remplissage { position: absolute; inset: 0 auto 0 0; width: 0;
+                 transition: width .12s linear; }
+  #barreUlti { background: linear-gradient(90deg, #5b43c9, #9b83ff); }
+  .jauge span {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    text-shadow: 0 1px 2px rgba(0,0,0,.8);
+  }
+  #texteUlti.prete { color: #fff; animation: clignote 1s steps(2) infinite; }
+  @keyframes clignote { 50% { opacity: .45; } }
+
+  /* --- tableau des scores --- */
+  #tableau {
+    position: fixed; top: 10px; right: 10px; z-index: 5;
+    background: rgba(18,18,24,.78); border: 1px solid var(--bord);
+    border-radius: 8px; padding: 8px 10px; font-size: 12px;
+    font-variant-numeric: tabular-nums; pointer-events: none;
+    min-width: 208px;
+  }
+  #tableau table { border-collapse: collapse; width: 100%; }
+  #tableau th { font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+                color: var(--texte-doux); font-weight: 600; text-align: right;
+                padding: 0 0 4px 8px; }
+  #tableau th:nth-child(2) { text-align: left; }
+  #tableau td { padding: 2px 0 2px 8px; text-align: right; color: #c3cbdd; }
+  #tableau td.nom { text-align: left; max-width: 96px; overflow: hidden;
+                    text-overflow: ellipsis; white-space: nowrap; }
+  #tableau tr.moi td { color: #fff; font-weight: 700; }
+  .pastille { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+  #tableau tbody tr:nth-child(n+6) { display: none; }
+  #tableau.grand tbody tr:nth-child(n+6) { display: table-row; }
+
+  /* --- fil des éliminations --- */
+  #fil {
+    position: fixed; top: 96px; left: 10px; z-index: 5;
+    font-size: 12px; line-height: 1.8; pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0,0,0,.9);
+  }
 </style>
 </head>
 <body>
@@ -74,324 +137,55 @@
 
 <div id="hud" hidden>
   joueurs <b id="nbJoueurs">0</b> · ping <b id="ping">–</b> ms · tick <b id="tick">0</b><br />
-  <span id="etatCo">connecté</span>
+  <span id="etatCo">connecté</span> · <span id="etatSon">son (M)</span>
+</div>
+
+<div id="fil"></div>
+
+<div id="tableau" hidden>
+  <table>
+    <thead>
+      <tr><th></th><th>joueur</th><th>k</th><th>m</th><th>dég.</th></tr>
+    </thead>
+    <tbody id="corpsScore"></tbody>
+  </table>
+</div>
+
+<div id="jauges" hidden>
+  <div class="jauge">
+    <div class="remplissage" id="barrePv"></div>
+    <span id="textePv">20 / 20</span>
+  </div>
+  <div class="jauge">
+    <div class="remplissage" id="barreUlti"></div>
+    <span id="texteUlti">ulti 0%</span>
+  </div>
 </div>
 
 <div id="accueil">
   <div class="boite">
     <h1>Arène MGS</h1>
-    <p class="sous">Prototype multijoueur temps réel</p>
+    <p class="sous">Combat en temps réel — 20 PV, 5 dégâts par missile</p>
+
     <input id="nom" maxlength="16" placeholder="Ton pseudo" autocomplete="off" />
-    <button id="jouer">Entrer dans l'arène</button>
+
+    <div class="titrePerso">Personnage</div>
+    <div id="choixPerso"></div>
+
+    <button id="jouer" type="button">Entrer dans l'arène</button>
+
     <div class="aide">
-      Déplacement : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> ou les flèches.<br />
-      Ouvre cette page dans un 2<sup>e</sup> onglet pour voir le multijoueur.
+      <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> se déplacer ·
+      <b>souris</b> viser<br />
+      <kbd>clic</kbd> ou <kbd>espace</kbd> tirer (4 tirs/s) ·
+      <kbd>E</kbd> ou <kbd>clic droit</kbd> pause temporelle<br />
+      <kbd>Tab</kbd> tout le tableau des scores · <kbd>M</kbd> couper le son<br />
+      Les croix vertes rendent toute la vie. Chaque missile qui touche charge
+      l'ulti de 10 %.
     </div>
   </div>
 </div>
 
-<script type="module">
-// ===========================================================================
-//  client.js — tout ce qui tourne dans le navigateur.
-//
-//  Le client ne décide de RIEN : c'est le serveur qui fait autorité. Mais si
-//  on attendait bêtement la réponse du serveur pour bouger, on sentirait la
-//  latence à chaque touche (~50 à 200 ms de mou). D'où les 3 techniques
-//  classiques, toutes présentes ici :
-//
-//   1. PRÉDICTION       : je bouge tout de suite chez moi, sans attendre.
-//   2. RÉCONCILIATION   : quand la vraie position arrive, je la reprends et je
-//                         rejoue les commandes que le serveur n'a pas encore
-//                         traitées. Si j'avais bien deviné → rien ne bouge.
-//   3. INTERPOLATION    : les AUTRES joueurs sont affichés 100 ms dans le
-//                         passé, entre deux snapshots. On perd 100 ms mais on
-//                         gagne un mouvement parfaitement fluide.
-// ===========================================================================
-
-import { MONDE, RAYON, PAS_CLIENT, MURS, simuler } from "./shared.js";
-
-// --- éléments de la page -------------------------------------------------
-const canvas   = document.getElementById("jeu");
-const ctx      = canvas.getContext("2d");
-const accueil  = document.getElementById("accueil");
-const champNom = document.getElementById("nom");
-const hud      = document.getElementById("hud");
-
-// --- paramètres d'URL ----------------------------------------------------
-// Le site MGS ouvre le jeu avec ?nom=<pseudo>&salon=mgs : le joueur connecté
-// n'a plus qu'à cliquer. Ouvert en direct, les deux champs sont absents et on
-// retombe sur le comportement normal (pseudo à saisir, salon « principal »).
-const params = new URLSearchParams(location.search);
-const salon  = params.get("salon") || "principal";
-
-// --- état du client ------------------------------------------------------
-let ws         = null;
-let monId      = null;
-let monPerso   = { x: 0, y: 0 };  // position prédite
-let precedent  = { x: 0, y: 0 };  // position au pas précédent (pour lisser)
-let seq        = 0;               // numéro de la prochaine commande
-let enAttente  = [];              // commandes envoyées, pas encore confirmées
-let snapshots  = [];              // historique des états reçus
-let ping       = 0;
-let tickServeur = 0;
-let horloge    = null;            // intervalle du ping, à arrêter à la fermeture
-
-const RETARD = 100; // ms — de combien on affiche les autres dans le passé
-
-const entree = { haut: false, bas: false, gauche: false, droite: false };
-
-// --- clavier -------------------------------------------------------------
-const TOUCHES = {
-  KeyW: "haut",   KeyZ: "haut",   ArrowUp:    "haut",
-  KeyS: "bas",                    ArrowDown:  "bas",
-  KeyA: "gauche", KeyQ: "gauche", ArrowLeft:  "gauche",
-  KeyD: "droite",                 ArrowRight: "droite",
-};
-
-addEventListener("keydown", (e) => {
-  const t = TOUCHES[e.code];
-  if (t) { entree[t] = true; e.preventDefault(); }
-});
-addEventListener("keyup", (e) => {
-  const t = TOUCHES[e.code];
-  if (t) { entree[t] = false; e.preventDefault(); }
-});
-// Si on change d'onglet, on relâche tout (sinon on part en ligne droite).
-addEventListener("blur", () => {
-  for (const k in entree) entree[k] = false;
-});
-// Le jeu est affiché dans une iframe sur my-gamers-stats.com : sans clic, le
-// clavier va à la page parente. Un clic n'importe où rend la main au jeu.
-addEventListener("pointerdown", () => {
-  if (accueil.hidden) window.focus();
-});
-
-// --- taille du canvas ----------------------------------------------------
-let vue = { l: 0, h: 0 };
-function redimensionner() {
-  const dpr = Math.min(devicePixelRatio || 1, 2);
-  vue = { l: innerWidth, h: innerHeight };
-  canvas.width  = vue.l * dpr;
-  canvas.height = vue.h * dpr;
-  canvas.style.width  = vue.l + "px";
-  canvas.style.height = vue.h + "px";
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-addEventListener("resize", redimensionner);
-redimensionner();
-
-// --- connexion -----------------------------------------------------------
-function connecter(nom) {
-  const proto = location.protocol === "https:" ? "wss" : "ws";
-
-  // L'adresse du WebSocket est construite RELATIVEMENT à la page, jamais en
-  // dur. En local le jeu est servi à la racine (`/` → `/ws`) ; sur le VPS,
-  // Apache le passe sous `/jeu/` (`/jeu/` → `/jeu/ws`). Une adresse en dur
-  // marcherait d'un côté et pas de l'autre.
-  const base = location.pathname.replace(/[^/]*$/, "");
-  const url = `${proto}://${location.host}${base}ws?nom=${encodeURIComponent(nom)}&salon=${encodeURIComponent(salon)}`;
-
-  ws = new WebSocket(url);
-
-  ws.addEventListener("open", () => {
-    document.getElementById("etatCo").textContent = "connecté";
-    document.getElementById("etatCo").className = "";
-    horloge = setInterval(() => {
-      if (ws.readyState === 1) ws.send(JSON.stringify({ t: "ping", t0: Date.now() }));
-    }, 2000);
-  });
-
-  ws.addEventListener("message", (ev) => {
-    const msg = JSON.parse(ev.data);
-
-    if (msg.t === "init") {
-      monId = msg.moi;
-      accueil.hidden = true;
-      hud.hidden = false;
-      requestAnimationFrame(boucle);
-
-    } else if (msg.t === "etat") {
-      tickServeur = msg.tick;
-      snapshots.push({ t: performance.now(), joueurs: msg.joueurs });
-      if (snapshots.length > 40) snapshots.shift();
-      reconcilier(msg.joueurs);
-      document.getElementById("nbJoueurs").textContent = msg.joueurs.length;
-      document.getElementById("tick").textContent = msg.tick;
-
-    } else if (msg.t === "pong") {
-      ping = Date.now() - msg.t0;
-      document.getElementById("ping").textContent = ping;
-    }
-  });
-
-  ws.addEventListener("close", () => {
-    // Sans ça, le ping continue de tourner dans le vide après une coupure.
-    if (horloge) { clearInterval(horloge); horloge = null; }
-    const e = document.getElementById("etatCo");
-    e.textContent = "déconnecté — recharge la page";
-    e.className = "ko";
-  });
-}
-
-// --- réconciliation ------------------------------------------------------
-// Le serveur vient de nous dire où on est VRAIMENT, et quelle commande il a
-// traitée en dernier (champ `s`). On repart de sa position, on jette les
-// commandes déjà prises en compte, et on rejoue le reste.
-function reconcilier(joueurs) {
-  const moi = joueurs.find((j) => j.i === monId);
-  if (!moi) return;
-
-  monPerso.x = moi.x;
-  monPerso.y = moi.y;
-
-  enAttente = enAttente.filter((c) => c.seq > moi.s);
-  for (const c of enAttente) simuler(monPerso, c.e, c.dt);
-
-  precedent.x = monPerso.x;
-  precedent.y = monPerso.y;
-}
-
-// --- boucle principale ---------------------------------------------------
-// Pas de temps FIXE : c'est indispensable. Si le client simulait avec le dt
-// variable de l'écran (60, 120, 144 Hz...), il ne calculerait jamais la même
-// chose que le serveur et la réconciliation corrigerait en permanence.
-let accum = 0;
-let dernierTemps = performance.now();
-
-function boucle(maintenant) {
-  requestAnimationFrame(boucle);
-
-  const dt = Math.min((maintenant - dernierTemps) / 1000, 0.25);
-  dernierTemps = maintenant;
-  accum += dt;
-
-  while (accum >= PAS_CLIENT) {
-    accum -= PAS_CLIENT;
-    pasClient();
-  }
-
-  // `accum / PAS_CLIENT` = où on en est entre deux pas (0 → 1). Sert à lisser
-  // l'affichage de notre propre perso qui, lui, n'avance que 30 fois/s.
-  dessiner(accum / PAS_CLIENT);
-}
-
-function pasClient() {
-  seq++;
-  const cmd = { t: "cmd", seq, dt: PAS_CLIENT, e: { ...entree } };
-
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify(cmd));
-  enAttente.push(cmd);
-  if (enAttente.length > 120) enAttente.shift();
-
-  precedent.x = monPerso.x;
-  precedent.y = monPerso.y;
-  simuler(monPerso, cmd.e, PAS_CLIENT); // ← la prédiction
-}
-
-// --- interpolation des autres joueurs ------------------------------------
-function autresJoueurs() {
-  const cible = performance.now() - RETARD;
-
-  let a = null, b = null;
-  for (let i = snapshots.length - 1; i >= 0; i--) {
-    if (snapshots[i].t <= cible) { a = snapshots[i]; b = snapshots[i + 1] || null; break; }
-  }
-  if (!a) a = snapshots[snapshots.length - 1];
-  if (!a) return [];
-  if (!b) return a.joueurs;
-
-  const alpha = (cible - a.t) / (b.t - a.t);
-  return a.joueurs.map((j) => {
-    const suiv = b.joueurs.find((k) => k.i === j.i);
-    if (!suiv) return j;
-    return {
-      ...j,
-      x: j.x + (suiv.x - j.x) * alpha,
-      y: j.y + (suiv.y - j.y) * alpha,
-    };
-  });
-}
-
-// --- rendu ---------------------------------------------------------------
-function dessiner(alpha) {
-  // Notre position affichée : entre le pas précédent et le pas actuel.
-  const mx = precedent.x + (monPerso.x - precedent.x) * alpha;
-  const my = precedent.y + (monPerso.y - precedent.y) * alpha;
-
-  // Caméra centrée sur nous, bloquée aux bords du monde.
-  const cam = {
-    x: MONDE.l <= vue.l ? (MONDE.l - vue.l) / 2
-                        : Math.max(0, Math.min(MONDE.l - vue.l, mx - vue.l / 2)),
-    y: MONDE.h <= vue.h ? (MONDE.h - vue.h) / 2
-                        : Math.max(0, Math.min(MONDE.h - vue.h, my - vue.h / 2)),
-  };
-
-  ctx.fillStyle = "#121218";
-  ctx.fillRect(0, 0, vue.l, vue.h);
-
-  ctx.save();
-  ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
-
-  // grille
-  ctx.strokeStyle = "#1c1c25";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let x = 0; x <= MONDE.l; x += 80) { ctx.moveTo(x, 0); ctx.lineTo(x, MONDE.h); }
-  for (let y = 0; y <= MONDE.h; y += 80) { ctx.moveTo(0, y); ctx.lineTo(MONDE.l, y); }
-  ctx.stroke();
-
-  // bordure du monde
-  ctx.strokeStyle = "rgba(124, 92, 255, .45)";
-  ctx.lineWidth = 3;
-  ctx.strokeRect(0, 0, MONDE.l, MONDE.h);
-
-  // murs
-  for (const m of MURS) {
-    ctx.fillStyle = "#1d1d24";
-    ctx.fillRect(m.x, m.y, m.l, m.h);
-    ctx.strokeStyle = "#3b3550";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(m.x, m.y, m.l, m.h);
-  }
-
-  // joueurs
-  for (const j of autresJoueurs()) {
-    const estMoi = j.i === monId;
-    const x = estMoi ? mx : j.x;
-    const y = estMoi ? my : j.y;
-
-    ctx.beginPath();
-    ctx.arc(x, y, RAYON, 0, Math.PI * 2);
-    ctx.fillStyle = j.c;
-    ctx.fill();
-    ctx.lineWidth = estMoi ? 3 : 2;
-    ctx.strokeStyle = estMoi ? "#ffffff" : "rgba(0,0,0,.35)";
-    ctx.stroke();
-
-    ctx.font = "600 12px ui-sans-serif, system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillStyle = estMoi ? "#ffffff" : "#c3cbdd";
-    ctx.fillText(j.n, x, y - RAYON - 7);
-  }
-
-  ctx.restore();
-}
-
-// --- démarrage -----------------------------------------------------------
-function lancer() {
-  const nom = (champNom.value || "").trim() || "Joueur" + Math.floor(Math.random() * 900 + 100);
-  document.getElementById("jouer").disabled = true;
-  connecter(nom);
-}
-document.getElementById("jouer").addEventListener("click", lancer);
-champNom.addEventListener("keydown", (e) => { if (e.key === "Enter") lancer(); });
-
-// Pseudo transmis par le site : on pré-remplit le champ plutôt que de lancer
-// la partie tout seul — un joueur qui arrive doit pouvoir corriger son nom, et
-// une iframe qui ouvrirait une connexion sans clic n'aurait pas le clavier.
-const nomFourni = (params.get("nom") || "").trim().slice(0, 16);
-if (nomFourni) champNom.value = nomFourni;
-champNom.focus();
-</script>
+<script type="module" src="./client.js"></script>
 </body>
 </html>
