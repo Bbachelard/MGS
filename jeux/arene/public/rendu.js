@@ -468,7 +468,8 @@ function voileDeGel(ctx, vue, etat) {
   if (etat.gel.par === etat.monId && !etat.gel.ray) {
     ctx.font = "700 15px ui-sans-serif, system-ui, sans-serif";
     ctx.fillStyle = "#ffffff";
-    ctx.fillText("CLIC pour tirer — " + etat.gel.r.toFixed(1) + " s", vue.l / 2, 126);
+    const touche = etat.toucheTir || "A";
+    ctx.fillText(touche + " pour tirer — " + etat.gel.r.toFixed(1) + " s", vue.l / 2, 126);
   }
 }
 

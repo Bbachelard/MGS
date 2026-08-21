@@ -3,7 +3,7 @@
 //
 //  Le client ne décide de RIEN : c'est le serveur qui fait autorité. Mais si
 //  on attendait bêtement la réponse du serveur pour bouger, on sentirait la
-//  latence à chaque touche (~50 à 200 ms de mou). D'où les 3 techniques
+//  latence à chaque clic (~50 à 200 ms de mou). D'où les 3 techniques
 //  classiques, toutes présentes ici :
 //
 //   1. PRÉDICTION       : je bouge tout de suite chez moi, sans attendre.
@@ -14,16 +14,18 @@
 //                         passé, entre deux snapshots. On perd 100 ms mais on
 //                         gagne un mouvement parfaitement fluide.
 //
-//  Ce qui a été ajouté au combat : le tir, les dégâts, la mort, les soins et
-//  l'ulti ne sont JAMAIS calculés ici. Le client envoie « je vise là » et
-//  « je tire », le serveur répond « voilà ce qui s'est passé ». C'est la
-//  seule façon de ne pas offrir l'arène au premier venu qui ouvre la console.
+//  Ce qui a été ajouté au combat : le tir, les dégâts, la mort, les soins, le
+//  flash et l'ulti ne sont JAMAIS calculés ici. Le client envoie « je vise
+//  là », « je vais là » ou « je tire », le serveur répond « voilà ce qui
+//  s'est passé ». C'est la seule façon de ne pas offrir l'arène au premier
+//  venu qui ouvre la console.
 // ===========================================================================
 
 import {
   PAS_CLIENT,
   PV_MAX,
   ULTI_MAX,
+  FLASH_RECHARGE,
   KILLS_PAR_PALIER,
   cadenceDe,
   degatsDe,
@@ -47,10 +49,21 @@ const barrePv   = document.getElementById("barrePv");
 const texteePv  = document.getElementById("textePv");
 const barreUlti = document.getElementById("barreUlti");
 const texteUlti = document.getElementById("texteUlti");
+const barreFlash= document.getElementById("barreFlash");
+const texteFlash= document.getElementById("texteFlash");
 const jauges    = document.getElementById("jauges");
 const arme      = document.getElementById("arme");
 const panneau   = document.getElementById("panneau");
 const restePalier = document.getElementById("restePalier");
+
+// --- réglages (panneau) ---------------------------------------------------
+const boutonReglages  = document.getElementById("boutonReglages");
+const reglages        = document.getElementById("reglages");
+const fermerReglages  = document.getElementById("fermerReglages");
+const reinitReglages  = document.getElementById("reinitReglages");
+const sensibiliteRange= document.getElementById("sensibilite");
+const sensibiliteValeur = document.getElementById("sensibiliteValeur");
+const boutonsTouches  = [...document.querySelectorAll(".toucheBouton")];
 
 // --- paramètres d'URL ----------------------------------------------------
 // Le site MGS ouvre le jeu avec ?nom=<pseudo>&salon=mgs : le joueur connecté
@@ -75,69 +88,141 @@ let dernierScore = 0;
 
 const RETARD = 100; // ms — de combien on affiche les autres dans le passé
 
-const entree = { haut: false, bas: false, gauche: false, droite: false };
+// Le curseur affiché à l'écran n'est PAS le pointeur du système (il est
+// caché par le CSS, `cursor: none`) : c'est un viseur virtuel, déplacé par
+// les DÉPLACEMENTS relatifs de la souris, multipliés par la sensibilité.
+// C'est ce qui rend le réglage de sensibilité réel : la souris du système
+// n'apparaît jamais, seul ce viseur compte, pour viser comme pour cliquer.
 const souris = { x: 0, y: 0 };
 let angle = 0;
 let tirEnCours = false;
 
+// Le point cliqué (déplacement) — en coordonnées MONDE, ou null si on est
+// arrivé / si on n'a encore rien cliqué. Envoyé dans chaque commande, comme
+// l'étaient les touches avant : c'est ce qui rend la prédiction et la
+// réconciliation possibles avec le clic-déplacement aussi.
+let cible = null;
+let encliquant = false; // le clic gauche est maintenu : on suit la souris
+
 /* ==========================================================================
-   Entrées
+   Touches et sensibilité — réglables, mémorisés dans le navigateur
    ========================================================================== */
 
-const TOUCHES = {
-  KeyW: "haut",   KeyZ: "haut",   ArrowUp:    "haut",
-  KeyS: "bas",                    ArrowDown:  "bas",
-  KeyA: "gauche", KeyQ: "gauche", ArrowLeft:  "gauche",
-  KeyD: "droite",                 ArrowRight: "droite",
+const TOUCHES_DEFAUT = {
+  tirer:   "KeyA",
+  flash:   "KeyE",
+  ulti:    "KeyR",
+  tableau: "Tab",
+  son:     "KeyM",
 };
 
-addEventListener("keydown", (e) => {
-  const t = TOUCHES[e.code];
-  if (t) { entree[t] = true; e.preventDefault(); return; }
+function chargerTouches() {
+  try {
+    const brut = JSON.parse(localStorage.getItem("arene-touches"));
+    if (!brut || typeof brut !== "object") return { ...TOUCHES_DEFAUT };
+    const fusion = { ...TOUCHES_DEFAUT };
+    for (const action of Object.keys(TOUCHES_DEFAUT)) {
+      if (typeof brut[action] === "string" && brut[action]) fusion[action] = brut[action];
+    }
+    return fusion;
+  } catch {
+    return { ...TOUCHES_DEFAUT }; // navigation privée, ou valeur corrompue
+  }
+}
 
-  if (e.code === "KeyE")   { demanderUlti(); e.preventDefault(); }
-  if (e.code === "Space")  { appuyerTir(); e.preventDefault(); }
-  if (e.code === "Tab")    { tableau.classList.add("grand"); e.preventDefault(); }
-  if (e.code === "KeyM")   { basculerSon(); }
+function sauverTouches() {
+  try { localStorage.setItem("arene-touches", JSON.stringify(touches)); } catch { /* navigation privée */ }
+}
+
+function chargerSensibilite() {
+  const v = Number(localStorage.getItem("arene-sensibilite"));
+  return Number.isFinite(v) && v > 0 ? v : 1;
+}
+
+function sauverSensibilite() {
+  try { localStorage.setItem("arene-sensibilite", String(sensibilite)); } catch { /* navigation privée */ }
+}
+
+let touches     = chargerTouches();
+let sensibilite = chargerSensibilite();
+
+/** Le nom lisible d'une touche (`e.code`), pour l'afficher dans le HUD. */
+function labelTouche(code) {
+  if (!code) return "?";
+  if (code.startsWith("Key"))   return code.slice(3);
+  if (code.startsWith("Digit")) return code.slice(5);
+  const NOMS = {
+    Space: "Espace", Tab: "Tab",
+    ShiftLeft: "Maj", ShiftRight: "Maj",
+    ControlLeft: "Ctrl", ControlRight: "Ctrl",
+    AltLeft: "Alt", AltRight: "Alt",
+    ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→",
+  };
+  return NOMS[code] || code;
+}
+
+/* ==========================================================================
+   Entrées — tir, flash, ulti au clavier ; déplacement au clic
+   ========================================================================== */
+
+addEventListener("keydown", (e) => {
+  if (!reglages.hidden) return; // le panneau de réglages est ouvert : on ne joue pas
+  if (document.activeElement instanceof HTMLInputElement) return; // on tape son pseudo
+
+  if (e.code === touches.tirer)   { appuyerTir(); e.preventDefault(); return; }
+  if (e.code === touches.flash)   { if (!e.repeat) demanderFlash(); e.preventDefault(); return; }
+  if (e.code === touches.ulti)    { if (!e.repeat) demanderUlti(); e.preventDefault(); return; }
+  if (e.code === touches.tableau) { tableau.classList.add("grand"); e.preventDefault(); return; }
+  if (e.code === touches.son)     { basculerSon(); return; }
 });
 
 addEventListener("keyup", (e) => {
-  const t = TOUCHES[e.code];
-  if (t) { entree[t] = false; e.preventDefault(); return; }
-
-  if (e.code === "Space") { tirEnCours = false; e.preventDefault(); }
-  if (e.code === "Tab")   { tableau.classList.remove("grand"); e.preventDefault(); }
+  if (e.code === touches.tirer)   { tirEnCours = false; e.preventDefault(); return; }
+  if (e.code === touches.tableau) { tableau.classList.remove("grand"); e.preventDefault(); return; }
 });
 
-// Si on change d'onglet, on relâche tout (sinon on part en ligne droite).
+// Si on change d'onglet, on relâche tout (sinon on tire ou on suit la souris
+// tout seul en revenant).
 addEventListener("blur", () => {
-  for (const k in entree) entree[k] = false;
   tirEnCours = false;
+  encliquant = false;
 });
 
+// Le curseur système ne sert plus à rien (il est caché) : on avance le
+// viseur virtuel par petits pas, à la vitesse de la souris physique fois la
+// sensibilité réglée. C'est ce qui rend le réglage de sensibilité réel, y
+// compris pour le clic-déplacement, qui vise ce même point.
 addEventListener("mousemove", (e) => {
-  souris.x = e.clientX;
-  souris.y = e.clientY;
+  souris.x = Math.max(0, Math.min(vue.l, souris.x + e.movementX * sensibilite));
+  souris.y = Math.max(0, Math.min(vue.h, souris.y + e.movementY * sensibilite));
 });
 
 // Le jeu est affiché dans une iframe sur my-gamers-stats.com : sans clic, le
 // clavier va à la page parente. Un clic n'importe où rend la main au jeu.
 addEventListener("mousedown", (e) => {
   if (accueil.hidden) window.focus();
-  if (e.button === 0) appuyerTir();
-  if (e.button === 2) demanderUlti();
+
+  // Clic gauche = déplacement, à la manière d'un MOBA. On ignore le clic
+  // avant d'être en jeu, pendant le gel (le serveur l'ignorerait de toute
+  // façon) et par-dessus le panneau de réglages.
+  if (e.button === 0 && accueil.hidden && reglages.hidden && !gel) {
+    encliquant = true;
+    cible = { x: camera.x + souris.x, y: camera.y + souris.y };
+  }
 });
 addEventListener("mouseup", (e) => {
-  if (e.button === 0) tirEnCours = false;
+  if (e.button === 0) encliquant = false;
 });
-// Clic droit = ulti : le menu du navigateur n'a rien à faire là.
+// Plus aucune action au clic droit : le menu du navigateur n'a rien à faire
+// là quand même, pour ne pas interrompre une partie sur un clic maladroit.
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
-// Tactile : un doigt vise et tire en même temps.
+// Tactile : un doigt vise, tire, ET déplace (pas de clavier sur mobile).
 canvas.addEventListener("touchstart", (e) => {
   const t = e.touches[0];
   souris.x = t.clientX;
   souris.y = t.clientY;
+  if (!gel) cible = { x: camera.x + souris.x, y: camera.y + souris.y };
   appuyerTir();
   e.preventDefault();
 }, { passive: false });
@@ -159,10 +244,16 @@ function demanderUlti() {
   envoyer({ t: "ulti" });
 }
 
+function demanderFlash() {
+  // Même principe : le serveur vérifie seul la recharge et calcule
+  // l'arrivée. Le client ne fait que demander.
+  envoyer({ t: "flash" });
+}
+
 /**
- * Le même geste — clic gauche, espace, ou un doigt — fait deux choses selon
- * le moment : tirer normalement, ou déclencher le rayon de l'ulti pendant sa
- * propre pause temporelle. Un seul bouton à retenir, c'est mieux.
+ * La touche de tir fait deux choses selon le moment : tirer normalement, ou
+ * déclencher le rayon de l'ulti pendant sa propre pause temporelle. Une seule
+ * touche à retenir, c'est mieux.
  */
 function appuyerTir() {
   if (gel && gel.par === monId && !gel.ray) {
@@ -176,8 +267,85 @@ let sonCoupe = false;
 function basculerSon() {
   sonCoupe = !sonCoupe;
   sons.couper(sonCoupe);
-  document.getElementById("etatSon").textContent = sonCoupe ? "son coupé (M)" : "son (M)";
+  document.getElementById("etatSon").textContent = sonCoupe ? `son coupé (${labelTouche(touches.son)})` : `son (${labelTouche(touches.son)})`;
 }
+
+/* ==========================================================================
+   Panneau de réglages : touches et sensibilité
+   ========================================================================== */
+
+function majBoutonsTouches() {
+  for (const bouton of boutonsTouches) {
+    bouton.textContent = labelTouche(touches[bouton.dataset.action]);
+    bouton.classList.remove("ecoute");
+  }
+}
+
+let ecouteur = null; // la fonction en train d'attendre une touche à réassigner
+
+function annulerEcoute() {
+  if (ecouteur) {
+    removeEventListener("keydown", ecouteur, true);
+    ecouteur = null;
+  }
+  for (const bouton of boutonsTouches) bouton.classList.remove("ecoute");
+}
+
+for (const bouton of boutonsTouches) {
+  bouton.addEventListener("click", () => {
+    annulerEcoute();
+    bouton.classList.add("ecoute");
+    bouton.textContent = "…";
+
+    // Capture, pas bouillonnement : on veut cette touche AVANT qu'elle
+    // n'atteigne le jeu (sinon appuyer sur « R » pour réassigner l'ulti
+    // déclencherait l'ulti au passage).
+    ecouteur = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.code !== "Escape") {
+        touches[bouton.dataset.action] = e.code;
+        sauverTouches();
+      }
+      annulerEcoute();
+      majBoutonsTouches();
+    };
+    addEventListener("keydown", ecouteur, true);
+  });
+}
+
+function ouvrirReglages() {
+  majBoutonsTouches();
+  sensibiliteRange.value = sensibilite;
+  sensibiliteValeur.textContent = sensibilite.toFixed(1) + "×";
+  reglages.hidden = false;
+}
+
+function fermerLeReglages() {
+  reglages.hidden = true;
+  annulerEcoute();
+  sensibiliteRange.blur();
+}
+
+boutonReglages.addEventListener("click", ouvrirReglages);
+fermerReglages.addEventListener("click", fermerLeReglages);
+reglages.addEventListener("click", (e) => { if (e.target === reglages) fermerLeReglages(); });
+
+reinitReglages.addEventListener("click", () => {
+  touches = { ...TOUCHES_DEFAUT };
+  sauverTouches();
+  sensibilite = 1;
+  sauverSensibilite();
+  majBoutonsTouches();
+  sensibiliteRange.value = 1;
+  sensibiliteValeur.textContent = "1.0×";
+});
+
+sensibiliteRange.addEventListener("input", () => {
+  sensibilite = Number(sensibiliteRange.value) || 1;
+  sensibiliteValeur.textContent = sensibilite.toFixed(1) + "×";
+  sauverSensibilite();
+});
 
 /* ==========================================================================
    Taille du canvas
@@ -186,12 +354,24 @@ function basculerSon() {
 let vue = { l: 0, h: 0 };
 function redimensionner() {
   const dpr = Math.min(devicePixelRatio || 1, 2);
+  const premierAppel = vue.l === 0;
+
   vue = { l: innerWidth, h: innerHeight };
   canvas.width  = vue.l * dpr;
   canvas.height = vue.h * dpr;
   canvas.style.width  = vue.l + "px";
   canvas.style.height = vue.h + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // Le viseur virtuel démarre au centre de l'écran ; un redimensionnement
+  // ultérieur se contente de le garder dans le cadre.
+  if (premierAppel) {
+    souris.x = vue.l / 2;
+    souris.y = vue.h / 2;
+  } else {
+    souris.x = Math.min(souris.x, vue.l);
+    souris.y = Math.min(souris.y, vue.h);
+  }
 }
 addEventListener("resize", redimensionner);
 redimensionner();
@@ -286,7 +466,7 @@ function reconcilier(joueurs) {
 
   // Pendant le gel, le serveur n'applique rien : rejouer localement nous
   // ferait avancer tout seul, puis reculer au tick suivant.
-  if (!gel) for (const c of enAttente) simuler(monPerso, c.e, c.dt);
+  if (!gel) for (const c of enAttente) simuler(monPerso, c.c, c.dt);
 
   precedent.x = monPerso.x;
   precedent.y = monPerso.y;
@@ -303,6 +483,7 @@ function traiterEvenements(evenements) {
       case "impact":
       case "touche":
       case "soin":
+      case "flash":
       case "ulti-tir":
       case "ulti-touche":
       case "ulti-rate":
@@ -389,8 +570,16 @@ function majJauges() {
 
   const u = moiServeur.u || 0;
   barreUlti.style.width = (u / ULTI_MAX) * 100 + "%";
-  texteUlti.textContent = u >= ULTI_MAX ? "ULTI PRÊTE — E" : `ulti ${u}%`;
+  texteUlti.textContent = u >= ULTI_MAX ? `ULTI PRÊTE — ${labelTouche(touches.ulti)}` : `ulti ${u}%`;
   texteUlti.classList.toggle("prete", u >= ULTI_MAX);
+
+  const flRecharge = moiServeur.fl || 0;
+  const flPret = flRecharge <= 0;
+  barreFlash.style.width = Math.max(0, Math.min(1, 1 - flRecharge / FLASH_RECHARGE)) * 100 + "%";
+  texteFlash.textContent = flPret
+    ? `flash prêt — ${labelTouche(touches.flash)}`
+    : `flash ${flRecharge.toFixed(1)} s`;
+  texteFlash.classList.toggle("prete", flPret);
 
   // L'état de l'arme, et ce qu'il reste à faire pour le palier suivant.
   const nc = moiServeur.nc || 0;
@@ -469,19 +658,24 @@ function boucle(maintenant) {
 }
 
 function pasClient() {
-  // La souris est en pixels écran ; la caméra du dernier rendu donne la
-  // conversion vers le monde. On vise donc VRAIMENT là où on pointe.
+  // La souris (le viseur virtuel) est en pixels écran ; la caméra du dernier
+  // rendu donne la conversion vers le monde. On vise donc VRAIMENT là où le
+  // viseur pointe, et on clique VRAIMENT là où il se trouve.
   const cx = camera.x + souris.x;
   const cy = camera.y + souris.y;
   angle = Math.atan2(cy - monPerso.y, cx - monPerso.x);
 
+  // Le clic gauche est maintenu : on continue de suivre le viseur, comme
+  // dans un MOBA où on garde le bouton enfoncé pour courir vers la souris.
+  if (encliquant && !gel) cible = { x: cx, y: cy };
+
   seq++;
 
-  // Pendant le gel, on n'envoie aucune touche : le serveur les ignorerait de
-  // toute façon, et prédire un déplacement qui n'aura pas lieu produirait un
-  // rappel élastique à la fin du gel.
-  const e = gel ? { haut: false, bas: false, gauche: false, droite: false } : { ...entree };
-  const cmd = { t: "cmd", seq, dt: PAS_CLIENT, e, a: Math.round(angle * 1000) / 1000, f: !gel && tirEnCours };
+  // Pendant le gel, on n'envoie aucune destination : le serveur l'ignorerait
+  // de toute façon, et prédire un déplacement qui n'aura pas lieu produirait
+  // un rappel élastique à la fin du gel.
+  const c = gel ? null : cible;
+  const cmd = { t: "cmd", seq, dt: PAS_CLIENT, c, a: Math.round(angle * 1000) / 1000, f: !gel && tirEnCours };
 
   if (ws && ws.readyState === 1) ws.send(JSON.stringify(cmd));
   enAttente.push(cmd);
@@ -489,7 +683,14 @@ function pasClient() {
 
   precedent.x = monPerso.x;
   precedent.y = monPerso.y;
-  if (!gel) simuler(monPerso, cmd.e, PAS_CLIENT); // ← la prédiction
+
+  if (!gel) {
+    simuler(monPerso, c, PAS_CLIENT); // ← la prédiction
+
+    // Arrivé : on arrête d'envoyer une destination, sinon le serveur (et
+    // nous) referions le même calcul, pour rien, à chaque commande.
+    if (c && Math.hypot(c.x - monPerso.x, c.y - monPerso.y) < 1) cible = null;
+  }
 }
 
 /* ==========================================================================
@@ -545,6 +746,7 @@ function afficher(alpha, temps) {
     gel,
     souris,
     temps,
+    toucheTir: labelTouche(touches.tirer),
   });
 }
 
@@ -607,5 +809,7 @@ champNom.addEventListener("keydown", (e) => { if (e.key === "Enter") lancer(); }
 const nomFourni = (params.get("nom") || "").trim().slice(0, 16);
 if (nomFourni) champNom.value = nomFourni;
 champNom.focus();
+
+document.getElementById("etatSon").textContent = `son (${labelTouche(touches.son)})`;
 
 preparerPersos();

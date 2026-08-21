@@ -30,6 +30,7 @@ export const SONS = [
   "ulti-tir",    // le rayon part
   "ulti-touche", // le rayon a touché
   "ulti-rate",   // 1 tour et demi pour rien
+  "flash",       // bond instantané
 ];
 
 // L'ordre compte : on prend le premier format trouvé.
@@ -214,6 +215,10 @@ function synthese(nom, volume) {
       break;
     case "ulti-rate":
       bip({ de: 240, vers: 150, duree: 0.35, type: "triangle", volume: 0.2 * volume });
+      break;
+    case "flash":
+      // Un « whoosh » très bref, montant : on part d'un coup.
+      bip({ de: 300, vers: 1600, duree: 0.1, type: "sine", volume: 0.28 * volume });
       break;
   }
 }
