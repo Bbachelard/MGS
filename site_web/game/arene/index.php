@@ -30,7 +30,7 @@ require_once __DIR__ . '/../../php/views/navbar.php';
    Laisser la chaîne vide affiche un encart d'attente au lieu d'une
    iframe cassée : pratique tant que le conteneur n'est pas en place.
 ------------------------------------------------------------------ */
-const MGS_ARENE_URL = '/jeu';
+const MGS_ARENE_URL = 'https://jeu.my-gamers-stats.com';
 
 /* Le salon : tous les joueurs qui ouvrent cette page se retrouvent
    ensemble. `?salon=copains` dans l'URL du site ouvre une arène séparée. */
