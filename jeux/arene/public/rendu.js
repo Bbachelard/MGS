@@ -20,6 +20,7 @@ import {
   BOUCLIER_RECHARGE,
   METEORITE_RAYON,
   RAYON_ULTI,
+  ZONE_RAYON,
   MURS,
 } from "./shared.js";
 
@@ -56,9 +57,11 @@ export function dessiner(ctx, vue, etat) {
   fond(ctx);
   pastilles(ctx, etat, etat.temps);
   murs(ctx);
+  zonesRalentissement(ctx, etat.zones, etat.temps);
   missiles(ctx, etat.missiles);
   joueurs(ctx, etat);
   meteorites(ctx, etat.meteorites, etat.temps);
+  effetsVisuels(ctx, etat.effets, etat.temps);
   if (etat.gel) horloge(ctx, etat);
 
   ctx.restore();
@@ -177,6 +180,40 @@ function ecusson(ctx) {
   ctx.fill();
 }
 
+/* --------------------------------------------- zones de ralentissement */
+
+// Un champ au sol qui grignote la vie et ralentit — la lecture doit être
+// immédiate : couleur franche, bord animé qui tourne pour dire « actif ».
+function zonesRalentissement(ctx, liste, temps) {
+  if (!liste) return;
+
+  for (const z of liste) {
+    const pulse = 1 + Math.sin(temps / 220) * 0.035;
+
+    ctx.save();
+    ctx.translate(z.x, z.y);
+    ctx.scale(pulse, pulse);
+
+    const halo = ctx.createRadialGradient(0, 0, 4, 0, 0, ZONE_RAYON);
+    halo.addColorStop(0, "rgba(219, 39, 119, .38)");
+    halo.addColorStop(1, "rgba(219, 39, 119, 0)");
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(0, 0, ZONE_RAYON, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(244, 114, 182, .85)";
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([9, 7]);
+    ctx.lineDashOffset = -temps / 25;
+    ctx.beginPath();
+    ctx.arc(0, 0, ZONE_RAYON - 4, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
 /* -------------------------------------------------------------- missiles */
 
 function missiles(ctx, liste) {
@@ -275,6 +312,68 @@ function meteorites(ctx, liste, temps) {
     }
 
     ctx.restore();
+  }
+}
+
+/* --------------------------------------------------------- effets brefs */
+
+// Le ping de déplacement (façon LoL) et l'éclat de téléportation : purement
+// cosmétiques, gérés côté client (voir client.js), jamais par le serveur.
+const DUREE_PING = 480;  // ms
+const DUREE_FLASH_FX = 380; // ms
+
+function effetsVisuels(ctx, liste, temps) {
+  if (!liste) return;
+
+  for (const e of liste) {
+    const age = temps - e.debut;
+
+    if (e.type === "clic") {
+      if (age > DUREE_PING) continue;
+      const p = age / DUREE_PING;
+      const rayon = 8 + p * 22;
+
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      ctx.globalAlpha = 1 - p;
+
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, rayon, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Quatre chevrons qui convergent vers le centre : le repère visuel
+      // classique du clic-déplacement dans les MOBA.
+      ctx.strokeStyle = "#7c5cff";
+      ctx.lineWidth = 2.5;
+      for (let k = 0; k < 4; k++) {
+        const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
+        const r1 = rayon * 0.5;
+        const r2 = rayon;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1);
+        ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+    } else if (e.type === "flash") {
+      if (age > DUREE_FLASH_FX) continue;
+      const p = age / DUREE_FLASH_FX;
+      const rayon = 46 * (0.3 + p);
+
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, rayon);
+      halo.addColorStop(0, `rgba(210, 244, 255, ${0.9 * (1 - p)})`);
+      halo.addColorStop(1, "rgba(56, 189, 248, 0)");
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(0, 0, rayon, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 }
 
