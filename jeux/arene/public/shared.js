@@ -69,7 +69,7 @@ function touche(x, y, m) {
  * PUIS sur Y. Ça évite de rester bloqué dans un coin et ça permet de
  * « glisser » le long des murs, ce qui est beaucoup plus agréable à jouer.
  */
-export function simuler(j, cible, dt, facteurVitesse = 1) {
+export function simuler(j, cible, dt) {
   if (!cible) return; // rien cliqué, ou déjà arrivé : on ne bouge pas
 
   const versX = cible.x - j.x;
@@ -77,10 +77,8 @@ export function simuler(j, cible, dt, facteurVitesse = 1) {
   const distance = Math.hypot(versX, versY);
   if (distance < 1) return; // arrivé — évite de trembler sur place
 
-  // `facteurVitesse` : 1 par défaut, < 1 pendant un ralentissement. Le
-  // serveur ET le client doivent connaître ce facteur pour rester
-  // synchronisés — voir le champ `rl` du snapshot et `avancerZones()`.
-  const pas = Math.min(VITESSE * facteurVitesse * dt, distance);
+  // On ne dépasse jamais la cible : le dernier pas s'arrête pile dessus.
+  const pas = Math.min(VITESSE * dt, distance);
   const dx = (versX / distance) * pas;
   const dy = (versY / distance) * pas;
 
@@ -140,7 +138,7 @@ export const SOIN_AU_KILL = true;
 // était avant, puis la dépasse.
 export const CADENCE_TIR = 0.5;       // secondes entre deux tirs (2 tirs/s)
 export const DEGATS_MISSILE = 4;      // 5 touches pour éliminer
-export const VITESSE_MISSILE = 720;   // px/s — plus dur à esquiver qu'avant
+export const VITESSE_MISSILE = 480;   // px/s — volontairement esquivable
 export const RAYON_MISSILE = 6;
 export const DUREE_MISSILE = 2.2;     // s de vol avant disparition
 // Le missile naît un peu devant le joueur, sinon il se cogne à son propre
@@ -148,12 +146,12 @@ export const DUREE_MISSILE = 2.2;     // s de vol avant disparition
 export const AVANCE_TIR = RAYON + RAYON_MISSILE + 2;
 
 // --- progression de l'arme ----------------------------------------------
-// Tous les 3 kills, un palier est mis de côté. Il est proposé À LA MORT
+// Tous les 10 kills, un palier est mis de côté. Il est proposé À LA MORT
 // SUIVANTE : le joueur choisit alors de gagner en cadence ou en puissance.
 // Les paliers se cumulent sans plafond et ne se perdent pas.
-export const KILLS_PAR_PALIER = 3;
-export const GAIN_CADENCE = 1 / 1.15;  // délai ÷1,15 = +15 % de tirs/s
-export const GAIN_DEGATS = 1.15;       // ×1,15 sur les dégâts
+export const KILLS_PAR_PALIER = 10;
+export const GAIN_CADENCE = 0.8;      // ×0,8 sur le délai = +25 % de tirs/s
+export const GAIN_DEGATS = 1.25;      // ×1,25 sur les dégâts
 
 /** Le délai entre deux tirs, pour un joueur ayant `n` paliers de cadence. */
 export function cadenceDe(n) {
@@ -220,22 +218,6 @@ export const DUREE_RAYON = 0.8;        // s de vol maximum
 // — c'est la récompense de l'agressivité, comme le soin au kill.
 export const FLASH_DISTANCE = 220;    // px parcourus d'un coup
 export const FLASH_RECHARGE = 5;      // s avant de pouvoir la relancer
-// Le flash traverse les murs — seules les limites de la carte l'arrêtent
-// (voir server/salle.js#declencherFlash). C'est ce qui en fait un VRAI outil
-// d'évasion : se réfugier derrière un mur ne suffit plus à être à l'abri.
-
-// --- compétence de zone : le champ de ralentissement ---------------------
-// Une zone au sol, invoquée instantanément (pas de temps de charge, contrairement
-// à l'ulti), qui ralentit et grignote la vie de quiconque s'y attarde — sauf
-// son lanceur. Inspirée d'un sort de zone classique façon MOBA : on la pose
-// pour contrôler un couloir, pas pour viser précisément.
-export const ZONE_RECHARGE = 10;       // s avant de pouvoir la relancer
-export const ZONE_PORTEE = ULTI_LONGUEUR; // même portée que le cadran de l'ulti (300 px)
-export const ZONE_RAYON = 90;          // rayon de la zone au sol
-export const ZONE_DUREE = 3.0;         // s pendant lesquelles elle agit
-export const ZONE_RALENTI = 0.5;       // ×0,5 sur la vitesse de déplacement
-export const ZONE_TIC = 0.5;           // s entre deux tics de dégâts
-export const ZONE_DEGATS_TIC = 2;      // dégâts par tic (6 tics max = 12 dégâts)
 
 /**
  * Direction de l'aiguille à l'instant `t` (0 → ULTI_DUREE).

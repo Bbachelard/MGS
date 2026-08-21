@@ -117,15 +117,12 @@
                  transition: width .12s linear; }
   #barreUlti { background: linear-gradient(90deg, #5b43c9, #9b83ff); }
   #barreFlash { background: linear-gradient(90deg, #0891b2, #38bdf8); }
-  #barreZone { background: linear-gradient(90deg, #9d174d, #f472b6); }
   .jauge span {
     position: absolute; inset: 0; display: grid; place-items: center;
     font-size: 11px; font-weight: 700; letter-spacing: .06em;
     text-shadow: 0 1px 2px rgba(0,0,0,.8);
   }
-  #texteUlti.prete, #texteFlash.prete, #texteZone.prete {
-    color: #fff; animation: clignote 1s steps(2) infinite;
-  }
+  #texteUlti.prete, #texteFlash.prete { color: #fff; animation: clignote 1s steps(2) infinite; }
   @keyframes clignote { 50% { opacity: .45; } }
 
   /* --- bouton et panneau de réglages --- */
@@ -220,12 +217,12 @@
   <div class="titre" id="restePalier">Améliore ton arme</div>
   <div class="choix">
     <button id="choixCadence" type="button">
-      Cadence +15 %
-      <small>tirer plus souvent · Maj+A</small>
+      Cadence +25 %
+      <small>tirer plus souvent</small>
     </button>
     <button id="choixDegats" type="button">
-      Puissance +15 %
-      <small>frapper plus fort · Maj+Z</small>
+      Puissance +25 %
+      <small>frapper plus fort</small>
     </button>
   </div>
 </div>
@@ -254,10 +251,6 @@
     <div class="remplissage" id="barreFlash"></div>
     <span id="texteFlash">flash prêt</span>
   </div>
-  <div class="jauge">
-    <div class="remplissage" id="barreZone"></div>
-    <span id="texteZone">zone prête</span>
-  </div>
 </div>
 
 <div id="accueil">
@@ -273,18 +266,15 @@
     <button id="jouer" type="button">Entrer dans l'arène</button>
 
     <div class="aide">
-      <kbd>clic droit</kbd> se déplacer (maintenir pour suivre la souris) ·
+      <kbd>clic gauche</kbd> se déplacer (maintenir pour suivre la souris) ·
       <b>souris</b> viser<br />
-      <kbd>A</kbd> tirer · <kbd>E</kbd> flash · <kbd>Z</kbd> zone · <kbd>R</kbd> pause temporelle (ulti)<br />
+      <kbd>A</kbd> tirer · <kbd>E</kbd> flash · <kbd>R</kbd> pause temporelle (ulti)<br />
       <kbd>Tab</kbd> tout le tableau des scores · <kbd>M</kbd> couper le son<br />
       Croix verte : toute la vie. Écusson bleu : une attaque annulée.
       Éliminer quelqu'un remet à pleine vie.<br />
-      Tous les 3 kills, ton arme s'améliore — au choix, à ta mort suivante
-      (<kbd>Maj</kbd>+<kbd>A</kbd> cadence, <kbd>Maj</kbd>+<kbd>Z</kbd> puissance).<br />
-      <b>Flash</b> : un bond instantané vers la souris, À TRAVERS les murs —
-      5 s de recharge, réinitialisé à chaque élimination.<br />
-      <b>Zone</b> : un champ au sol qui ralentit et grignote la vie pendant
-      3 s — instantané, 10 s de recharge.<br />
+      Tous les 10 kills, ton arme s'améliore — au choix, à ta mort suivante.<br />
+      <b>Flash</b> : un bond instantané vers la souris — 5 s de recharge,
+      réinitialisé à chaque élimination.<br />
       <b>Ulti</b> : le temps se fige, une aiguille tourne — <kbd>A</kbd> au
       bon moment pour aligner le rayon sur un adversaire.<br />
       <b>Météorites</b> : elles traversent sans prévenir et ne pardonnent pas.<br />
@@ -298,8 +288,7 @@
 <div id="reglages" hidden>
   <div class="boite">
     <h2>Réglages</h2>
-    <p class="sousTitre">Touches et sensibilité de la souris — mémorisés sur cet appareil.
-    <br />Le choix d'amélioration se fait toujours au clavier avec <kbd>Maj</kbd>+<kbd>A</kbd> / <kbd>Maj</kbd>+<kbd>Z</kbd>, quels que soient les réglages ci-dessous.</p>
+    <p class="sousTitre">Touches et sensibilité de la souris — mémorisés sur cet appareil.</p>
 
     <div class="ligneTouche">
       <span>Tirer</span>
@@ -312,10 +301,6 @@
     <div class="ligneTouche">
       <span>Ulti (pause temporelle)</span>
       <button type="button" class="toucheBouton" data-action="ulti">R</button>
-    </div>
-    <div class="ligneTouche">
-      <span>Zone de ralentissement</span>
-      <button type="button" class="toucheBouton" data-action="zone">Z</button>
     </div>
     <div class="ligneTouche">
       <span>Tout le tableau des scores</span>
