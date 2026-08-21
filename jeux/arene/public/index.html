@@ -116,63 +116,13 @@
   .remplissage { position: absolute; inset: 0 auto 0 0; width: 0;
                  transition: width .12s linear; }
   #barreUlti { background: linear-gradient(90deg, #5b43c9, #9b83ff); }
-  #barreFlash { background: linear-gradient(90deg, #0891b2, #38bdf8); }
   .jauge span {
     position: absolute; inset: 0; display: grid; place-items: center;
     font-size: 11px; font-weight: 700; letter-spacing: .06em;
     text-shadow: 0 1px 2px rgba(0,0,0,.8);
   }
-  #texteUlti.prete, #texteFlash.prete { color: #fff; animation: clignote 1s steps(2) infinite; }
+  #texteUlti.prete { color: #fff; animation: clignote 1s steps(2) infinite; }
   @keyframes clignote { 50% { opacity: .45; } }
-
-  /* --- bouton et panneau de réglages --- */
-  #boutonReglages {
-    position: fixed; right: 14px; bottom: 14px; z-index: 11;
-    width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
-    background: rgba(29,29,36,.85); border: 1px solid var(--bord); color: var(--texte);
-    font-size: 17px; line-height: 1; display: grid; place-items: center;
-  }
-  #boutonReglages:hover { border-color: var(--accent-clair); }
-
-  #reglages {
-    position: fixed; inset: 0; z-index: 20; display: grid; place-items: center;
-    background: rgba(10,10,14,.6);
-  }
-  #reglages .boite {
-    width: min(92vw, 380px); max-height: 88vh; overflow-y: auto;
-    padding: 20px 22px; background: var(--carte); border: 1px solid var(--bord);
-    border-radius: 14px;
-  }
-  #reglages h2 { margin: 0 0 4px; font-size: 16px; }
-  #reglages .sousTitre { margin: 0 0 16px; font-size: 12px; color: var(--texte-doux); }
-  .ligneTouche {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; padding: 7px 0; border-bottom: 1px solid #26262f; font-size: 13px;
-  }
-  .ligneTouche:last-of-type { border-bottom: none; }
-  .toucheBouton {
-    min-width: 64px; padding: 6px 10px; cursor: pointer;
-    background: #121218; color: var(--texte); border: 1px solid var(--bord);
-    border-radius: 6px; font-size: 12px; font-weight: 600; text-align: center;
-  }
-  .toucheBouton:hover { border-color: var(--accent-clair); }
-  .toucheBouton.ecoute {
-    border-color: var(--accent); color: var(--accent-clair);
-    animation: clignote 1s steps(2) infinite;
-  }
-
-  .ligneSensibilite { margin-top: 16px; }
-  .ligneSensibilite .entete { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
-  .ligneSensibilite input[type="range"] { width: 100%; accent-color: var(--accent); }
-
-  #reglages .actions { display: flex; gap: 10px; margin-top: 18px; }
-  #reglages .actions button {
-    flex: 1; padding: 9px; cursor: pointer; border-radius: 8px; font-size: 13px; font-weight: 600;
-    border: 1px solid var(--bord); background: #16161d; color: var(--texte);
-  }
-  #reglages .actions button:hover { border-color: var(--accent); }
-  #reglages .actions #fermerReglages { background: var(--accent); border-color: var(--accent); }
-  #reglages .actions #fermerReglages:hover { background: var(--accent-clair); }
 
   /* --- tableau des scores --- */
   #tableau {
@@ -247,10 +197,6 @@
     <div class="remplissage" id="barreUlti"></div>
     <span id="texteUlti">ulti 0%</span>
   </div>
-  <div class="jauge">
-    <div class="remplissage" id="barreFlash"></div>
-    <span id="texteFlash">flash prêt</span>
-  </div>
 </div>
 
 <div id="accueil">
@@ -266,59 +212,17 @@
     <button id="jouer" type="button">Entrer dans l'arène</button>
 
     <div class="aide">
-      <kbd>clic gauche</kbd> se déplacer (maintenir pour suivre la souris) ·
+      <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> se déplacer ·
       <b>souris</b> viser<br />
-      <kbd>A</kbd> tirer · <kbd>E</kbd> flash · <kbd>R</kbd> pause temporelle (ulti)<br />
+      <kbd>clic</kbd> ou <kbd>espace</kbd> tirer ·
+      <kbd>E</kbd> ou <kbd>clic droit</kbd> pause temporelle<br />
       <kbd>Tab</kbd> tout le tableau des scores · <kbd>M</kbd> couper le son<br />
       Croix verte : toute la vie. Écusson bleu : une attaque annulée.
       Éliminer quelqu'un remet à pleine vie.<br />
       Tous les 10 kills, ton arme s'améliore — au choix, à ta mort suivante.<br />
-      <b>Flash</b> : un bond instantané vers la souris — 5 s de recharge,
-      réinitialisé à chaque élimination.<br />
-      <b>Ulti</b> : le temps se fige, une aiguille tourne — <kbd>A</kbd> au
+      <b>Ulti</b> : le temps se fige, une aiguille tourne — <kbd>clic</kbd> au
       bon moment pour aligner le rayon sur un adversaire.<br />
-      <b>Météorites</b> : elles traversent sans prévenir et ne pardonnent pas.<br />
-      <span style="opacity:.75">⚙ en bas à droite : changer les touches et la sensibilité de la souris.</span>
-    </div>
-  </div>
-</div>
-
-<button id="boutonReglages" type="button" title="Réglages">⚙</button>
-
-<div id="reglages" hidden>
-  <div class="boite">
-    <h2>Réglages</h2>
-    <p class="sousTitre">Touches et sensibilité de la souris — mémorisés sur cet appareil.</p>
-
-    <div class="ligneTouche">
-      <span>Tirer</span>
-      <button type="button" class="toucheBouton" data-action="tirer">A</button>
-    </div>
-    <div class="ligneTouche">
-      <span>Flash</span>
-      <button type="button" class="toucheBouton" data-action="flash">E</button>
-    </div>
-    <div class="ligneTouche">
-      <span>Ulti (pause temporelle)</span>
-      <button type="button" class="toucheBouton" data-action="ulti">R</button>
-    </div>
-    <div class="ligneTouche">
-      <span>Tout le tableau des scores</span>
-      <button type="button" class="toucheBouton" data-action="tableau">Tab</button>
-    </div>
-    <div class="ligneTouche">
-      <span>Couper le son</span>
-      <button type="button" class="toucheBouton" data-action="son">M</button>
-    </div>
-
-    <div class="ligneSensibilite">
-      <div class="entete"><span>Sensibilité de la souris</span><span id="sensibiliteValeur">1.0×</span></div>
-      <input type="range" id="sensibilite" min="0.3" max="3" step="0.1" value="1" />
-    </div>
-
-    <div class="actions">
-      <button id="reinitReglages" type="button">Réinitialiser</button>
-      <button id="fermerReglages" type="button">Fermer</button>
+      <b>Météorites</b> : elles traversent sans prévenir et ne pardonnent pas.
     </div>
   </div>
 </div>
