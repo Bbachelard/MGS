@@ -22,6 +22,8 @@ import {
   ULTI_MAX,
   ULTI_PAR_TOUCHE,
   ULTI_DUREE,
+  FLASH_DISTANCE,
+  FLASH_RECHARGE,
   SOINS,
   SOIN_RECHARGE,
   BOUCLIERS,
@@ -75,11 +77,12 @@ function joueur(nom, salon, perso) {
   etat.pret = new Promise((r) => ws.addEventListener("open", r));
   etat.moi = () => etat.dernier?.joueurs.find((j) => j.i === etat.init.moi);
 
-  // `extra` sert à joindre l'angle de visée (`a`) et le tir (`f`).
-  etat.pousser = (e, n, extra = {}) => {
+  // `c` est la cible cliquée ({x,y} ou null) ; `extra` sert à joindre l'angle
+  // de visée (`a`) et le tir (`f`).
+  etat.pousser = (c, n, extra = {}) => {
     for (let i = 0; i < n; i++) {
       etat.seq++;
-      ws.send(JSON.stringify({ t: "cmd", seq: etat.seq, dt: 1 / 30, e, ...extra }));
+      ws.send(JSON.stringify({ t: "cmd", seq: etat.seq, dt: 1 / 30, c, ...extra }));
     }
   };
 
@@ -182,7 +185,7 @@ try {
   verifier("snapshots reçus (~20/s)", a.snapshots >= 2, a.snapshots + " en 200 ms");
 
   const avant = a.moi();
-  a.pousser({ droite: true }, 20);
+  a.pousser({ x: avant.x + 5000, y: avant.y }, 20); // clic loin à droite
   await attendre(400);
   const apres = a.moi();
 
@@ -196,8 +199,9 @@ try {
 
   console.log("\nAnti-triche");
 
-  const posAvant = a.moi().x;
-  a.pousser({ droite: true }, 200); // 200 commandes d'un coup
+  const referenceAvant = a.moi();
+  const posAvant = referenceAvant.x;
+  a.pousser({ x: posAvant + 100000, y: referenceAvant.y }, 200); // 200 commandes d'un coup
   await attendre(120); // ~2 ticks : 10 commandes appliquées au maximum
   const posApres = a.moi().x;
   const parcouru = posApres - posAvant;
@@ -212,8 +216,11 @@ try {
   const triche = joueur("Triche", "triche");
   await triche.pret;
   await attendre(150);
-  const bloque = triche.moi().x;
-  triche.ws.send(JSON.stringify({ t: "cmd", seq: 1, dt: 999, e: { droite: true } }));
+  const posDepart = triche.moi();
+  const bloque = posDepart.x;
+  triche.ws.send(
+    JSON.stringify({ t: "cmd", seq: 1, dt: 999, c: { x: bloque + 100000, y: posDepart.y } })
+  );
   await attendre(200);
   verifier(
     "un dt de 999 s est borné à 0,1 s (26 px max)",
@@ -223,7 +230,7 @@ try {
   triche.ws.close();
 
   a.ws.send("{ ceci n'est pas du json");
-  a.ws.send(JSON.stringify({ t: "cmd", seq: 1 })); // pas de champ `e`
+  a.ws.send(JSON.stringify({ t: "cmd", seq: 1 })); // pas de champ `c`
   await attendre(150);
   verifier("messages malformés : le serveur tient", a.ws.readyState === 1);
 
@@ -294,7 +301,7 @@ try {
     Array.isArray(f.dernier.so) && f.dernier.so.length === SOINS.length
   );
 
-  f.pousser({}, 40, { a: 0, f: true });
+  f.pousser(null, 40, { a: 0, f: true }); // aucun déplacement, seulement le tir
   await attendre(700);
 
   const tirs = f.ev.filter((e) => e.t === "tir").length;
@@ -315,7 +322,7 @@ try {
     const cible = poser(salle, "B", 520, 820);
     tireur.angle = 0; // pile en direction de B
 
-    salle.message(tireur, JSON.stringify({ t: "cmd", seq: 1, dt: 0, e: {}, a: 0, f: true }));
+    salle.message(tireur, JSON.stringify({ t: "cmd", seq: 1, dt: 0, c: null, a: 0, f: true }));
     salle.pas();
     verifier("un missile part quand on tire", salle.missiles.length === 1);
 
@@ -336,7 +343,7 @@ try {
     // La cadence est la première chose qu'un tricheur essaie de contourner.
     ticks(salle, 6); // le temps que la recharge de 0,5 s redescende
     for (let i = 0; i < 10; i++) {
-      salle.message(tireur, JSON.stringify({ t: "cmd", seq: 20 + i, dt: 0, e: {}, a: 0, f: true }));
+      salle.message(tireur, JSON.stringify({ t: "cmd", seq: 20 + i, dt: 0, c: null, a: 0, f: true }));
     }
     salle.pas();
     verifier(
@@ -345,7 +352,7 @@ try {
       salle.missiles.length + " missile(s)"
     );
 
-    salle.message(tireur, JSON.stringify({ t: "cmd", seq: 40, dt: 0, e: {}, a: 0, f: true }));
+    salle.message(tireur, JSON.stringify({ t: "cmd", seq: 40, dt: 0, c: null, a: 0, f: true }));
     salle.pas();
     verifier(
       "la recharge vaut la cadence annoncée",
@@ -366,7 +373,7 @@ try {
 
     const avant = { x: cible.x, y: cible.y };
 
-    salle.message(tireur, JSON.stringify({ t: "cmd", seq: 1, dt: 0, e: {}, a: 0, f: true }));
+    salle.message(tireur, JSON.stringify({ t: "cmd", seq: 1, dt: 0, c: null, a: 0, f: true }));
     ticks(salle, 7);
 
     verifier("une mort est comptée à la victime", cible.morts === 1);
@@ -545,6 +552,74 @@ try {
     );
   }
 
+  console.log("\nFlash");
+
+  {
+    const salle = salleDeTest();
+    const joueur1 = poser(salle, "A", 400, 400);
+    joueur1.angle = 0; // vers la droite, terrain dégagé
+
+    const xAvant = joueur1.x;
+    salle.message(joueur1, JSON.stringify({ t: "flash" }));
+    verifier(
+      "le flash déplace le joueur de FLASH_DISTANCE dans la direction visée",
+      Math.abs(joueur1.x - xAvant - FLASH_DISTANCE) < 1,
+      `${xAvant} → ${joueur1.x}`
+    );
+    verifier(
+      "le flash se met à recharger",
+      joueur1.flashRecharge === FLASH_RECHARGE,
+      joueur1.flashRecharge + " s"
+    );
+
+    const xApresPremier = joueur1.x;
+    salle.message(joueur1, JSON.stringify({ t: "flash" }));
+    verifier("pas de second flash pendant la recharge", joueur1.x === xApresPremier);
+
+    // La recharge descend au fil des ticks, comme la cadence de tir.
+    ticks(salle, Math.ceil(FLASH_RECHARGE / (TICK_MS / 1000)) + 1);
+    verifier("la recharge finit par retomber à 0", joueur1.flashRecharge === 0);
+
+    const xApresRecharge = joueur1.x;
+    salle.message(joueur1, JSON.stringify({ t: "flash" }));
+    verifier(
+      "le flash est de nouveau utilisable une fois rechargé",
+      joueur1.x > xApresRecharge,
+      `${xApresRecharge} → ${joueur1.x}`
+    );
+
+    // Une élimination réinitialise la recharge, qu'elle ait servi ou non.
+    verifier(
+      "avant le kill, le flash est encore en recharge",
+      joueur1.flashRecharge > 0,
+      "recharge=" + joueur1.flashRecharge
+    );
+    const victime = poser(salle, "B", joueur1.x, joueur1.y);
+    salle.appliquerDegats(victime, joueur1, PV_MAX, false);
+    verifier("le kill réinitialise la recharge du flash", joueur1.flashRecharge === 0);
+
+    // Un mur arrête le bond net, comme le rayon d'ulti : le mur
+    // { x:300, y:200, l:40, h:300 } est juste à droite de ce joueur.
+    const pres = poser(salle, "C", 260, 200);
+    pres.angle = 0;
+    const xPresAvant = pres.x;
+    salle.message(pres, JSON.stringify({ t: "flash" }));
+    verifier(
+      "un mur arrête le flash avant de le traverser",
+      pres.x > xPresAvant && pres.x < 300,
+      `${xPresAvant} → ${pres.x}`
+    );
+
+    // Pas de déplacement pendant la pause temporelle.
+    const geleur = poser(salle, "D", 900, 200);
+    geleur.angle = Math.PI;
+    geleur.ulti = ULTI_MAX;
+    salle.message(geleur, JSON.stringify({ t: "ulti" }));
+    const xGelAvant = geleur.x;
+    salle.message(geleur, JSON.stringify({ t: "flash" }));
+    verifier("le flash est refusé pendant la pause temporelle", geleur.x === xGelAvant);
+  }
+
   console.log("\nAttaque spéciale — pause temporelle");
 
   const TICKS_ULTI = Math.ceil(ULTI_DUREE / (TICK_MS / 1000)) + 2;
@@ -569,7 +644,7 @@ try {
     const xAvant = temoin.x;
     salle.message(
       temoin,
-      JSON.stringify({ t: "cmd", seq: 1, dt: 1 / 30, e: { droite: true }, a: 0, f: true })
+      JSON.stringify({ t: "cmd", seq: 1, dt: 1 / 30, c: { x: temoin.x + 100, y: temoin.y }, a: 0, f: true })
     );
     salle.pas();
     verifier("personne ne bouge pendant le gel", temoin.x === xAvant);

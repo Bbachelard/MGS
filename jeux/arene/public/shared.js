@@ -54,29 +54,36 @@ function touche(x, y, m) {
 }
 
 /**
- * Avance UN joueur d'un pas de temps.
+ * Avance UN joueur d'un pas de temps, EN LIGNE DROITE vers une cible cliquée.
  *
- * @param {{x:number,y:number}} j       le joueur (modifié sur place)
- * @param {{haut,bas,gauche,droite}} e  les touches enfoncées
- * @param {number} dt                   durée du pas, en secondes
+ * @param {{x:number,y:number}} j            le joueur (modifié sur place)
+ * @param {{x:number,y:number}|null} cible   le point cliqué, ou null si personne n'a cliqué
+ * @param {number} dt                        durée du pas, en secondes
  *
- * Point clé : on déplace d'abord sur X, on corrige les collisions, PUIS sur Y.
- * Ça évite de rester bloqué dans un coin et ça permet de « glisser » le long
- * des murs, ce qui est beaucoup plus agréable à jouer.
+ * Le déplacement au clic (façon LoL) remplace les touches directionnelles :
+ * `cible` est le dernier point cliqué, envoyé dans chaque commande exactement
+ * comme l'étaient les touches avant — le client et le serveur en tirent donc
+ * un déplacement identique, ce qui reste la seule règle qui compte ici.
+ *
+ * Point clé, inchangé : on déplace d'abord sur X, on corrige les collisions,
+ * PUIS sur Y. Ça évite de rester bloqué dans un coin et ça permet de
+ * « glisser » le long des murs, ce qui est beaucoup plus agréable à jouer.
  */
-export function simuler(j, e, dt) {
-  let dx = (e.droite ? 1 : 0) - (e.gauche ? 1 : 0);
-  let dy = (e.bas ? 1 : 0) - (e.haut ? 1 : 0);
+export function simuler(j, cible, dt) {
+  if (!cible) return; // rien cliqué, ou déjà arrivé : on ne bouge pas
 
-  // Normalisation : sans ça, aller en diagonale serait 1,41x plus rapide.
-  const norme = Math.hypot(dx, dy);
-  if (norme > 0) {
-    dx /= norme;
-    dy /= norme;
-  }
+  const versX = cible.x - j.x;
+  const versY = cible.y - j.y;
+  const distance = Math.hypot(versX, versY);
+  if (distance < 1) return; // arrivé — évite de trembler sur place
+
+  // On ne dépasse jamais la cible : le dernier pas s'arrête pile dessus.
+  const pas = Math.min(VITESSE * dt, distance);
+  const dx = (versX / distance) * pas;
+  const dy = (versY / distance) * pas;
 
   // --- axe X ---
-  let nx = j.x + dx * VITESSE * dt;
+  let nx = j.x + dx;
   for (const m of MURS) {
     if (touche(nx, j.y, m)) {
       nx = dx > 0 ? m.x - RAYON : m.x + m.l + RAYON;
@@ -85,7 +92,7 @@ export function simuler(j, e, dt) {
   j.x = Math.max(RAYON, Math.min(MONDE.l - RAYON, nx));
 
   // --- axe Y ---
-  let ny = j.y + dy * VITESSE * dt;
+  let ny = j.y + dy;
   for (const m of MURS) {
     if (touche(j.x, ny, m)) {
       ny = dy > 0 ? m.y - RAYON : m.y + m.h + RAYON;
@@ -203,6 +210,14 @@ export const ULTI_LONGUEUR = 300;      // longueur de l'aiguille à l'écran
 export const RAYON_ULTI = 16;          // rayon du rayon (généreux : c'est dur)
 export const VITESSE_RAYON = 1600;     // px/s — pendant que le temps est figé
 export const DUREE_RAYON = 0.8;        // s de vol maximum
+
+// --- attaque utilitaire : le flash ---------------------------------------
+// Un court bond dans la direction visée, à la LoL : ça ne soigne pas, ça ne
+// fait pas de dégâts, mais ça sort d'un mauvais pas ou permet d'en achever
+// un. Recharge courte, et surtout : une élimination la réinitialise aussitôt
+// — c'est la récompense de l'agressivité, comme le soin au kill.
+export const FLASH_DISTANCE = 220;    // px parcourus d'un coup
+export const FLASH_RECHARGE = 5;      // s avant de pouvoir la relancer
 
 /**
  * Direction de l'aiguille à l'instant `t` (0 → ULTI_DUREE).

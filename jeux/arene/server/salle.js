@@ -50,6 +50,8 @@ import {
   RAYON_ULTI,
   VITESSE_RAYON,
   DUREE_RAYON,
+  FLASH_DISTANCE,
+  FLASH_RECHARGE,
   angleAiguille,
   avancerMissile,
   toucheMur,
@@ -118,6 +120,7 @@ export class Salle {
       bouclier: 0, // 1 = une attaque sera annulée
       invuln: INVULN_RESPAWN,
       rechargeTir: 0,
+      flashRecharge: 0, // secondes avant de pouvoir relancer le flash
 
       // Progression de l'arme
       nivCadence: 0,
@@ -158,6 +161,7 @@ export class Salle {
           ultiParTouche: ULTI_PAR_TOUCHE,
           ultiDuree: ULTI_DUREE,
           killsParPalier: KILLS_PAR_PALIER,
+          flashRecharge: FLASH_RECHARGE,
         },
       })
     );
@@ -190,18 +194,20 @@ export class Salle {
     }
 
     if (msg.t === "cmd") {
-      const e = msg.e || {};
       const a = Number(msg.a);
+
+      // `c` (cible) : le point cliqué, envoyé tel quel à chaque commande —
+      // exactement comme l'étaient les touches enfoncées avant. Un client qui
+      // n'a rien cliqué (ou vient d'arriver à destination) envoie `null`.
+      const c =
+        msg.c && Number.isFinite(msg.c.x) && Number.isFinite(msg.c.y)
+          ? { x: msg.c.x, y: msg.c.y }
+          : null;
 
       joueur.fileCommandes.push({
         seq: msg.seq | 0,
         dt: Math.min(Math.max(Number(msg.dt) || 0, 0), 0.1), // borne : anti-triche
-        e: {
-          haut: !!e.haut,
-          bas: !!e.bas,
-          gauche: !!e.gauche,
-          droite: !!e.droite,
-        },
+        c,
         a: Number.isFinite(a) ? a : joueur.angle,
         f: !!msg.f, // le joueur maintient le tir
       });
@@ -214,6 +220,8 @@ export class Salle {
       this.declencherUlti(joueur);
     } else if (msg.t === "ultiTir") {
       this.tirerRayon(joueur);
+    } else if (msg.t === "flash") {
+      this.declencherFlash(joueur);
     } else if (msg.t === "amelioration") {
       this.appliquerAmelioration(joueur, msg.choix);
     } else if (msg.t === "ping") {
@@ -260,11 +268,12 @@ export class Salle {
     for (const j of this.joueurs.values()) {
       if (j.invuln > 0) j.invuln = Math.max(0, j.invuln - DT);
       if (j.rechargeTir > 0) j.rechargeTir = Math.max(0, j.rechargeTir - DT);
+      if (j.flashRecharge > 0) j.flashRecharge = Math.max(0, j.flashRecharge - DT);
 
       const lot = j.fileCommandes.splice(0, MAX_CMD_PAR_TICK);
 
       for (const cmd of lot) {
-        simuler(j, cmd.e, cmd.dt);
+        simuler(j, cmd.c, cmd.dt);
         j.angle = cmd.a;
         j.dernierSeq = cmd.seq;
 
@@ -322,6 +331,43 @@ export class Salle {
         }
       }
     }
+  }
+
+  /* ------------------------------------------------------------------ flash */
+
+  /**
+   * Un bond instantané dans la direction visée. Comme pour l'ulti, le client
+   * ne fait que DEMANDER : c'est le serveur qui vérifie la recharge et qui
+   * calcule où le joueur atterrit — sinon n'importe qui rejouerait le message
+   * `flash` en boucle pour traverser la carte.
+   *
+   * On avance par petits pas (comme le rayon d'ulti ou les météorites) pour
+   * s'arrêter juste avant un mur plutôt que de le traverser d'un bond.
+   */
+  declencherFlash(j) {
+    if (j.flashRecharge > 0) return;
+    if (this.gel) return; // pas de déplacement pendant la pause temporelle
+
+    const PAS = 12;
+    const dx = (Math.cos(j.angle) * FLASH_DISTANCE) / PAS;
+    const dy = (Math.sin(j.angle) * FLASH_DISTANCE) / PAS;
+
+    let x = j.x;
+    let y = j.y;
+
+    for (let i = 0; i < PAS; i++) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (horsMonde(nx, ny, RAYON) || toucheMur(nx, ny, RAYON)) break;
+      x = nx;
+      y = ny;
+    }
+
+    j.x = Math.max(RAYON, Math.min(MONDE.l - RAYON, x));
+    j.y = Math.max(RAYON, Math.min(MONDE.h - RAYON, y));
+    j.flashRecharge = FLASH_RECHARGE;
+
+    this.evenements.push({ t: "flash", x: j.x, y: j.y, sur: j.id });
   }
 
   /* ---------------------------------------------------------------- missiles */
@@ -506,6 +552,10 @@ export class Salle {
         tueur.pv = PV_MAX;
         this.evenements.push({ t: "soin", x: tueur.x, y: tueur.y, sur: tueur.id });
       }
+
+      // Même récompense pour le flash : un kill le rend disponible tout de
+      // suite, qu'il ait été utilisé ou non.
+      tueur.flashRecharge = 0;
 
       // Un palier d'arme tous les 10 kills. Il est mis de côté et proposé à
       // la mort suivante — pas tout de suite : on ne coupe pas un duel pour
@@ -734,6 +784,7 @@ export class Salle {
         u: j.ulti,
         iv: j.invuln > 0 ? 1 : 0,
         b: j.bouclier,
+        fl: Math.round(j.flashRecharge * 10) / 10,
         nc: j.nivCadence,
         nd: j.nivDegats,
         kp: j.killsPalier,
