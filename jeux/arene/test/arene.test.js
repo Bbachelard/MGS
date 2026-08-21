@@ -24,6 +24,13 @@ import {
   ULTI_DUREE,
   FLASH_DISTANCE,
   FLASH_RECHARGE,
+  ZONE_RECHARGE,
+  ZONE_PORTEE,
+  ZONE_DUREE,
+  ZONE_RALENTI,
+  ZONE_TIC,
+  ZONE_DEGATS_TIC,
+  simuler,
   SOINS,
   SOIN_RECHARGE,
   BOUCLIERS,
@@ -500,13 +507,17 @@ try {
       degatsDe(0) === DEGATS_MISSILE && cadenceDe(0) === CADENCE_TIR
     );
 
-    // Dix éliminations : un palier tombe.
+    // KILLS_PAR_PALIER éliminations : un palier tombe.
     for (let i = 0; i < KILLS_PAR_PALIER; i++) {
       soufre.invuln = 0;
       salle.appliquerDegats(soufre, heros, PV_MAX, false);
     }
 
-    verifier("10 kills = 1 palier en réserve", heros.paliers === 1, "kills=" + heros.kills);
+    verifier(
+      `${KILLS_PAR_PALIER} kills = 1 palier en réserve`,
+      heros.paliers === 1,
+      "kills=" + heros.kills
+    );
     verifier(
       "mais rien n'est proposé tant qu'on n'est pas mort",
       heros.choixOuvert === false
@@ -598,15 +609,16 @@ try {
     salle.appliquerDegats(victime, joueur1, PV_MAX, false);
     verifier("le kill réinitialise la recharge du flash", joueur1.flashRecharge === 0);
 
-    // Un mur arrête le bond net, comme le rayon d'ulti : le mur
-    // { x:300, y:200, l:40, h:300 } est juste à droite de ce joueur.
+    // Le flash TRAVERSE les murs, contrairement au rayon d'ulti : le mur
+    // { x:300, y:200, l:40, h:300 } est juste à droite de ce joueur (qui
+    // couvre x 300→340) mais ne l'arrête plus.
     const pres = poser(salle, "C", 260, 200);
     pres.angle = 0;
     const xPresAvant = pres.x;
     salle.message(pres, JSON.stringify({ t: "flash" }));
     verifier(
-      "un mur arrête le flash avant de le traverser",
-      pres.x > xPresAvant && pres.x < 300,
+      "le flash traverse les murs",
+      Math.abs(pres.x - xPresAvant - FLASH_DISTANCE) < 1 && pres.x > 340,
       `${xPresAvant} → ${pres.x}`
     );
 
@@ -618,6 +630,115 @@ try {
     const xGelAvant = geleur.x;
     salle.message(geleur, JSON.stringify({ t: "flash" }));
     verifier("le flash est refusé pendant la pause temporelle", geleur.x === xGelAvant);
+  }
+
+  console.log("\nRalentissement (simuler)");
+
+  {
+    // Départ loin de (0,0) : sinon le clampage aux bords du monde (qui
+    // empêche le centre du joueur de sortir du terrain) fausserait la mesure.
+    const normal = { x: 100, y: 100 };
+    simuler(normal, { x: 1100, y: 100 }, 0.1);
+
+    const ralenti = { x: 100, y: 100 };
+    simuler(ralenti, { x: 1100, y: 100 }, 0.1, ZONE_RALENTI);
+
+    verifier(
+      "un facteurVitesse < 1 réduit la distance parcourue d'autant",
+      Math.abs((ralenti.x - 100) - (normal.x - 100) * ZONE_RALENTI) < 1e-9,
+      `normal=${normal.x - 100} ralenti=${ralenti.x - 100}`
+    );
+  }
+
+  console.log("\nZone de ralentissement");
+
+  {
+    const salle = salleDeTest();
+    // (1450,150) est loin de tout mur : tout droit vers le bas sur 300 px
+    // (portée max) reste dégagé, jusqu'à (1450,450).
+    const lanceur = poser(salle, "A", 1450, 150);
+
+    // Portée : un clic à 900 px (bien au-delà de ZONE_PORTEE) est ramené
+    // à 300 px, dans la même direction.
+    salle.message(lanceur, JSON.stringify({ t: "zone", x: 1450, y: 1050 }));
+    verifier("la zone se pose", salle.zones.length === 1);
+
+    const zone = salle.zones[0];
+    const distance = Math.hypot(zone.x - 1450, zone.y - 150);
+    verifier(
+      "la portée est bornée à ZONE_PORTEE",
+      Math.abs(distance - ZONE_PORTEE) < 1,
+      `distance=${distance.toFixed(1)}`
+    );
+    verifier(
+      "la recharge se met en place",
+      lanceur.zoneRecharge === ZONE_RECHARGE,
+      lanceur.zoneRecharge + " s"
+    );
+
+    salle.message(lanceur, JSON.stringify({ t: "zone", x: 1450, y: 1050 }));
+    verifier("pas de seconde zone pendant la recharge", salle.zones.length === 1);
+
+    ticks(salle, Math.ceil(ZONE_RECHARGE / (TICK_MS / 1000)) + 1);
+    verifier("la recharge finit par retomber à 0", lanceur.zoneRecharge === 0);
+  }
+
+  {
+    const salle = salleDeTest();
+    // Tout près du mur { x:300, y:200, l:40, h:300 } : viser vers la
+    // gauche, sur 300 px, tombe dedans bien avant la portée maximale.
+    const lanceur = poser(salle, "A", 500, 400);
+
+    salle.message(lanceur, JSON.stringify({ t: "zone", x: 500 - 900, y: 400 }));
+
+    const zone = salle.zones[0];
+    const distance = Math.hypot(zone.x - 500, zone.y - 400);
+    verifier(
+      "un mur arrête la pose avant la portée maximale",
+      distance > 0 && distance < ZONE_PORTEE - 1,
+      `distance=${distance.toFixed(1)}`
+    );
+  }
+
+  {
+    const salle = salleDeTest();
+    const lanceur = poser(salle, "A", 1450, 150);
+    const victime = poser(salle, "B", 1450, 450); // pile où la zone va se poser
+
+    salle.message(lanceur, JSON.stringify({ t: "zone", x: 1450, y: 450 }));
+    const pvAvant = victime.pv;
+
+    ticks(salle, Math.ceil(ZONE_TIC / (TICK_MS / 1000)) + 1); // au moins un tic de dégâts
+
+    verifier(
+      "la victime dans la zone encaisse un tic de dégâts",
+      victime.pv === pvAvant - ZONE_DEGATS_TIC,
+      "pv=" + victime.pv
+    );
+    verifier("la victime est ralentie", victime.ralenti > 0, "ralenti=" + victime.ralenti);
+    verifier(
+      "le lanceur n'est pas affecté par sa propre zone",
+      lanceur.pv === PV_MAX && lanceur.ralenti === 0
+    );
+  }
+
+  {
+    const salle = salleDeTest();
+    const lanceur = poser(salle, "A", 1450, 150);
+
+    salle.message(lanceur, JSON.stringify({ t: "zone", x: 1450, y: 450 }));
+    verifier("la zone est active", salle.zones.length === 1);
+
+    ticks(salle, Math.ceil(ZONE_DUREE / (TICK_MS / 1000)) + 1);
+    verifier("la zone finit par disparaître", salle.zones.length === 0);
+
+    // Pendant la pause temporelle, impossible d'en poser une nouvelle.
+    lanceur.zoneRecharge = 0;
+    lanceur.ulti = ULTI_MAX;
+    lanceur.angle = 0;
+    salle.message(lanceur, JSON.stringify({ t: "ulti" }));
+    salle.message(lanceur, JSON.stringify({ t: "zone", x: 1450, y: 450 }));
+    verifier("la zone est refusée pendant la pause temporelle", salle.zones.length === 0);
   }
 
   console.log("\nAttaque spéciale — pause temporelle");

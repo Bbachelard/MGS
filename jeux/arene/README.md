@@ -53,7 +53,7 @@ jeux/arene/                     ← ne part PAS dans apache/site/
 │   ├── perso/                  tes personnages (+ gabarit.png et son README)
 │   ├── decor/                  meteorite.png, à remplacer (voir son README)
 │   └── sons/                   tes enregistrements (voir son README)
-├── test/arene.test.js          98 contrôles, `npm test`
+├── test/arene.test.js          111 contrôles, `npm test`
 ├── apache/mgs-arene.conf       le ProxyPass à inclure dans le vhost
 └── docker/service-arene.yml    le bloc à coller dans docker-compose.yml
 
@@ -86,8 +86,8 @@ par `node server/index.js`. Conséquences concrètes :
 |---|---|
 | Points de vie | **20** |
 | Arme de départ | **4 dégâts**, **0,5 s** entre deux tirs (2 tirs/s) |
-| Progression | **tous les 10 kills** : +25 % de cadence **ou** +25 % de puissance, au choix, sans plafond |
-| Vitesse du missile | 480 px/s — assez lent pour être esquivé |
+| Progression | **tous les 3 kills** : +15 % de cadence **ou** +15 % de puissance, au choix, sans plafond |
+| Vitesse du missile | 720 px/s — dur à esquiver |
 | Mort | réapparition **immédiate**, à un endroit **tiré au sort**, 1 s d'invulnérabilité |
 | Éliminer | remet à **pleine vie** |
 | Zones de soin | **4**, rendent **toute** la vie, reviennent **15 s** après |
@@ -95,27 +95,34 @@ par `node server/index.js`. Conséquences concrètes :
 | Météorites | toutes les **30 à 45 s**, **sans prévenir**, élimination |
 | Charge d'ulti | **+10 %** par missile touché — 10 touches pour une ulti |
 | Ulti | **pause temporelle** de 3 s : une aiguille tourne, on tire au bon moment |
-| Flash | bond de 220 px dans la direction visée — **5 s** de recharge, réinitialisée à chaque élimination |
+| Flash | bond de 220 px **à travers les murs** — **5 s** de recharge, réinitialisée à chaque élimination |
+| Zone de ralentissement | instantanée, portée 300 px, rayon 90 px, ralentit et grignote 3 s — **10 s** de recharge |
 
 ### Les contrôles
 
-Le déplacement se fait **au clic**, comme dans un MOBA : clic gauche (maintenu
-ou non) pour aller là où pointe la souris. Le clavier ne sert plus qu'aux
-compétences :
+Le déplacement se fait **au clic droit**, comme dans un MOBA : maintenu ou
+non, il fait aller vers là où pointe la souris, avec un ping animé à
+l'endroit cliqué (purement local, jamais envoyé au serveur). Le clic gauche
+ne fait rien : le clavier gère tout le reste.
 
 | Touche (par défaut) | Action |
 |---|---|
 | `A` | Tirer (maintenir pour tirer en continu) |
 | `E` | Flash |
+| `Z` | Zone de ralentissement |
 | `R` | Ulti (pause temporelle) |
 | `Tab` | Tout le tableau des scores |
 | `M` | Couper le son |
+| `Maj+A` / `Maj+Z` | Choisir l'amélioration proposée (cadence / puissance), sans cliquer |
 
-Ces cinq touches, ainsi que la sensibilité de la souris, se règlent dans le
-panneau ⚙ (en bas à droite de l'écran, accessible avant et pendant la
-partie) et sont mémorisées dans le navigateur (`localStorage`). Le viseur
-affiché à l'écran n'est **pas** le curseur du système — il est caché
-(`cursor: none`) — mais un viseur virtuel déplacé par les mouvements
+Les cinq premières touches, ainsi que la sensibilité de la souris, se règlent
+dans le panneau ⚙ (en bas à droite de l'écran, accessible avant et pendant la
+partie) et sont mémorisées dans le navigateur (`localStorage`).
+`Maj+A`/`Maj+Z` sont **fixes**, indépendantes du remappage — comme la
+position des boutons du panneau d'amélioration à l'écran.
+
+Le viseur affiché à l'écran n'est **pas** le curseur du système — il est
+caché (`cursor: none`) — mais un viseur virtuel déplacé par les mouvements
 *relatifs* de la souris, multipliés par la sensibilité réglée. C'est ce qui
 rend ce réglage réel : avec un curseur absolu, un simple facteur d'échelle
 sur la position ne changerait rien à l'angle de visée.
@@ -136,17 +143,18 @@ en premier depuis la console.
 L'arme de départ est **volontairement médiocre** : 4 dégâts, 2 tirs/s, cinq
 touches pour éliminer. C'est le point bas d'une progression.
 
-**Tous les 10 kills**, un palier est mis de côté — mais il n'est **pas**
+**Tous les 3 kills**, un palier est mis de côté — mais il n'est **pas**
 appliqué tout de suite : il est proposé **à la mort suivante**, sous la forme
 d'un choix entre *cadence* et *puissance*. On ne coupe pas un duel pour
 afficher un menu ; en revanche, mourir devient un moment où l'on gagne quelque
-chose.
+chose. `Maj+A` (cadence) et `Maj+Z` (puissance) choisissent directement, sans
+cliquer sur le panneau — utile en plein combat.
 
 ```
-cadence = 0,5 s × 0,8^n        puissance = arrondi(4 × 1,25^n)
+cadence = 0,5 s ÷ 1,15^n       puissance = arrondi(4 × 1,15^n)
 n=0 : 2,0 tirs/s               n=0 : 4 dégâts
-n=3 : 3,9 tirs/s               n=3 : 8 dégâts
-n=6 : 7,6 tirs/s               n=6 : 15 dégâts
+n=3 : 3,0 tirs/s               n=3 : 6 dégâts
+n=6 : 4,6 tirs/s               n=6 : 9 dégâts
 ```
 
 Les paliers se cumulent **sans plafond** et ne se perdent pas à la mort. Le
@@ -205,26 +213,44 @@ retenir, pas deux.
 
 ### Le flash
 
-<kbd>E</kbd> propulse le joueur de 220 px dans la direction visée — un mur
-l'arrête net, comme le rayon d'ulti. C'est une compétence d'évasion **et**
-d'agression : elle recharge en 5 secondes, mais surtout, **elle se
-réinitialise instantanément à chaque élimination**. Enchaîner les kills, c'est
-donc aussi enchaîner les flashs.
+<kbd>E</kbd> propulse le joueur de 220 px dans la direction visée — et
+**traverse les murs** : seules les limites de la carte l'arrêtent. C'est ce
+qui en fait un vrai outil d'évasion (et de finish) : se réfugier derrière un
+mur ne suffit plus à être à l'abri. Une petite animation de téléportation
+marque l'arrivée, visible par tout le monde.
+
+C'est une compétence d'évasion **et** d'agression : elle recharge en 5
+secondes, mais surtout, **elle se réinitialise instantanément à chaque
+élimination**. Enchaîner les kills, c'est donc aussi enchaîner les flashs.
 
 Comme l'ulti, le client ne fait que **demander** (`{ "t": "flash" }`) : c'est
-le serveur qui vérifie la recharge, calcule l'arrivée (en s'arrêtant avant un
-mur) et diffuse la nouvelle position. Aucune prédiction locale — un aller-retour
-serveur suffit, le bond est trop rare et trop court pour valoir la complexité
-d'une prédiction avec réconciliation.
+le serveur qui vérifie la recharge et calcule l'arrivée. Aucune prédiction
+locale — un aller-retour serveur suffit, le bond est trop rare et trop court
+pour valoir la complexité d'une prédiction avec réconciliation.
+
+### La zone de ralentissement
+
+<kbd>Z</kbd> pose, **instantanément** (pas de temps de charge, contrairement à
+l'ulti), une zone au sol dans la direction visée par la souris — portée 300 px
+(la même que le rayon visuel de l'ulti), bornée par les murs comme le rayon.
+Quiconque s'y attarde (sauf le lanceur) est **ralenti de moitié** et encaisse
+2 dégâts toutes les 0,5 s, pendant 3 s. Recharge : 10 secondes.
+
+C'est un outil de zone, pas de précision : on la pose pour tenir un couloir ou
+couper une fuite, pas pour viser un joueur précis. Le ralenti est **prédit
+côté client** comme le déplacement (`simuler()` prend un facteur de vitesse en
+4ᵉ paramètre) : sans ça, on sentirait un rattrapage élastique à chaque
+snapshot en entrant ou sortant de la zone.
 
 ### Ce que le client ne calcule jamais
 
-Les dégâts, la mort, les scores, les soins, le flash et l'ulti sont
+Les dégâts, la mort, les scores, les soins, le flash, la zone et l'ulti sont
 **entièrement** côté serveur. Le client reçoit un résultat (`pv`, `k`, `m`,
-`d`, `u`, `fl` dans le snapshot) et une liste d'événements (`ev`) dont il tire
-les sons et le fil des éliminations. Il ne prédit que son propre
-déplacement — et même celui-là, il s'en abstient pendant le gel, sinon on
-avancerait tout seul avant de se faire rappeler en arrière au tick suivant.
+`d`, `u`, `fl`, `zr`, `rl` dans le snapshot) et une liste d'événements (`ev`)
+dont il tire les sons et le fil des éliminations. Il ne prédit que son propre
+déplacement (et le facteur de ralenti qui l'affecte) — et même ça, il s'en
+abstient pendant le gel, sinon on avancerait tout seul avant de se faire
+rappeler en arrière au tick suivant.
 
 ---
 
@@ -238,11 +264,11 @@ Deux dossiers sont faits pour être remplis à la main, et chacun a son README :
   Une ligne dans `persos.json` et il apparaît dans l'écran d'accueil.
 - **`public/decor/`** — `meteorite.png`, à écraser tel quel. Elle tourne en
   vol : aucune orientation à respecter.
-- **`public/sons/`** — treize sons (`tir`, `impact`, `touche`, `mort`, `kill`,
+- **`public/sons/`** — quinze sons (`tir`, `impact`, `touche`, `mort`, `kill`,
   `soin`, `bouclier`, `meteorite`, `palier`, `ulti`, `ulti-tir`,
-  `ulti-touche`, `ulti-rate`). Chaque fichier trouvé remplace automatiquement
-  le son synthétisé de secours. Rien à déclarer : le jeu cherche le nom, et se
-  tait poliment s'il ne le trouve pas.
+  `ulti-touche`, `ulti-rate`, `flash`, `zone`). Chaque fichier trouvé remplace
+  automatiquement le son synthétisé de secours. Rien à déclarer : le jeu
+  cherche le nom, et se tait poliment s'il ne le trouve pas.
 
 Les quatre personnages livrés (`defaut`, `vaisseau`, `robot`, `fantome`) sont
 des placeholders assumés : écrase leurs fichiers, rien d'autre à changer.
@@ -259,7 +285,7 @@ node server/index.js        # http://localhost:8080
 Deux onglets sur cette adresse = deux joueurs qui se voient bouger.
 
 ```bash
-npm test                    # 98 contrôles, ~8 s, aucune dépendance
+npm test                    # 111 contrôles, ~8 s, aucune dépendance
 ```
 
 Les tests font deux choses. D'abord ils démarrent le vrai serveur et s'y
@@ -358,9 +384,10 @@ pastilles de soin, diffuser un *snapshot*.
 { "t": "etat", "tick": 1042,
   "joueurs": [ { "i":1, "n":"Ben", "c":"#7c5cff", "sp":"robot", "x":812.4, "y":301.0,
                  "a":-1.2, "s":412, "pv":15, "k":3, "m":1, "d":45, "u":30, "iv":0,
-                 "b":1, "nc":2, "nd":0, "kp":3, "ch":0, "fl":2.4 } ],
+                 "b":1, "fl":2.4, "zr":0, "rl":0, "nc":2, "nd":0, "kp":3, "ch":0 } ],
   "pr": [ { "i":88, "x":640, "y":210, "a":0.8, "p":1, "td":0, "tv":2 } ],
   "mt": [ { "i":4, "x":-40, "y":700, "a":0.31 } ],
+  "zo": [ { "i":7, "x":900, "y":420, "v":1.8 } ],
   "so": [ 0, 12.4, 0, 0 ],
   "bo": [ 0, 18.2 ],
   "ev": [ { "t":"tir", "x":830, "y":300 } ] }
@@ -368,11 +395,13 @@ pastilles de soin, diffuser un *snapshot*.
 
 Les noms de champs font une lettre : à 20 messages par seconde et par joueur,
 chaque octet compte. `pr` ce sont les missiles (avec `td`/`tv`, les paliers du
-tireur, pour dessiner le bon projectile), `mt` les météorites, `so` et `bo` la
-recharge des pastilles, `ev` ce qui vient de se passer (le client en tire les
-sons et le fil des éliminations). Côté joueur : `b` le bouclier, `nc`/`nd` les
-paliers d'arme, `kp` les kills depuis le dernier palier, `ch` le nombre
-d'améliorations à choisir, `fl` la recharge du flash restante (0 = prêt).
+tireur, pour dessiner le bon projectile), `mt` les météorites, `zo` les zones
+de ralentissement actives (`v` = vie restante), `so` et `bo` la recharge des
+pastilles, `ev` ce qui vient de se passer (le client en tire les sons et le
+fil des éliminations). Côté joueur : `b` le bouclier, `fl` la recharge du
+flash restante (0 = prêt), `zr` celle de la zone, `rl` = 1 si un ralenti est
+actif en ce moment, `nc`/`nd` les paliers d'arme, `kp` les kills depuis le
+dernier palier, `ch` le nombre d'améliorations à choisir.
 
 Quand une ulti est en cours, un champ `g` décrit le gel, l'angle courant de
 l'aiguille et, une fois le clic parti, la position du rayon.
@@ -454,6 +483,7 @@ Le serveur nettoie quand même le pseudo (balises, guillemets, sauts de ligne,
 | Rayon d'ulti | seul le lanceur peut le déclencher, une seule fois |
 | Amélioration d'arme | refusée sans palier en réserve et hors proposition |
 | Flash | refusé pendant la recharge (5 s) et pendant le gel — la distance et l'arrivée sont calculées par le serveur |
+| Zone de ralentissement | refusée pendant la recharge (10 s) et pendant le gel — portée et blocage par les murs calculés côté serveur |
 
 ## La suite, dans l'ordre
 
@@ -469,9 +499,10 @@ Le serveur nettoie quand même le pseudo (balises, guillemets, sauts de ligne,
    par deux dans une salle pleine.
 4. **Modes de jeu** — équipes, manche à 10 kills, chrono. Tout est déjà là :
    `Salle` compte les kills, il ne manque qu'une condition de fin.
-5. **Troisième compétence** — l'ulti (charge, gel, rayon) et le flash sont
-   chacun isolés dans `salle.js` ; en ajouter une autre revient à écrire une
-   méthode `declencherXxx()` ou `avancerXxx()`, et un dessin.
+5. **Quatrième compétence** — l'ulti (charge, gel, rayon), le flash et la
+   zone de ralentissement sont chacun isolés dans `salle.js` ; en ajouter une
+   autre revient à écrire une méthode `declencherXxx()` ou `avancerXxx()`, et
+   un dessin.
 6. **Surveiller l'écart de puissance.** Les paliers d'arme se cumulent sans
    plafond : dans une salle où quelqu'un reste très longtemps, l'écart avec un
    nouvel arrivant devient énorme. Deux garde-fous possibles le jour où ça se

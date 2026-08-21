@@ -26,6 +26,8 @@ import {
   PV_MAX,
   ULTI_MAX,
   FLASH_RECHARGE,
+  ZONE_RECHARGE,
+  ZONE_RALENTI,
   KILLS_PAR_PALIER,
   cadenceDe,
   degatsDe,
@@ -51,6 +53,8 @@ const barreUlti = document.getElementById("barreUlti");
 const texteUlti = document.getElementById("texteUlti");
 const barreFlash= document.getElementById("barreFlash");
 const texteFlash= document.getElementById("texteFlash");
+const barreZone = document.getElementById("barreZone");
+const texteZone = document.getElementById("texteZone");
 const jauges    = document.getElementById("jauges");
 const arme      = document.getElementById("arme");
 const panneau   = document.getElementById("panneau");
@@ -102,7 +106,14 @@ let tirEnCours = false;
 // l'étaient les touches avant : c'est ce qui rend la prédiction et la
 // réconciliation possibles avec le clic-déplacement aussi.
 let cible = null;
-let encliquant = false; // le clic gauche est maintenu : on suit la souris
+let encliquant = false; // le clic droit est maintenu : on suit la souris
+let monRalenti = 0; // secondes restantes sous l'effet d'une zone ennemie (prédit)
+
+// Effets visuels ÉPHÉMÈRES (ping de clic, éclat de flash) : purement
+// cosmétiques, jamais envoyés au serveur. Les zones de ralentissement, elles,
+// viennent du serveur (`zones`, plus bas) — ce ne sont pas des effets mais un
+// vrai état de jeu.
+let effets = [];
 
 /* ==========================================================================
    Touches et sensibilité — réglables, mémorisés dans le navigateur
@@ -112,6 +123,7 @@ const TOUCHES_DEFAUT = {
   tirer:   "KeyA",
   flash:   "KeyE",
   ulti:    "KeyR",
+  zone:    "KeyZ",
   tableau: "Tab",
   son:     "KeyM",
 };
@@ -169,9 +181,18 @@ addEventListener("keydown", (e) => {
   if (!reglages.hidden) return; // le panneau de réglages est ouvert : on ne joue pas
   if (document.activeElement instanceof HTMLInputElement) return; // on tape son pseudo
 
+  // Maj+A / Maj+Z choisissent directement l'amélioration proposée, sans avoir
+  // à cliquer sur le panneau — pratique en plein combat. Touches FIXES,
+  // indépendantes du remappage : comme la position des boutons à l'écran.
+  if (e.shiftKey && !panneau.hidden) {
+    if (e.code === "KeyA") { choisir("cadence"); e.preventDefault(); return; }
+    if (e.code === "KeyZ") { choisir("degats"); e.preventDefault(); return; }
+  }
+
   if (e.code === touches.tirer)   { appuyerTir(); e.preventDefault(); return; }
   if (e.code === touches.flash)   { if (!e.repeat) demanderFlash(); e.preventDefault(); return; }
   if (e.code === touches.ulti)    { if (!e.repeat) demanderUlti(); e.preventDefault(); return; }
+  if (e.code === touches.zone)    { if (!e.repeat) demanderZone(); e.preventDefault(); return; }
   if (e.code === touches.tableau) { tableau.classList.add("grand"); e.preventDefault(); return; }
   if (e.code === touches.son)     { basculerSon(); return; }
 });
@@ -202,19 +223,22 @@ addEventListener("mousemove", (e) => {
 addEventListener("mousedown", (e) => {
   if (accueil.hidden) window.focus();
 
-  // Clic gauche = déplacement, à la manière d'un MOBA. On ignore le clic
+  // Clic DROIT = déplacement, à la manière d'un MOBA. On ignore le clic
   // avant d'être en jeu, pendant le gel (le serveur l'ignorerait de toute
   // façon) et par-dessus le panneau de réglages.
-  if (e.button === 0 && accueil.hidden && reglages.hidden && !gel) {
+  if (e.button === 2 && accueil.hidden && reglages.hidden && !gel) {
     encliquant = true;
     cible = { x: camera.x + souris.x, y: camera.y + souris.y };
+    // Le ping visuel façon LoL : purement local, aucun aller-retour serveur
+    // à attendre pour le voir apparaître.
+    effets.push({ type: "clic", x: cible.x, y: cible.y, debut: performance.now() });
   }
 });
 addEventListener("mouseup", (e) => {
-  if (e.button === 0) encliquant = false;
+  if (e.button === 2) encliquant = false;
 });
-// Plus aucune action au clic droit : le menu du navigateur n'a rien à faire
-// là quand même, pour ne pas interrompre une partie sur un clic maladroit.
+// Le clic droit fait tout le travail désormais : le menu du navigateur n'a
+// rien à faire là, pour ne pas interrompre une partie sur un clic maladroit.
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
 // Tactile : un doigt vise, tire, ET déplace (pas de clavier sur mobile).
@@ -248,6 +272,13 @@ function demanderFlash() {
   // Même principe : le serveur vérifie seul la recharge et calcule
   // l'arrivée. Le client ne fait que demander.
   envoyer({ t: "flash" });
+}
+
+function demanderZone() {
+  // Contrairement au flash (direction seule), la zone a besoin d'un POINT :
+  // le serveur borne la distance à ZONE_PORTEE et recule le point s'il tombe
+  // dans un mur, exactement comme pour le rayon d'ulti.
+  envoyer({ t: "zone", x: camera.x + souris.x, y: camera.y + souris.y });
 }
 
 /**
@@ -423,6 +454,7 @@ function connecter(nom) {
       derniersSoins = msg.so || [];
       derniersBoucliers = msg.bo || [];
       meteorites = msg.mt || [];
+      zones = msg.zo || [];
       reconcilier(msg.joueurs);
       if (msg.ev) traiterEvenements(msg.ev);
 
@@ -448,6 +480,7 @@ function connecter(nom) {
 let derniersSoins = [];
 let derniersBoucliers = [];
 let meteorites = [];
+let zones = [];
 
 /* ==========================================================================
    Réconciliation
@@ -461,12 +494,20 @@ function reconcilier(joueurs) {
 
   monPerso.x = moi.x;
   monPerso.y = moi.y;
+  // Juste besoin de savoir SI on est ralenti : ce petit crédit se consomme
+  // en quelques pas côté client (voir pasClient) et se retend à chaque
+  // snapshot tant que le serveur continue de dire `rl`.
+  if (moi.rl) monRalenti = 0.3;
 
   enAttente = enAttente.filter((c) => c.seq > moi.s);
 
   // Pendant le gel, le serveur n'applique rien : rejouer localement nous
-  // ferait avancer tout seul, puis reculer au tick suivant.
-  if (!gel) for (const c of enAttente) simuler(monPerso, c.c, c.dt);
+  // ferait avancer tout seul, puis reculer au tick suivant. Le facteur de
+  // ralenti COURANT est appliqué à toute la file rejouée — une approximation
+  // du même ordre que la légère élasticité déjà tolérée sur les collisions
+  // entre joueurs (voir le README).
+  const facteur = monRalenti > 0 ? ZONE_RALENTI : 1;
+  if (!gel) for (const c of enAttente) simuler(monPerso, c.c, c.dt, facteur);
 
   precedent.x = monPerso.x;
   precedent.y = monPerso.y;
@@ -483,11 +524,24 @@ function traiterEvenements(evenements) {
       case "impact":
       case "touche":
       case "soin":
-      case "flash":
       case "ulti-tir":
       case "ulti-touche":
       case "ulti-rate":
         sons.jouer(e.t, volumeSelonDistance(e.x, e.y));
+        break;
+
+      case "flash":
+        sons.jouer("flash", volumeSelonDistance(e.x, e.y));
+        // L'éclat de téléportation : visible par tout le monde, à l'arrivée.
+        effets.push({ type: "flash", x: e.x, y: e.y, debut: performance.now() });
+        break;
+
+      case "zone":
+        sons.jouer("zone", volumeSelonDistance(e.x, e.y));
+        ajouterAuFil(
+          `🌀 ${e.nom} : champ de ralentissement`,
+          e.par === monId ? "#db2777" : "#9292a3"
+        );
         break;
 
       case "bouclier":
@@ -580,6 +634,14 @@ function majJauges() {
     ? `flash prêt — ${labelTouche(touches.flash)}`
     : `flash ${flRecharge.toFixed(1)} s`;
   texteFlash.classList.toggle("prete", flPret);
+
+  const zrRecharge = moiServeur.zr || 0;
+  const zrPret = zrRecharge <= 0;
+  barreZone.style.width = Math.max(0, Math.min(1, 1 - zrRecharge / ZONE_RECHARGE)) * 100 + "%";
+  texteZone.textContent = zrPret
+    ? `zone prête — ${labelTouche(touches.zone)}`
+    : `zone ${zrRecharge.toFixed(1)} s`;
+  texteZone.classList.toggle("prete", zrPret);
 
   // L'état de l'arme, et ce qu'il reste à faire pour le palier suivant.
   const nc = moiServeur.nc || 0;
@@ -685,7 +747,9 @@ function pasClient() {
   precedent.y = monPerso.y;
 
   if (!gel) {
-    simuler(monPerso, c, PAS_CLIENT); // ← la prédiction
+    monRalenti = Math.max(0, monRalenti - PAS_CLIENT);
+    const facteur = monRalenti > 0 ? ZONE_RALENTI : 1;
+    simuler(monPerso, c, PAS_CLIENT, facteur); // ← la prédiction
 
     // Arrivé : on arrête d'envoyer une destination, sinon le serveur (et
     // nous) referions le même calcul, pour rien, à chaque commande.
@@ -730,6 +794,9 @@ function interpoler() {
 function afficher(alpha, temps) {
   const { liste, missiles } = interpoler();
 
+  // Les pings et éclats sont éphémères : on jette ceux qui ont fini de vivre.
+  effets = effets.filter((e) => temps - e.debut < 700);
+
   // Notre position affichée : entre le pas précédent et le pas actuel.
   const mx = precedent.x + (monPerso.x - precedent.x) * alpha;
   const my = precedent.y + (monPerso.y - precedent.y) * alpha;
@@ -741,6 +808,8 @@ function afficher(alpha, temps) {
     liste,
     missiles,
     meteorites,
+    zones,
+    effets,
     soins: derniersSoins,
     boucliers: derniersBoucliers,
     gel,

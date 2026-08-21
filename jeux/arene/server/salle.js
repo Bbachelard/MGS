@@ -52,6 +52,13 @@ import {
   DUREE_RAYON,
   FLASH_DISTANCE,
   FLASH_RECHARGE,
+  ZONE_RECHARGE,
+  ZONE_PORTEE,
+  ZONE_RAYON,
+  ZONE_DUREE,
+  ZONE_RALENTI,
+  ZONE_TIC,
+  ZONE_DEGATS_TIC,
   angleAiguille,
   avancerMissile,
   toucheMur,
@@ -90,6 +97,9 @@ export class Salle {
     this.prochaineMeteorite = this.delaiMeteorite();
     this.prochainMeteore = 1;
 
+    this.zones = [];
+    this.prochaineZone = 1;
+
     // La pause temporelle en cours, ou null.
     this.gel = null;
 
@@ -121,6 +131,8 @@ export class Salle {
       invuln: INVULN_RESPAWN,
       rechargeTir: 0,
       flashRecharge: 0, // secondes avant de pouvoir relancer le flash
+      zoneRecharge: 0, // secondes avant de pouvoir relancer la zone
+      ralenti: 0, // secondes restantes sous l'effet d'une zone ennemie
 
       // Progression de l'arme
       nivCadence: 0,
@@ -162,6 +174,7 @@ export class Salle {
           ultiDuree: ULTI_DUREE,
           killsParPalier: KILLS_PAR_PALIER,
           flashRecharge: FLASH_RECHARGE,
+          zoneRecharge: ZONE_RECHARGE,
         },
       })
     );
@@ -222,6 +235,10 @@ export class Salle {
       this.tirerRayon(joueur);
     } else if (msg.t === "flash") {
       this.declencherFlash(joueur);
+    } else if (msg.t === "zone") {
+      const x = Number(msg.x);
+      const y = Number(msg.y);
+      if (Number.isFinite(x) && Number.isFinite(y)) this.declencherZone(joueur, x, y);
     } else if (msg.t === "amelioration") {
       this.appliquerAmelioration(joueur, msg.choix);
     } else if (msg.t === "ping") {
@@ -256,6 +273,7 @@ export class Salle {
       this.separerJoueurs();
       this.avancerMissiles();
       this.avancerMeteorites();
+      this.avancerZones();
       this.avancerRamassages();
     }
 
@@ -269,11 +287,14 @@ export class Salle {
       if (j.invuln > 0) j.invuln = Math.max(0, j.invuln - DT);
       if (j.rechargeTir > 0) j.rechargeTir = Math.max(0, j.rechargeTir - DT);
       if (j.flashRecharge > 0) j.flashRecharge = Math.max(0, j.flashRecharge - DT);
+      if (j.zoneRecharge > 0) j.zoneRecharge = Math.max(0, j.zoneRecharge - DT);
+      if (j.ralenti > 0) j.ralenti = Math.max(0, j.ralenti - DT);
 
       const lot = j.fileCommandes.splice(0, MAX_CMD_PAR_TICK);
+      const facteurVitesse = j.ralenti > 0 ? ZONE_RALENTI : 1;
 
       for (const cmd of lot) {
-        simuler(j, cmd.c, cmd.dt);
+        simuler(j, cmd.c, cmd.dt, facteurVitesse);
         j.angle = cmd.a;
         j.dernierSeq = cmd.seq;
 
@@ -341,33 +362,94 @@ export class Salle {
    * calcule où le joueur atterrit — sinon n'importe qui rejouerait le message
    * `flash` en boucle pour traverser la carte.
    *
-   * On avance par petits pas (comme le rayon d'ulti ou les météorites) pour
-   * s'arrêter juste avant un mur plutôt que de le traverser d'un bond.
+   * Il TRAVERSE les murs — c'est tout l'intérêt d'un vrai outil d'évasion.
+   * Seules les limites de la carte l'arrêtent.
    */
   declencherFlash(j) {
     if (j.flashRecharge > 0) return;
     if (this.gel) return; // pas de déplacement pendant la pause temporelle
 
-    const PAS = 12;
-    const dx = (Math.cos(j.angle) * FLASH_DISTANCE) / PAS;
-    const dy = (Math.sin(j.angle) * FLASH_DISTANCE) / PAS;
+    const cx = j.x + Math.cos(j.angle) * FLASH_DISTANCE;
+    const cy = j.y + Math.sin(j.angle) * FLASH_DISTANCE;
 
+    j.x = Math.max(RAYON, Math.min(MONDE.l - RAYON, cx));
+    j.y = Math.max(RAYON, Math.min(MONDE.h - RAYON, cy));
+    j.flashRecharge = FLASH_RECHARGE;
+
+    this.evenements.push({ t: "flash", x: j.x, y: j.y, sur: j.id });
+  }
+
+  /**
+   * La zone de ralentissement : instantanée, sans temps de charge (contrairement
+   * à l'ulti). `cx, cy` viennent du client (la position du curseur au moment du
+   * clic) — le serveur les borne à `ZONE_PORTEE` et recule le point s'il tombe
+   * dans un mur ou hors carte, comme pour le rayon d'ulti.
+   */
+  declencherZone(j, cx, cy) {
+    if (j.zoneRecharge > 0) return;
+    if (this.gel) return;
+
+    const versX = cx - j.x;
+    const versY = cy - j.y;
+    const distance = Math.hypot(versX, versY);
+    const portee = Math.min(distance, ZONE_PORTEE);
+    const angle = distance > 0 ? Math.atan2(versY, versX) : j.angle;
+
+    const PAS = 12;
     let x = j.x;
     let y = j.y;
 
-    for (let i = 0; i < PAS; i++) {
-      const nx = x + dx;
-      const ny = y + dy;
-      if (horsMonde(nx, ny, RAYON) || toucheMur(nx, ny, RAYON)) break;
+    for (let i = 1; i <= PAS; i++) {
+      const t = (portee * i) / PAS;
+      const nx = j.x + Math.cos(angle) * t;
+      const ny = j.y + Math.sin(angle) * t;
+      if (horsMonde(nx, ny, ZONE_RAYON) || toucheMur(nx, ny, ZONE_RAYON)) break;
       x = nx;
       y = ny;
     }
 
-    j.x = Math.max(RAYON, Math.min(MONDE.l - RAYON, x));
-    j.y = Math.max(RAYON, Math.min(MONDE.h - RAYON, y));
-    j.flashRecharge = FLASH_RECHARGE;
+    this.zones.push({
+      id: this.prochaineZone++,
+      par: j.id,
+      x,
+      y,
+      vie: ZONE_DUREE,
+      prochainTic: ZONE_TIC,
+    });
 
-    this.evenements.push({ t: "flash", x: j.x, y: j.y, sur: j.id });
+    j.zoneRecharge = ZONE_RECHARGE;
+    this.evenements.push({ t: "zone", x, y, par: j.id, nom: j.nom });
+  }
+
+  /** Fait vivre les zones : ralentit et grignote qui s'y attarde, sauf le lanceur. */
+  avancerZones() {
+    const restantes = [];
+
+    for (const z of this.zones) {
+      z.vie -= DT;
+      z.prochainTic -= DT;
+
+      const tic = z.prochainTic <= 0;
+      if (tic) z.prochainTic += ZONE_TIC;
+
+      for (const j of this.joueurs.values()) {
+        if (j.id === z.par) continue; // le lanceur est épargné par sa propre zone
+        if (j.invuln > 0) continue;
+        if (Math.hypot(j.x - z.x, j.y - z.y) > ZONE_RAYON + RAYON) continue;
+
+        // Réappliqué en continu tant qu'on reste dedans : le ralenti retombe
+        // très vite (quelques dizaines de ms) une fois sorti de la zone.
+        j.ralenti = Math.max(j.ralenti, DT * 1.5);
+
+        if (tic) {
+          this.appliquerDegats(j, this.joueurs.get(z.par) || null, ZONE_DEGATS_TIC, true);
+        }
+      }
+
+      if (z.vie > 0) restantes.push(z);
+    }
+
+    this.zones = restantes;
   }
 
   /* ---------------------------------------------------------------- missiles */
@@ -785,6 +867,8 @@ export class Salle {
         iv: j.invuln > 0 ? 1 : 0,
         b: j.bouclier,
         fl: Math.round(j.flashRecharge * 10) / 10,
+        zr: Math.round(j.zoneRecharge * 10) / 10,
+        rl: j.ralenti > 0 ? 1 : 0,
         nc: j.nivCadence,
         nd: j.nivDegats,
         kp: j.killsPalier,
@@ -810,6 +894,12 @@ export class Salle {
         x: Math.round(m.x),
         y: Math.round(m.y),
         a: Math.round(m.a * 100) / 100,
+      })),
+      zo: this.zones.map((z) => ({
+        i: z.id,
+        x: Math.round(z.x),
+        y: Math.round(z.y),
+        v: Math.round(z.vie * 10) / 10,
       })),
       // Recharge des pastilles, au dixième de seconde : le client affiche le
       // compte à rebours sans avoir à le deviner.
