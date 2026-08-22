@@ -503,6 +503,33 @@ let derniersBoucliers = [];
 let meteorites = [];
 let zones = [];
 
+// Le dernier moment (performance.now()) où chaque joueur a été touché : sert
+// au flash bref sur son sprite (voir rendu.js#joueurs). Un id -> un seul
+// timestamp, purgé au fil de l'eau dans afficher() plutôt que d'accumuler
+// indéfiniment sur une longue partie.
+let dernieresTouches = new Map();
+// Doit rester égal à DUREE_TOUCHE_FX dans rendu.js : c'est là que le flash
+// est réellement dessiné, ici on ne fait que savoir quand l'oublier.
+const DUREE_TOUCHE_FX = 260; // ms
+
+/**
+ * Un jeu de petites gouttes, tirées au sort une seule fois par éclaboussure :
+ * les retirer au sort à chaque frame ferait scintiller l'effet au lieu de le
+ * laisser s'estomper proprement.
+ */
+function fabriquerGouttes() {
+  const gouttes = [];
+  const n = 5 + Math.floor(Math.random() * 3); // 5 à 7
+  for (let i = 0; i < n; i++) {
+    gouttes.push({
+      a: Math.random() * Math.PI * 2,
+      d: 6 + Math.random() * 16,
+      r: 2 + Math.random() * 3,
+    });
+  }
+  return gouttes;
+}
+
 /* ==========================================================================
    Réconciliation
    ========================================================================== */
@@ -542,13 +569,30 @@ function traiterEvenements(evenements) {
   for (const e of evenements) {
     switch (e.t) {
       case "tir":
-      case "impact":
-      case "touche":
       case "soin":
       case "ulti-tir":
       case "ulti-touche":
       case "ulti-rate":
         sons.jouer(e.t, volumeSelonDistance(e.x, e.y));
+        break;
+
+      // Le tir a fini sa course quelque part (mur ou joueur) : l'éclaboussure
+      // apparaît toujours au point d'impact. "touche" en plus, garde le
+      // joueur touché en mémoire pour le flash sur son sprite, et joue le son
+      // "vitre" (voir sons.js) plutôt que celui, plus sourd, du mur.
+      case "impact":
+      case "touche":
+        sons.jouer(e.t, volumeSelonDistance(e.x, e.y));
+        effets.push({
+          type: "caca-splash",
+          x: e.x,
+          y: e.y,
+          debut: performance.now(),
+          gouttes: fabriquerGouttes(),
+        });
+        if (e.t === "touche" && e.sur != null) {
+          dernieresTouches.set(e.sur, performance.now());
+        }
         break;
 
       case "flash":
@@ -580,7 +624,7 @@ function traiterEvenements(evenements) {
       case "palier":
         if (e.sur === monId) {
           sons.jouer("palier", 1);
-          ajouterAuFil("Arme améliorable — au prochain respawn", "#fbbf24");
+          ajouterAuFil("Arme améliorable — choisis en bas à gauche", "#fbbf24");
         }
         break;
 
@@ -818,6 +862,10 @@ function afficher(alpha, temps) {
   // Les pings et éclats sont éphémères : on jette ceux qui ont fini de vivre.
   effets = effets.filter((e) => temps - e.debut < 700);
 
+  for (const [id, t] of dernieresTouches) {
+    if (temps - t > DUREE_TOUCHE_FX) dernieresTouches.delete(id);
+  }
+
   // Notre position affichée : entre le pas précédent et le pas actuel.
   const mx = precedent.x + (monPerso.x - precedent.x) * alpha;
   const my = precedent.y + (monPerso.y - precedent.y) * alpha;
@@ -831,6 +879,7 @@ function afficher(alpha, temps) {
     meteorites,
     zones,
     effets,
+    touches: dernieresTouches,
     soins: derniersSoins,
     boucliers: derniersBoucliers,
     gel,

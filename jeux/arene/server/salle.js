@@ -396,12 +396,21 @@ export class Salle {
     const portee = Math.min(distance, ZONE_PORTEE);
     const angle = distance > 0 ? Math.atan2(versY, versX) : j.angle;
 
-    // Un pas tous les ~20 px, pas un nombre de pas fixe : ZONE_PORTEE couvre
+    // Un pas tous les ~8 px, pas un nombre de pas fixe : ZONE_PORTEE couvre
     // désormais toute la carte, donc un compte de pas fixe donnerait des
     // enjambées énormes sur un tir long — assez pour sauter par-dessus un
     // mur fin, ou pour arrêter la pose bien avant l'obstacle réel.
-    const RESOLUTION = 20;
-    const PAS = Math.max(1, Math.ceil(portee / RESOLUTION));
+    //
+    // Le minimum de 4 pas compte tout autant : ZONE_RAYON (90 px) est un
+    // rayon de placement généreux, donc près d'un mur le TOUT PREMIER pas
+    // testé pouvait déjà le toucher — la pose échouait d'un coup et la zone
+    // restait sur le lanceur, qu'elle n'affecte même pas (voir
+    // avancerZones : « le lanceur est épargné par sa propre zone »). D'où
+    // le bug « le Z s'active sur moi alors que je visais ailleurs ». Un pas
+    // plus fin donne à la pose plusieurs chances de se rapprocher du point
+    // visé avant de renoncer.
+    const RESOLUTION = 8;
+    const PAS = Math.max(4, Math.ceil(portee / RESOLUTION));
     let x = j.x;
     let y = j.y;
 
@@ -645,13 +654,15 @@ export class Salle {
       // suite, qu'il ait été utilisé ou non.
       tueur.flashRecharge = 0;
 
-      // Un palier d'arme tous les 10 kills. Il est mis de côté et proposé à
-      // la mort suivante — pas tout de suite : on ne coupe pas un duel pour
-      // afficher un menu.
+      // Un palier d'arme tous les KILLS_PAR_PALIER kills, proposé tout de
+      // suite : le panneau de choix (voir client.js) n'est qu'un encart en
+      // bas à gauche, il ne bloque ni le déplacement ni le tir — inutile
+      // d'attendre une mort pour l'afficher.
       tueur.killsPalier++;
       if (tueur.killsPalier >= KILLS_PAR_PALIER) {
         tueur.killsPalier -= KILLS_PAR_PALIER;
         tueur.paliers++;
+        tueur.choixOuvert = true;
         this.evenements.push({
           t: "palier",
           sur: tueur.id,
@@ -682,9 +693,6 @@ export class Salle {
     cible.invuln = INVULN_RESPAWN;
     cible.rechargeTir = cadenceDe(cible.nivCadence);
     cible.bouclier = 0; // le bouclier ne survit pas à son porteur
-
-    // C'est ici que le choix d'arme est proposé : à la mort, pas avant.
-    if (cible.paliers > 0) cible.choixOuvert = true;
 
     // Les missiles de la victime disparaissent avec elle : sinon on encaisse
     // un tir venu d'un joueur qui n'est plus là.

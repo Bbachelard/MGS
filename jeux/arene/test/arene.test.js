@@ -543,7 +543,14 @@ try {
       degatsDe(0) === DEGATS_MISSILE && cadenceDe(0) === CADENCE_TIR
     );
 
-    // KILLS_PAR_PALIER éliminations : un palier tombe.
+    // Le serveur refuse un choix qui n'a pas encore été proposé.
+    salle.appliquerAmelioration(heros, "cadence");
+    verifier("amélioration refusée hors proposition", heros.nivCadence === 0);
+
+    // KILLS_PAR_PALIER éliminations : un palier tombe, et le choix est
+    // proposé tout de suite — plus besoin de mourir pour le voir apparaître,
+    // et le héros continue de jouer normalement en attendant de choisir
+    // (voir mourir() dans salle.js : le panneau n'a jamais bloqué le jeu).
     for (let i = 0; i < KILLS_PAR_PALIER; i++) {
       soufre.invuln = 0;
       salle.appliquerDegats(soufre, heros, PV_MAX, false);
@@ -555,18 +562,9 @@ try {
       "kills=" + heros.kills
     );
     verifier(
-      "mais rien n'est proposé tant qu'on n'est pas mort",
-      heros.choixOuvert === false
+      "le choix est proposé immédiatement, sans attendre une mort",
+      heros.choixOuvert === true
     );
-
-    // Le serveur refuse un choix qui n'a pas été proposé.
-    salle.appliquerAmelioration(heros, "cadence");
-    verifier("amélioration refusée hors proposition", heros.nivCadence === 0);
-
-    // On le tue : c'est là que le choix arrive.
-    heros.invuln = 0;
-    salle.appliquerDegats(heros, soufre, PV_MAX, false);
-    verifier("le choix est proposé à la mort suivante", heros.choixOuvert === true);
 
     salle.appliquerAmelioration(heros, "cadence");
     verifier("le palier est dépensé", heros.paliers === 0 && heros.choixOuvert === false);

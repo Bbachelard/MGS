@@ -379,6 +379,10 @@ function meteorites(ctx, liste, temps) {
 // cosmétiques, gérés côté client (voir client.js), jamais par le serveur.
 const DUREE_PING = 480;  // ms
 const DUREE_FLASH_FX = 380; // ms
+const DUREE_SPLASH = 450; // ms — l'éclaboussure au point d'impact
+// Doit rester égal à DUREE_TOUCHE_FX dans client.js : c'est là que le
+// timestamp par joueur est tenu à jour, ici on ne fait que le dessiner.
+const DUREE_TOUCHE_FX = 260; // ms — le flash sur le joueur touché
 
 function effetsVisuels(ctx, liste, temps) {
   if (!liste) return;
@@ -430,6 +434,35 @@ function effetsVisuels(ctx, liste, temps) {
       ctx.beginPath();
       ctx.arc(0, 0, rayon, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
+
+    } else if (e.type === "caca-splash") {
+      // Le tir a fini sa course ici — mur ou joueur, même éclaboussure. Une
+      // tache centrale qui s'écrase net, et des gouttes qui continuent de
+      // s'écarter en s'effaçant. `e.gouttes` est tiré au sort une seule fois
+      // (voir client.js#fabriquerGouttes), pas à chaque frame.
+      if (age > DUREE_SPLASH) continue;
+      const p = age / DUREE_SPLASH;
+
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      ctx.globalAlpha = 1 - p;
+
+      ctx.fillStyle = "#6f4416";
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 9 * (1 - p * 0.3), 6 * (1 - p * 0.3), 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#83521f";
+      for (const g of e.gouttes) {
+        const dist = g.d * (0.5 + p * 0.9);
+        const gx = Math.cos(g.a) * dist;
+        const gy = Math.sin(g.a) * dist;
+        ctx.beginPath();
+        ctx.arc(gx, gy, g.r * (1 - p * 0.5), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       ctx.restore();
     }
   }
@@ -515,6 +548,26 @@ function joueurs(ctx, etat) {
     }
 
     ctx.restore();
+
+    // Flash bref sur le joueur qui vient d'être touché — l'éclaboussure
+    // (dessinée par effetsVisuels) est déjà au point d'impact, mais ça ne se
+    // voit pas forcément sur SON sprite si le tir l'a touché de loin sur
+    // le bord de sa hitbox. `etat.touches` vient de client.js, un id par
+    // dernier impact reçu.
+    const tempsTouche = etat.touches && etat.touches.get(j.i);
+    if (tempsTouche != null) {
+      const ageTouche = etat.temps - tempsTouche;
+      if (ageTouche >= 0 && ageTouche < DUREE_TOUCHE_FX) {
+        const pTouche = ageTouche / DUREE_TOUCHE_FX;
+        ctx.save();
+        ctx.globalAlpha = (1 - pTouche) * 0.5;
+        ctx.fillStyle = "#5c370f";
+        ctx.beginPath();
+        ctx.arc(x, y, RAYON + 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
 
     if (j.b > 0) bouclier(ctx, x, y, etat.temps);
 

@@ -197,6 +197,17 @@ function squelch({ duree, coupure, volume = 0.3 }) {
   bip({ de: 260, vers: 90, duree: duree * 0.7, type: "triangle", volume: volume * 0.55 });
 }
 
+/**
+ * La résonance claire d'une vitre : deux tons sinusoïdaux aigus qui
+ * s'éteignent vite, superposés au squelch mouillé. C'est ce qui distingue à
+ * l'oreille "j'ai touché quelqu'un" de "j'ai fini dans un mur" — le mur reste
+ * un squelch sourd, sans cette brillance.
+ */
+function verre({ duree = 0.12, volume = 0.2 } = {}) {
+  bip({ de: 2600, vers: 2200, duree, type: "sine", volume });
+  bip({ de: 4200, vers: 3600, duree: duree * 0.7, type: "sine", volume: volume * 0.5 });
+}
+
 function synthese(nom, volume) {
   switch (nom) {
     case "tir":
@@ -204,12 +215,15 @@ function synthese(nom, volume) {
       grognement({ de: 240, vers: 70, duree: 0.11, volume: 0.22 * volume });
       break;
     case "impact":
-      // Le tas qui s'écrase sur un mur : sec, plus haut que "touche".
+      // Le tas qui s'écrase sur un mur : sec, plus haut que "touche", sans
+      // la résonance vitrée — un mur n'a rien de cristallin.
       squelch({ duree: 0.14, coupure: 1000, volume: 0.16 * volume });
       break;
     case "touche":
-      // En pleine cible : plus grave, plus mouillé.
+      // En pleine cible : le squelch mouillé, plus le "tink" de vitre qui
+      // dit tout de suite qu'on a touché quelqu'un, pas juste un mur.
       squelch({ duree: 0.2, coupure: 650, volume: 0.24 * volume });
+      verre({ duree: 0.14, volume: 0.16 * volume });
       break;
     case "mort":
       bip({ de: 420, vers: 60, duree: 0.55, type: "sawtooth", volume: 0.34 * volume });
