@@ -70,12 +70,11 @@ $friendUsername = (string) $friend['username'];
 <body>
 
 <?php
-/* La navbar reste LA TIENNE (ton pseudo, pas d'avatar dynamique), et
-   les icônes de plateforme sont décoratives : on ne lie pas un compte
-   depuis le profil de quelqu'un d'autre. */
+/* La navbar reste LA TIENNE (ton pseudo, ta photo Steam), et les icônes
+   de plateforme sont décoratives : on ne lie pas un compte depuis le
+   profil de quelqu'un d'autre. */
 mgs_navbar([
     'username'  => $myUsername,
-    'avatar'    => false,
     'platforms' => 'static',
     'actions'   => [['Mon profil', './index.php'], ['Amis', './inbox.php']],
     'logout'    => true,

@@ -1,6 +1,7 @@
 # Le décor
 
-Pour l'instant une seule image : **`meteorite.png`**.
+Deux images : **`meteorite.png`**, et en option **`caca.png`** pour la tête
+du projectile (voir plus bas).
 
 ## La remplacer
 
@@ -33,3 +34,21 @@ Si le fichier manque, le jeu dessine une boule de feu en code. Rien ne casse.
 - Elles peuvent faucher **plusieurs joueurs** sur leur passage.
 - La mort par météorite n'est créditée à personne : le fil affiche
   « l'arène ⇒ *nom* ».
+
+## Le projectile (`caca.png`, optionnel)
+
+Le tir de base est un jet de caca. Sans fichier ici, le jeu en dessine un en
+code (trois boules empilées, marron, un reflet) — ce qui suffit largement à
+cette taille. Dépose `caca.png` pour le remplacer par ton propre dessin.
+
+| | |
+|---|---|
+| Taille conseillée | 64 × 64 px |
+| Fond | transparent |
+| Orientation | **aucune** — dessiné bien droit, jamais tourné vers la trajectoire |
+| Taille à l'écran | environ 15 à 25 px de large selon la puissance de l'arme |
+
+Que le sprite vienne du code ou de ton fichier, les deux petites volutes
+vertes qui ondulent au-dessus (l'« animation » de l'odeur) restent dessinées
+par-dessus — c'est ce qui fait que le projectile a l'air vivant, image ou
+pas.

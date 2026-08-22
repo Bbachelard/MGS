@@ -44,14 +44,63 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 $username = '';
+$userId   = null;
 
 if (($_SESSION['logged'] ?? false) === true && !empty($_SESSION['username'])) {
     $username = (string) $_SESSION['username'];
+    $userId   = (int) ($_SESSION['user_id'] ?? 0) ?: null;
 }
 
 // Plus rien n'a besoin de la session : on la relâche pour ne pas bloquer
 // les autres requêtes de l'onglet.
 session_write_close();
+
+/* ------------------------------------------------------------------
+   Photo de profil Steam, pour le skin par défaut en jeu.
+
+   Best-effort UNIQUEMENT : cette page reste volontairement DB-free pour
+   tout visiteur non connecté (voir le commentaire d'en-tête). Pour un
+   joueur connecté, on tente la base ; toute panne (MySQL indisponible,
+   clé API absente, aucun compte Steam lié) est rattrapée ici et retombe
+   simplement sur « pas d'avatar » — jamais sur une page cassée.
+------------------------------------------------------------------ */
+$avatarUrl = '';
+
+if ($userId !== null) {
+    try {
+        $mgsConfigFile = __DIR__ . '/../../config.php';
+
+        if (is_file($mgsConfigFile)) {
+            $config = require $mgsConfigFile;   // définit $conn
+
+            require_once __DIR__ . '/../../php/links-model.php';
+            require_once __DIR__ . '/../../php/core/cache.php';
+            require_once __DIR__ . '/../../php/providers/steam.php';
+
+            $steamId = mgs_get_primary_account($conn, $userId, 'steam');
+
+            if ($steamId !== null) {
+                $apiKey = $config['PLATFORMS']['steam']['api_key'] ?? '';
+
+                if ($apiKey !== '') {
+                    $cacheFile = mgs_cache_file('avatar', 'steam', [$steamId]);
+                    $cache     = mgs_cache_read($cacheFile, 600);
+
+                    if ($cache !== null) {
+                        $avatarUrl = (string) ($cache['avatar'] ?? '');
+                    } else {
+                        $avatar = steam_fetch_avatar(['api_key' => $apiKey], $steamId);
+                        @file_put_contents($cacheFile, json_encode(['avatar' => $avatar]), LOCK_EX);
+                        $avatarUrl = (string) ($avatar ?? '');
+                    }
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('arene avatar: ' . $e->getMessage());
+        $avatarUrl = '';
+    }
+}
 
 /* ------------------------------------------------------------------
    L'URL passée à l'iframe.
@@ -63,6 +112,10 @@ session_write_close();
    Le salon vient de l'URL, donc du visiteur : on le borne aux mêmes
    caractères que le Worker (lettres, chiffres, tiret), sinon n'importe
    qui peut faire créer une infinité de salles.
+
+   La photo Steam (avatarUrl, calculée plus haut) part telle quelle : le
+   serveur du jeu la revalide de son côté (domaine Steam autorisé) avant de
+   la rediffuser aux autres joueurs, donc pas besoin de la restreindre ici.
 ------------------------------------------------------------------ */
 $salon = strtolower((string) ($_GET['salon'] ?? MGS_ARENE_SALON_DEFAUT));
 $salon = substr((string) preg_replace('/[^a-z0-9-]/', '', $salon), 0, 24);
@@ -76,7 +129,8 @@ $jeuUrl = '';
 if (MGS_ARENE_URL !== '') {
     $jeuUrl = MGS_ARENE_URL
         . '/?salon=' . rawurlencode($salon)
-        . ($username !== '' ? '&nom=' . rawurlencode($username) : '');
+        . ($username !== '' ? '&nom=' . rawurlencode($username) : '')
+        . ($avatarUrl !== '' ? '&avatar=' . rawurlencode($avatarUrl) : '');
 }
 ?>
 <!DOCTYPE html>

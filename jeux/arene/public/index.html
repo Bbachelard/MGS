@@ -66,6 +66,8 @@
                image-rendering: auto; pointer-events: none; }
   .perso:hover { border-color: var(--accent-clair); }
   .perso.actif { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(124,92,255,.25); }
+  /* Photo de profil Steam : cercle plein cadre, comme en jeu (façon agar.io). */
+  .perso-steam img { object-fit: cover; border-radius: 50%; }
 
   .aide { margin-top: 16px; font-size: 12px; color: #6d7690; line-height: 1.7; text-align: left; }
   kbd { background: #26262f; border: 1px solid var(--bord); border-bottom-width: 2px;

@@ -112,3 +112,33 @@ export function decor(nom) {
 
   return null;
 }
+
+/* ==========================================================================
+   Photos de profil Steam (skin "steam") — images distantes, une par joueur.
+
+   Même principe de cache que les personnages et le décor : un chargement en
+   tâche de fond par URL, jamais relancé, jamais bloquant pour le rendu.
+   ========================================================================== */
+
+const avatars = new Map(); // url -> HTMLImageElement (chargée) ou null (échec)
+const avatarsEnCours = new Set();
+
+/**
+ * L'image d'une photo Steam, ou null tant qu'elle n'est pas prête.
+ * `url` vient du serveur (déjà revalidée contre le CDN Steam côté serveur) :
+ * aucun filtre supplémentaire n'est nécessaire ici.
+ */
+export function avatar(url) {
+  if (!url) return null;
+
+  if (avatars.has(url)) return avatars.get(url);
+  if (avatarsEnCours.has(url)) return null;
+
+  avatarsEnCours.add(url);
+  const img = new Image();
+  img.onload = () => avatars.set(url, img);
+  img.onerror = () => avatars.set(url, null);
+  img.src = url;
+
+  return null;
+}

@@ -75,6 +75,13 @@ const boutonsTouches  = [...document.querySelectorAll(".toucheBouton")];
 const params = new URLSearchParams(location.search);
 const salon  = params.get("salon") || "principal";
 
+// Photo de profil Steam transmise par le site (?avatar=…) : source du skin
+// "steam" ci-dessous. Un contrôle minimal ici (le serveur revalide de toute
+// façon avant de la rediffuser aux autres joueurs) évite juste d'afficher
+// n'importe quoi dans SON PROPRE sélecteur si l'URL est bidouillée.
+const avatarSteamBrut = (params.get("avatar") || "").trim();
+const avatarSteam = /^https:\/\//i.test(avatarSteamBrut) ? avatarSteamBrut : "";
+
 // --- état du client ------------------------------------------------------
 let ws          = null;
 let monId       = null;
@@ -422,7 +429,8 @@ function connecter(nom) {
     `${proto}://${location.host}${base}ws` +
     `?nom=${encodeURIComponent(nom)}` +
     `&salon=${encodeURIComponent(salon)}` +
-    `&perso=${encodeURIComponent(persoChoisi)}`;
+    `&perso=${encodeURIComponent(persoChoisi)}` +
+    (persoChoisi === "steam" && avatarSteam ? `&avatar=${encodeURIComponent(avatarSteam)}` : "");
 
   ws = new WebSocket(url);
 
@@ -825,35 +833,48 @@ function afficher(alpha, temps) {
 
 async function preparerPersos() {
   const persos = await sprites.charger();
-  if (!persos.length) return; // aucun manifeste : on jouera en cercles
+  if (!persos.length && !avatarSteam) return; // rien à proposer : on jouera en cercles
 
-  const demande = (params.get("perso") || "").toLowerCase();
+  const demande  = (params.get("perso") || "").toLowerCase();
   const memorise = localStorage.getItem("arene-perso");
-  const defaut = persos.find((p) => p.id === demande) ||
-                 persos.find((p) => p.id === memorise) ||
-                 persos[0];
-  persoChoisi = defaut.id;
 
-  for (const p of persos) {
+  // "steam" est un skin virtuel (la photo transmise par le site), pas une
+  // entrée de persos.json — il faut le reconnaître à part.
+  const connu = (id) => (id === "steam" ? !!avatarSteam : persos.some((p) => p.id === id));
+
+  // Priorité : choix explicite dans l'URL > dernier choix mémorisé >
+  // photo Steam par défaut (pré-sélectionnée, mais on peut en changer) >
+  // premier personnage de la liste.
+  persoChoisi =
+    (connu(demande) && demande) ||
+    (connu(memorise) && memorise) ||
+    (avatarSteam ? "steam" : "") ||
+    (persos[0] && persos[0].id) ||
+    "defaut";
+
+  function ajouterBouton(id, nom, source, classeSupp) {
     const bouton = document.createElement("button");
     bouton.type = "button";
-    bouton.className = "perso" + (p.id === persoChoisi ? " actif" : "");
-    bouton.title = p.nom;
+    bouton.className = "perso" + (classeSupp ? " " + classeSupp : "") + (id === persoChoisi ? " actif" : "");
+    bouton.title = nom;
 
     const img = document.createElement("img");
-    img.src = p.fichier;
-    img.alt = p.nom;
+    img.src = source;
+    img.alt = nom;
     bouton.append(img);
 
     bouton.addEventListener("click", () => {
-      persoChoisi = p.id;
-      try { localStorage.setItem("arene-perso", p.id); } catch { /* navigation privée */ }
+      persoChoisi = id;
+      try { localStorage.setItem("arene-perso", id); } catch { /* navigation privée */ }
       for (const autre of choixPerso.children) autre.classList.remove("actif");
       bouton.classList.add("actif");
     });
 
     choixPerso.append(bouton);
   }
+
+  if (avatarSteam) ajouterBouton("steam", "Ta photo Steam", avatarSteam, "perso-steam");
+  for (const p of persos) ajouterBouton(p.id, p.nom, p.fichier);
 }
 
 async function lancer() {

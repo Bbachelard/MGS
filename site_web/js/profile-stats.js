@@ -119,7 +119,6 @@ async function chargerProfil() {
     chargerBibliotheques(etatComptes, { userId: PROFILE.userId, lectureSeule });
 
     dessinerHub(container);
-    majAvatarNavbar();
 }
 
 /** Stats d'un compte précis. */
@@ -205,29 +204,6 @@ function brancherBoutonsVerification() {
             }
         });
     });
-}
-
-/** Prend l'avatar du compte principal pour la navbar. */
-function majAvatarNavbar() {
-    if (lectureSeule) return;
-    const img = document.getElementById("navAvatar");
-    if (!img) return;
-
-    const avecAvatar = etatComptes.filter(e => e.account && e.data && e.data.avatar);
-
-    // Le principal d'abord ; à défaut, le premier compte qui a un avatar.
-    const choisi = avecAvatar.find(e => e.account.isPrimary) || avecAvatar[0];
-
-    if (!choisi) {
-        img.src = "../content/image/mgs_icon.png";
-        img.classList.remove("is-linked");
-        img.title = "";
-        return;
-    }
-
-    img.src = choisi.data.avatar;
-    img.classList.add("is-linked");
-    img.title = choisi.data.displayName;
 }
 
 /* ------------------------------------------------------------

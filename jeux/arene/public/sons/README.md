@@ -7,11 +7,15 @@ continue avec sa version « arcade » générée en WebAudio.
 
 ## Les treize sons attendus
 
+Le tir de base est un jet de caca : `tir`, `impact` et `touche` sont pensés
+pour ça (un "prrt" au départ, un "squelch" à l'arrivée) — dépose tes propres
+enregistrements pour aller plus loin que la synthèse WebAudio de secours.
+
 | Fichier | Quand il joue | Durée conseillée |
 |---|---|---|
-| `tir.ogg` | à chaque missile parti — c'est **le** son le plus entendu | 60 – 120 ms |
-| `impact.ogg` | missile qui finit dans un mur | 100 – 200 ms |
-| `touche.ogg` | missile qui touche un joueur | 100 – 200 ms |
+| `tir.ogg` | à chaque tir parti — c'est **le** son le plus entendu | 60 – 120 ms |
+| `impact.ogg` | le jet qui s'écrase dans un mur | 100 – 200 ms |
+| `touche.ogg` | le jet qui touche un joueur | 100 – 200 ms |
 | `mort.ogg` | une élimination (fort si c'est toi) | 300 – 700 ms |
 | `kill.ogg` | tu viens d'éliminer quelqu'un | 250 – 600 ms |
 | `soin.ogg` | croix verte ramassée, ou pleine vie gagnée sur un kill | 200 – 400 ms |

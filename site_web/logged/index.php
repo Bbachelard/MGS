@@ -63,7 +63,6 @@ if ($linked !== null) {
 
 <?php mgs_navbar([
     'username'  => $username,
-    'avatar'    => true,
     'platforms' => 'link',
     'friends'   => true,
     'logout'    => true,

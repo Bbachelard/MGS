@@ -70,3 +70,21 @@ function mgs_cache_store_and_send(string $fichier, string $json): never
     echo $json;
     exit;
 }
+
+/**
+ * Lit une entrée de cache si elle est encore fraîche, sans jamais imprimer
+ * ni s'arrêter — contrairement à mgs_cache_serve(). Pour les appelants qui
+ * ont besoin de la VALEUR en cache plutôt que d'y répondre directement
+ * (ex. game/arene/index.php, qui compose une URL au lieu de renvoyer du
+ * JSON). Renvoie null si absent, périmé, ou illisible.
+ */
+function mgs_cache_read(string $fichier, int $ttl): ?array
+{
+    if (!is_file($fichier) || (time() - filemtime($fichier)) >= $ttl) {
+        return null;
+    }
+
+    $data = json_decode((string) file_get_contents($fichier), true);
+
+    return is_array($data) ? $data : null;
+}

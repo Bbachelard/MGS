@@ -79,6 +79,38 @@ function nettoyerSprite(brut) {
   return id === "" ? "defaut" : id;
 }
 
+/**
+ * L'URL de la photo Steam (skin "steam") est rediffusée à TOUS les autres
+ * joueurs de la salle. Sans contrôle, n'importe qui peut se connecter au
+ * WebSocket en sautant la page PHP (qui, elle, ne fournit que de vraies
+ * URL Steam) et faire afficher n'importe quelle image chez tout le monde.
+ * On n'accepte donc que le CDN d'avatars Steam, en HTTPS.
+ */
+const HOTES_AVATAR_AUTORISES = new Set([
+  "avatars.akamai.steamstatic.com",
+  "avatars.cloudflare.steamstatic.com",
+  "avatars.steamstatic.com",
+  "steamcdn-a.akamaihd.net",
+]);
+
+function nettoyerAvatar(brut) {
+  const valeur = String(brut || "").slice(0, 300);
+  if (!valeur) return null;
+
+  let url;
+  try {
+    url = new URL(valeur);
+  } catch {
+    return null;
+  }
+
+  if (url.protocol !== "https:" || !HOTES_AVATAR_AUTORISES.has(url.hostname)) {
+    return null;
+  }
+
+  return url.href;
+}
+
 /* ==========================================================================
    Les fichiers statiques (le client)
    ========================================================================== */
@@ -202,7 +234,8 @@ serveur.on("upgrade", (requete, socket) => {
   cible.arrivee(
     co,
     nettoyerPseudo(url.searchParams.get("nom")),
-    nettoyerSprite(url.searchParams.get("perso"))
+    nettoyerSprite(url.searchParams.get("perso")),
+    nettoyerAvatar(url.searchParams.get("avatar"))
   );
 
   // Après arrivee(), surtout pas avant : c'est arrivee() qui pose le

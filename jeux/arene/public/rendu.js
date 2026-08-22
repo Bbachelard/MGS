@@ -24,16 +24,16 @@ import {
   MURS,
 } from "./shared.js";
 
-import { image, decor } from "./sprites.js";
+import { image, decor, avatar } from "./sprites.js";
 
 // La caméra du dernier rendu. Le client s'en sert pour transformer la
 // position de la souris (pixels écran) en angle de visée (monde).
 export const camera = { x: 0, y: 0 };
 
-// Le projectile change de tête à mesure que l'arme progresse. Deux familles :
-// chaud quand c'est la puissance qui monte, froid quand c'est la cadence.
-const TEINTES_DEGATS = ["#ffe9c4", "#ffd08a", "#ff9d5c", "#ff6b6b", "#ff4fd8", "#c084fc"];
-const TEINTES_CADENCE = ["#ffe9c4", "#cdf3ff", "#8fe6ff", "#4fd6ff", "#22d3ee", "#7c5cff"];
+// Le projectile fonce plus dans le marron à mesure que les dégâts montent —
+// ce qui restait lisible avec l'ancienne palette néon (couleur = puissance
+// de l'arme) le reste avec celle-ci, en plus discret.
+const TEINTES_CACA = ["#a9713a", "#96602c", "#83521f", "#6f4416", "#5c370f", "#48290a"];
 
 export function dessiner(ctx, vue, etat) {
   const { mx, my } = etat;
@@ -58,7 +58,7 @@ export function dessiner(ctx, vue, etat) {
   pastilles(ctx, etat, etat.temps);
   murs(ctx);
   zonesRalentissement(ctx, etat.zones, etat.temps);
-  missiles(ctx, etat.missiles);
+  missiles(ctx, etat.missiles, etat.temps);
   joueurs(ctx, etat);
   meteorites(ctx, etat.meteorites, etat.temps);
   effetsVisuels(ctx, etat.effets, etat.temps);
@@ -216,39 +216,97 @@ function zonesRalentissement(ctx, liste, temps) {
 
 /* -------------------------------------------------------------- missiles */
 
-function missiles(ctx, liste) {
+function missiles(ctx, liste, temps) {
   for (const m of liste) {
     const td = m.td || 0;
     const tv = m.tv || 0;
 
     // La tête du projectile grossit avec la puissance, la traînée s'allonge
     // avec la cadence : on voit d'un coup d'œil à quoi on a affaire.
-    const teinte =
-      td >= tv
-        ? TEINTES_DEGATS[Math.min(td, TEINTES_DEGATS.length - 1)]
-        : TEINTES_CADENCE[Math.min(tv, TEINTES_CADENCE.length - 1)];
+    const teinte = TEINTES_CACA[Math.min(td, TEINTES_CACA.length - 1)];
     const taille = RAYON_MISSILE * (1 + 0.16 * td);
     const longueur = 16 + 5 * tv;
 
     const tx = m.x - Math.cos(m.a) * longueur;
     const ty = m.y - Math.sin(m.a) * longueur;
 
+    // La traînée : une éclaboussure, pas un trait de lumière.
     const trainee = ctx.createLinearGradient(tx, ty, m.x, m.y);
     trainee.addColorStop(0, teinte + "00");
-    trainee.addColorStop(1, teinte + "cc");
+    trainee.addColorStop(1, teinte + "aa");
 
     ctx.strokeStyle = trainee;
-    ctx.lineWidth = taille;
+    ctx.lineWidth = taille * 0.8;
     ctx.lineCap = "round";
     ctx.beginPath();
     ctx.moveTo(tx, ty);
     ctx.lineTo(m.x, m.y);
     ctx.stroke();
 
-    ctx.fillStyle = "#fff8ec";
+    // La tête elle-même : ton sprite s'il existe (decor/caca.png), sinon un
+    // tas dessiné en code — toujours droit, comme un vrai tas au sol, pas
+    // tourné vers la trajectoire.
+    const image = decor("caca");
+
+    ctx.save();
+    ctx.translate(m.x, m.y);
+
+    if (image) {
+      const cote = taille * 2.6;
+      ctx.drawImage(image, -cote / 2, -cote / 2, cote, cote);
+    } else {
+      dessinerCaca(ctx, taille, teinte);
+    }
+
+    ctx.restore();
+
+    // Les effluves : deux volutes vertes qui ondulent en continu — c'est
+    // elles qui font l'"animation", que la tête vienne du code ou d'un PNG.
+    effluves(ctx, m.x, m.y, taille, temps);
+  }
+}
+
+/** Le tas, en trois boules empilées : la silhouette qu'on reconnaît tous. */
+function dessinerCaca(ctx, taille, teinte) {
+  ctx.fillStyle = teinte;
+
+  ctx.beginPath();
+  ctx.ellipse(0, taille * 0.35, taille * 0.95, taille * 0.65, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.ellipse(0, -taille * 0.05, taille * 0.7, taille * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.ellipse(0, -taille * 0.5, taille * 0.4, taille * 0.32, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Un reflet clair : sans lui, à cette taille, ce n'est qu'un tas informe.
+  ctx.fillStyle = "rgba(255,255,255,.35)";
+  ctx.beginPath();
+  ctx.ellipse(-taille * 0.18, -taille * 0.15, taille * 0.22, taille * 0.14, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Deux volutes qui montent en ondulant : l'odeur, en dessin animé. */
+function effluves(ctx, x, y, taille, temps) {
+  const t = (temps || 0) / 1000;
+
+  ctx.strokeStyle = "rgba(140, 214, 120, .55)";
+  ctx.lineWidth = 1.4;
+  ctx.lineCap = "round";
+
+  for (let i = 0; i < 2; i++) {
+    const decalage = i * 1.6;
+    const hauteur = taille * 1.8;
+    const ondulation = Math.sin(t * 3 + decalage) * taille * 0.5;
+    const base = (i - 0.5) * taille * 0.6;
+
     ctx.beginPath();
-    ctx.arc(m.x, m.y, taille * 0.7, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(x + base, y - taille * 0.6);
+    ctx.quadraticCurveTo(x + ondulation + base, y - hauteur * 0.6, x + base, y - hauteur);
+    ctx.stroke();
   }
 }
 
@@ -400,9 +458,37 @@ function joueurs(ctx, etat) {
     ctx.fill();
     ctx.globalAlpha = j.iv ? 0.45 + 0.35 * Math.sin(etat.temps / 60) : 1;
 
-    const img = image(j.sp);
+    const photoSteam = j.sp === "steam" ? avatar(j.av) : null;
+    const img = photoSteam || image(j.sp);
 
-    if (img) {
+    if (photoSteam) {
+      // Photo de profil : un cercle FIXE, façon agar.io — contrairement aux
+      // personnages dessinés, elle ne tourne pas avec la visée (un visage
+      // qui pivote sur lui-même serait juste moche). La direction est donc
+      // montrée séparément, par le même petit canon que le rendu de secours.
+      const rayonPhoto = RAYON * 1.15;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x, y, rayonPhoto, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(img, x - rayonPhoto, y - rayonPhoto, rayonPhoto * 2, rayonPhoto * 2);
+      ctx.restore();
+
+      ctx.lineWidth = estMoi ? 3 : 2;
+      ctx.strokeStyle = estMoi ? "#ffffff" : "rgba(0,0,0,.35)";
+      ctx.beginPath();
+      ctx.arc(x, y, rayonPhoto, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(255,255,255,.85)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + Math.cos(j.a || 0) * (rayonPhoto + 10), y + Math.sin(j.a || 0) * (rayonPhoto + 10));
+      ctx.stroke();
+
+    } else if (img) {
       // Le sprite est dessiné pointe à droite : une rotation de l'angle visé
       // suffit. C'est pour ça qu'un seul PNG par personnage suffit.
       const taille = RAYON * 2.4;

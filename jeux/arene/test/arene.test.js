@@ -63,10 +63,11 @@ function verifier(titre, condition, detail = "") {
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Un joueur factice : se connecte, garde le dernier snapshot reçu. */
-function joueur(nom, salon, perso) {
+function joueur(nom, salon, perso, avatar) {
   const ws = new WebSocket(
     `ws://127.0.0.1:${PORT}/ws?nom=${encodeURIComponent(nom)}&salon=${salon}` +
-      (perso === undefined ? "" : `&perso=${encodeURIComponent(perso)}`)
+      (perso === undefined ? "" : `&perso=${encodeURIComponent(perso)}`) +
+      (avatar === undefined ? "" : `&avatar=${encodeURIComponent(avatar)}`)
   );
 
   const etat = { ws, init: null, dernier: null, snapshots: 0, seq: 0, ev: [] };
@@ -319,6 +320,40 @@ try {
   );
 
   f.ws.close();
+  await attendre(150);
+
+  console.log('\nPhoto Steam (skin "steam")');
+
+  const g = joueur("Aguerio", "avatars", "steam", "https://avatars.steamstatic.com/abc123_full.jpg");
+  await g.pret;
+  await attendre(250);
+  verifier(
+    "une photo Steam du bon CDN est rediffusée avec le skin steam",
+    g.moi().sp === "steam" && g.moi().av === "https://avatars.steamstatic.com/abc123_full.jpg",
+    JSON.stringify({ sp: g.moi().sp, av: g.moi().av })
+  );
+
+  const h = joueur("Faussaire", "avatars", "steam", "https://evil.example.com/x.jpg");
+  await h.pret;
+  await attendre(250);
+  verifier(
+    "une URL hors du CDN Steam n'est jamais rediffusée aux autres joueurs",
+    h.moi().sp === "steam" && h.moi().av === undefined,
+    JSON.stringify({ sp: h.moi().sp, av: h.moi().av })
+  );
+
+  const k = joueur("SansPhoto", "avatars", "robot");
+  await k.pret;
+  await attendre(250);
+  verifier(
+    "un skin classique ne porte jamais de champ av (snapshot allégé)",
+    k.moi().sp === "robot" && k.moi().av === undefined,
+    JSON.stringify({ sp: k.moi().sp, av: k.moi().av })
+  );
+
+  g.ws.close();
+  h.ws.close();
+  k.ws.close();
   await attendre(150);
 
   console.log("\nCombat — tir, dégâts et cadence");

@@ -110,7 +110,7 @@ export class Salle {
 
   /* ---------------------------------------------------------------- entrée */
 
-  arrivee(co, nom, sprite) {
+  arrivee(co, nom, sprite, avatar) {
     const id = this.prochainId++;
     const depart = positionDeRespawn([...this.joueurs.values()]);
 
@@ -118,6 +118,7 @@ export class Salle {
       id,
       nom,
       sprite,
+      avatar, // URL Steam validée côté serveur, ou null — utilisée seulement si sprite === "steam"
       couleur: COULEURS[id % COULEURS.length],
       x: depart.x,
       y: depart.y,
@@ -855,6 +856,9 @@ export class Salle {
         n: j.nom,
         c: j.couleur,
         sp: j.sprite,
+        // Seul le skin "steam" a besoin de l'URL — l'omettre pour tous les
+        // autres garde le snapshot léger (envoyé 20 fois/s et par joueur).
+        ...(j.sprite === "steam" && j.avatar ? { av: j.avatar } : {}),
         x: Math.round(j.x * 10) / 10,
         y: Math.round(j.y * 10) / 10,
         a: Math.round(j.angle * 100) / 100,

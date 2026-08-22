@@ -216,6 +216,32 @@ function steam_message_introuvable(string $query): string
          . "ouvre ton profil Steam, l'identifiant est dans la barre d'adresse.";
 }
 
+/**
+ * Juste la photo de profil, pour la navbar et le skin en jeu.
+ *
+ * Un seul appel à GetPlayerSummaries : pas besoin de la bibliothèque, du
+ * niveau ou des badges (steam_fetch_stats() les récupère tous, ce qui est
+ * bien trop lourd pour n'afficher qu'une icône sur chaque page).
+ */
+function steam_fetch_avatar(array $cfg, string $accountId): ?string
+{
+    $apiKey = $cfg['api_key'] ?? '';
+
+    if ($apiKey === '') {
+        return null;
+    }
+
+    $data = mgs_http_get_json(
+        'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/'
+        . '?key=' . urlencode($apiKey)
+        . '&steamids=' . urlencode($accountId)
+    );
+
+    $avatar = $data['response']['players'][0]['avatarfull'] ?? null;
+
+    return is_string($avatar) && $avatar !== '' ? $avatar : null;
+}
+
 
 
 /**

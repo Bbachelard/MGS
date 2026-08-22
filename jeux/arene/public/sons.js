@@ -145,6 +145,31 @@ function bip({ de, vers, duree, type = "square", volume = 0.3 }) {
   o.stop(t + duree + 0.02);
 }
 
+/**
+ * Un oscillateur dont la fréquence tremble vite (vibrato) en même temps
+ * qu'elle plonge : la texture "molle" qui distingue un bruit organique
+ * d'un simple bip qui descend.
+ */
+function grognement({ de, vers, duree, volume = 0.3 }) {
+  const o = ctx.createOscillator();
+  const t = ctx.currentTime;
+  o.type = "sawtooth";
+  o.frequency.setValueAtTime(de, t);
+  o.frequency.exponentialRampToValueAtTime(Math.max(vers, 1), t + duree);
+
+  const vibrato = ctx.createOscillator();
+  const profondeur = ctx.createGain();
+  vibrato.frequency.value = 55; // tremblement rapide : le grain "mou"
+  profondeur.gain.value = de * 0.35;
+  vibrato.connect(profondeur).connect(o.frequency);
+  vibrato.start(t);
+  vibrato.stop(t + duree + 0.02);
+
+  o.connect(enveloppe(duree, volume));
+  o.start(t);
+  o.stop(t + duree + 0.02);
+}
+
 function souffle({ duree, coupure, volume = 0.35 }) {
   const taille = Math.floor(ctx.sampleRate * duree);
   const tampon = ctx.createBuffer(1, taille, ctx.sampleRate);
@@ -166,16 +191,25 @@ function souffle({ duree, coupure, volume = 0.35 }) {
   source.start();
 }
 
+/** Bruit filtré (l'humidité) + petit "flop" descendant (l'aplatissement). */
+function squelch({ duree, coupure, volume = 0.3 }) {
+  souffle({ duree, coupure, volume });
+  bip({ de: 260, vers: 90, duree: duree * 0.7, type: "triangle", volume: volume * 0.55 });
+}
+
 function synthese(nom, volume) {
   switch (nom) {
     case "tir":
-      bip({ de: 880, vers: 180, duree: 0.09, type: "square", volume: 0.16 * volume });
+      // Le "prrt" du jet — un grognement bref plutôt qu'un bip laser.
+      grognement({ de: 240, vers: 70, duree: 0.11, volume: 0.22 * volume });
       break;
     case "impact":
-      souffle({ duree: 0.13, coupure: 1400, volume: 0.18 * volume });
+      // Le tas qui s'écrase sur un mur : sec, plus haut que "touche".
+      squelch({ duree: 0.14, coupure: 1000, volume: 0.16 * volume });
       break;
     case "touche":
-      bip({ de: 320, vers: 120, duree: 0.12, type: "sawtooth", volume: 0.26 * volume });
+      // En pleine cible : plus grave, plus mouillé.
+      squelch({ duree: 0.2, coupure: 650, volume: 0.24 * volume });
       break;
     case "mort":
       bip({ de: 420, vers: 60, duree: 0.55, type: "sawtooth", volume: 0.34 * volume });

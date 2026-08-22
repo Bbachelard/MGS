@@ -17,7 +17,6 @@ require_once dirname(__DIR__) . '/platforms.php';
  *
  *      mgs_navbar([
  *          'username'  => $username,   // pseudo affiché dans la puce
- *          'avatar'    => true,        // id="navAvatar" (JS le remplace)
  *          'platforms' => 'link',      // 'link' | 'static' | 'none'
  *          'friends'   => true,        // boutons Amis / Ajouter un ami
  *          'actions'   => [['Mon profil', './index.php'], …],
@@ -29,6 +28,12 @@ require_once dirname(__DIR__) . '/platforms.php';
  *  construits à partir de $base et non en « ./ » : la barre est
  *  désormais affichée depuis d'autres dossiers que logged/, et un
  *  « ./disconnect.php » y pointait dans le vide.
+ *
+ *  L'avatar (photo de profil Steam, en haut à gauche) est automatique dès
+ *  qu'un $username est fourni : pas d'option à passer. La puce part sur
+ *  l'icône MGS par défaut, puis php/me-avatar.php la remplace en tâche de
+ *  fond — sur CETTE page comme sur toutes les autres, tant que la session
+ *  reste ouverte. Rien à faire si l'utilisateur n'a lié aucun compte Steam.
  * ================================================================== */
 
 /**
@@ -98,7 +103,7 @@ function mgs_navbar_platforms(string $mode, string $base): void
 
 /**
  * @param array{
- *   username?:string, avatar?:bool, platforms?:string, friends?:bool,
+ *   username?:string, platforms?:string, friends?:bool,
  *   actions?:list<array{0:string,1:string}>, logout?:bool, login?:bool,
  *   base?:string, active?:string
  * } $options
@@ -127,10 +132,27 @@ function mgs_navbar(array $options = []): void
 
     <?php if ($username !== ''): ?>
         <div class="user-chip">
-            <img <?= !empty($options['avatar']) ? 'id="navAvatar" ' : '' ?>class="nav-avatar"
+            <img id="navAvatar" class="nav-avatar"
                  src="<?= htmlspecialchars($base, ENT_QUOTES, 'UTF-8') ?>/content/image/mgs_icon.png" alt="Avatar">
             <span class="nav-username"><?= htmlspecialchars($username, ENT_QUOTES, 'UTF-8') ?></span>
         </div>
+        <script>
+        (function () {
+            var img = document.getElementById('navAvatar');
+            if (!img) return;
+
+            fetch(<?= json_encode($base . '/php/me-avatar.php', JSON_UNESCAPED_SLASHES) ?>, { credentials: 'same-origin' })
+                .then(function (reponse) { return reponse.ok ? reponse.json() : null; })
+                .then(function (data) {
+                    if (data && data.avatar) {
+                        img.src = data.avatar;
+                        img.classList.add('is-linked');
+                        img.title = 'Photo de profil Steam';
+                    }
+                })
+                .catch(function () { /* icône par défaut, tant pis */ });
+        })();
+        </script>
     <?php endif; ?>
 
     <?php mgs_navbar_platforms($options['platforms'] ?? 'none', $base); ?>
