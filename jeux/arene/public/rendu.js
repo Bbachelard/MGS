@@ -185,7 +185,7 @@ function ecusson(ctx) {
 // Un champ au sol qui grignote la vie et ralentit — la lecture doit être
 // immédiate : couleur franche, bord animé qui tourne pour dire « actif ».
 function zonesRalentissement(ctx, liste, temps) {
-  if (!liste) return;
+  
 
   for (const z of liste) {
     const pulse = 1 + Math.sin(temps / 220) * 0.035;
