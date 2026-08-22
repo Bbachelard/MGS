@@ -25,7 +25,7 @@ import {
   FLASH_DISTANCE,
   FLASH_RECHARGE,
   ZONE_RECHARGE,
-  ZONE_PORTEE,
+  ZONE_RAYON,
   ZONE_DUREE,
   ZONE_RALENTI,
   ZONE_TIC,
@@ -41,6 +41,7 @@ import {
   cadenceDe,
   degatsDe,
   TICK_MS,
+  MONDE,
 } from "../public/shared.js";
 
 const RACINE = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -689,21 +690,22 @@ try {
 
   {
     const salle = salleDeTest();
-    // (1450,150) est loin de tout mur : tout droit vers le bas sur 300 px
-    // (portée max) reste dégagé, jusqu'à (1450,450).
+    // (1450,150) est loin de tout mur : tout droit vers le bas reste
+    // dégagé jusqu'au bord du monde.
     const lanceur = poser(salle, "A", 1450, 150);
 
-    // Portée : un clic à 900 px (bien au-delà de ZONE_PORTEE) est ramené
-    // à 300 px, dans la même direction.
+    // ZONE_PORTEE couvre désormais toute la carte : un clic à 900 px, même
+    // bien au-delà de l'ancienne portée (300 px), n'est plus ramené —
+    // seul le bord du monde arrête la pose.
     salle.message(lanceur, JSON.stringify({ t: "zone", x: 1450, y: 1050 }));
     verifier("la zone se pose", salle.zones.length === 1);
 
     const zone = salle.zones[0];
     const distance = Math.hypot(zone.x - 1450, zone.y - 150);
     verifier(
-      "la portée est bornée à ZONE_PORTEE",
-      Math.abs(distance - ZONE_PORTEE) < 1,
-      `distance=${distance.toFixed(1)}`
+      "la portée n'est plus la limite : la pose va jusqu'au bord du monde",
+      distance > 500 && zone.y > MONDE.h - ZONE_RAYON - 20,
+      `distance=${distance.toFixed(1)} y=${zone.y.toFixed(1)}`
     );
     verifier(
       "la recharge se met en place",
@@ -721,16 +723,17 @@ try {
   {
     const salle = salleDeTest();
     // Tout près du mur { x:300, y:200, l:40, h:300 } : viser vers la
-    // gauche, sur 300 px, tombe dedans bien avant la portée maximale.
+    // gauche tombe dedans bien avant les 900 px cliqués.
     const lanceur = poser(salle, "A", 500, 400);
+    const distanceCliquee = 900;
 
-    salle.message(lanceur, JSON.stringify({ t: "zone", x: 500 - 900, y: 400 }));
+    salle.message(lanceur, JSON.stringify({ t: "zone", x: 500 - distanceCliquee, y: 400 }));
 
     const zone = salle.zones[0];
     const distance = Math.hypot(zone.x - 500, zone.y - 400);
     verifier(
-      "un mur arrête la pose avant la portée maximale",
-      distance > 0 && distance < ZONE_PORTEE - 1,
+      "un mur arrête la pose bien avant le point cliqué",
+      distance > 0 && distance < distanceCliquee - 100,
       `distance=${distance.toFixed(1)}`
     );
   }

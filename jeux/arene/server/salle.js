@@ -396,7 +396,12 @@ export class Salle {
     const portee = Math.min(distance, ZONE_PORTEE);
     const angle = distance > 0 ? Math.atan2(versY, versX) : j.angle;
 
-    const PAS = 12;
+    // Un pas tous les ~20 px, pas un nombre de pas fixe : ZONE_PORTEE couvre
+    // désormais toute la carte, donc un compte de pas fixe donnerait des
+    // enjambées énormes sur un tir long — assez pour sauter par-dessus un
+    // mur fin, ou pour arrêter la pose bien avant l'obstacle réel.
+    const RESOLUTION = 20;
+    const PAS = Math.max(1, Math.ceil(portee / RESOLUTION));
     let x = j.x;
     let y = j.y;
 

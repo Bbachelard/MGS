@@ -219,7 +219,7 @@ export const DUREE_RAYON = 0.8;        // s de vol maximum
 // un. Recharge courte, et surtout : une élimination la réinitialise aussitôt
 // — c'est la récompense de l'agressivité, comme le soin au kill.
 export const FLASH_DISTANCE = 220;    // px parcourus d'un coup
-export const FLASH_RECHARGE = 5;      // s avant de pouvoir la relancer
+export const FLASH_RECHARGE = 3;      // s avant de pouvoir la relancer
 // Le flash traverse les murs — seules les limites de la carte l'arrêtent
 // (voir server/salle.js#declencherFlash). C'est ce qui en fait un VRAI outil
 // d'évasion : se réfugier derrière un mur ne suffit plus à être à l'abri.
@@ -230,7 +230,10 @@ export const FLASH_RECHARGE = 5;      // s avant de pouvoir la relancer
 // son lanceur. Inspirée d'un sort de zone classique façon MOBA : on la pose
 // pour contrôler un couloir, pas pour viser précisément.
 export const ZONE_RECHARGE = 10;       // s avant de pouvoir la relancer
-export const ZONE_PORTEE = ULTI_LONGUEUR; // même portée que le cadran de l'ulti (300 px)
+// Plus loin que la diagonale du monde (1600×900 ≈ 1836 px) : la portée
+// n'est donc jamais ce qui arrête la pose, seuls les murs et les bords de
+// la carte le font — la zone peut viser n'importe quel point visible.
+export const ZONE_PORTEE = 2000;
 export const ZONE_RAYON = 90;          // rayon de la zone au sol
 export const ZONE_DUREE = 3.0;         // s pendant lesquelles elle agit
 export const ZONE_RALENTI = 0.5;       // ×0,5 sur la vitesse de déplacement

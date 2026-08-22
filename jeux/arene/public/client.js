@@ -185,6 +185,19 @@ function labelTouche(code) {
    ========================================================================== */
 
 addEventListener("keydown", (e) => {
+  // Échap : LA sortie de secours. Rien d'autre au clavier ne permettait de
+  // reprendre la main une fois entré dans l'arène — le panneau de réglages,
+  // lui, n'a pas `cursor: none` et rend donc la souris immédiatement visible
+  // et libre. Avant tout autre test : elle doit marcher quel que soit le
+  // focus, et même verrouillée sur une touche en cours de remappage — mais
+  // dans ce cas le capteur de remappage (plus bas) intercepte l'événement
+  // en premier et coupe sa propagation, donc on n'arrive jamais ici.
+  if (e.code === "Escape") {
+    if (reglages.hidden) ouvrirReglages(); else fermerLeReglages();
+    e.preventDefault();
+    return;
+  }
+
   if (!reglages.hidden) return; // le panneau de réglages est ouvert : on ne joue pas
   if (document.activeElement instanceof HTMLInputElement) return; // on tape son pseudo
 
