@@ -100,7 +100,7 @@ function mgs_group_games(): array
                            . "bouscule, on glisse le long des murs. Serveur autoritaire, "
                            . "prédiction côté client et interpolation — les techniques de "
                            . "Quake III, en 500 lignes. Rien à installer.",
-            'image'       => null,
+            'image'       => '/content/image/games/arene.jpg',
             'plateformes' => ['Navigateur'],
             'joueurs'     => 'Multijoueur en ligne',
             'version'     => 'v0.1',

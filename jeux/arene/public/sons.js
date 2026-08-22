@@ -32,6 +32,15 @@ export const SONS = [
   "ulti-rate",   // 1 tour et demi pour rien
   "flash",       // bond instantané
   "zone",        // champ de ralentissement invoqué
+
+  // Séries de kills (multikill), façon LoL / Call of Duty — voir
+  // FENETRE_MULTIKILL et NOMS_SERIE dans shared.js. Un fichier par palier,
+  // du même nom que le libellé (en minuscules, tirets) : "double-kill.ogg"
+  // remplace le "Double Kill" synthétisé, etc.
+  "double-kill",
+  "triple-kill",
+  "quadra-kill",
+  "penta-kill",
 ];
 
 // L'ordre compte : on prend le premier format trouvé.
@@ -273,6 +282,52 @@ function synthese(nom, volume) {
       // Un grondement sourd, court : quelque chose vient de s'ouvrir au sol.
       souffle({ duree: 0.3, coupure: 500, volume: 0.26 * volume });
       bip({ de: 220, vers: 90, duree: 0.28, type: "sawtooth", volume: 0.2 * volume });
+      break;
+
+    /* --------------------------------------------------------------------
+       Séries de kills — chaque palier reprend l'idée de "kill" (des notes
+       qui montent) mais en ajoute une de plus et en durcit le grain, pour
+       qu'on sente la montée en gamme rien qu'à l'oreille, sans regarder
+       l'écran.
+       -------------------------------------------------------------------- */
+    case "double-kill":
+      bip({ de: 660, vers: 660, duree: 0.09, type: "triangle", volume: 0.28 * volume });
+      setTimeout(() => actif && bip({ de: 880, vers: 880, duree: 0.09, type: "triangle", volume: 0.28 * volume }), 90);
+      setTimeout(() => actif && bip({ de: 1100, vers: 1100, duree: 0.16, type: "triangle", volume: 0.3 * volume }), 180);
+      break;
+
+    case "triple-kill":
+      bip({ de: 660, vers: 660, duree: 0.08, type: "triangle", volume: 0.28 * volume });
+      setTimeout(() => actif && bip({ de: 830, vers: 830, duree: 0.08, type: "triangle", volume: 0.28 * volume }), 80);
+      setTimeout(() => actif && bip({ de: 1046, vers: 1046, duree: 0.08, type: "triangle", volume: 0.3 * volume }), 160);
+      setTimeout(() => actif && bip({ de: 1318, vers: 1318, duree: 0.2, type: "triangle", volume: 0.32 * volume }), 240);
+      setTimeout(() => actif && verre({ duree: 0.16, volume: 0.16 * volume }), 240);
+      break;
+
+    case "quadra-kill":
+      // Un peu de sawtooth en dessous, pour que ça pèse davantage qu'un
+      // simple arpège de "kill" : quatre éliminations, ça se mérite.
+      for (let i = 0; i < 4; i++) {
+        setTimeout(() => actif && bip({
+          de: 660 * Math.pow(1.26, i), vers: 660 * Math.pow(1.26, i),
+          duree: i === 3 ? 0.24 : 0.09, type: "triangle", volume: (0.28 + i * 0.02) * volume,
+        }), i * 80);
+      }
+      setTimeout(() => actif && grognement({ de: 180, vers: 90, duree: 0.3, volume: 0.14 * volume }), 0);
+      break;
+
+    case "penta-kill":
+      // Le grand moment : un arpège rapide de cinq notes, une basse qui
+      // gronde en dessous, et un éclat de verre à la fin — la plus longue et
+      // la plus forte des cinq sonorités de série.
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => actif && bip({
+          de: 523 * Math.pow(1.26, i), vers: 523 * Math.pow(1.26, i),
+          duree: i === 4 ? 0.32 : 0.1, type: "triangle", volume: (0.3 + i * 0.02) * volume,
+        }), i * 90);
+      }
+      grognement({ de: 130, vers: 65, duree: 0.6, volume: 0.22 * volume });
+      setTimeout(() => actif && verre({ duree: 0.22, volume: 0.22 * volume }), 360);
       break;
   }
 }

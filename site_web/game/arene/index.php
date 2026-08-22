@@ -193,15 +193,17 @@ if ($username !== '') {
                 class="arene-iframe"
                 src="<?= htmlspecialchars($jeuUrl, ENT_QUOTES, 'UTF-8') ?>"
                 title="Arène MGS"
-                allow="fullscreen"
+                allow="fullscreen; pointer-lock"
                 allowfullscreen
                 referrerpolicy="no-referrer"></iframe>
         </div>
 
         <p class="arene-note">
             Clique dans le jeu avant de jouer : sans ça, le clavier reste sur la
-            page. Ouvre cette adresse dans un deuxième onglet, ou envoie-la à un
-            ami, pour voir le multijoueur.
+            page. Une fois entré dans l'arène, la souris reste capturée dans le
+            jeu — Échap est la seule touche qui la libère. Ouvre cette adresse
+            dans un deuxième onglet, ou envoie-la à un ami, pour voir le
+            multijoueur.
             <a class="arene-lien" href="<?= htmlspecialchars($jeuUrl, ENT_QUOTES, 'UTF-8') ?>"
                target="_blank" rel="noopener">Ouvrir en plein écran</a>
         </p>

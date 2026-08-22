@@ -576,7 +576,9 @@ function joueurs(ctx, etat) {
     ctx.font = "600 12px ui-sans-serif, system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.fillStyle = estMoi ? "#ffffff" : "#c3cbdd";
-    ctx.fillText(j.n, x, y - RAYON - 20);
+    // "🤖 " devant le pseudo d'un bot : on veut pouvoir le reconnaître d'un
+    // coup d'œil, en plein combat, sans aller consulter le tableau des scores.
+    ctx.fillText(j.ia ? "🤖 " + j.n : j.n, x, y - RAYON - 20);
   }
 }
 

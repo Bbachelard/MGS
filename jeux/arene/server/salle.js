@@ -20,6 +20,9 @@ import {
   simuler,
   positionDeDepart,
   positionDeRespawn,
+  ligneDeVue,
+  FENETRE_MULTIKILL,
+  NOMS_SERIE,
   // combat
   PV_MAX,
   INVULN_RESPAWN,
@@ -75,6 +78,100 @@ const DT = TICK_MS / 1000; // 0,05 s
 // Le rayon d'ulti et les météorites vont vite : on découpe leur pas en
 // morceaux, sinon ils « sautent » par-dessus un joueur d'un tick à l'autre.
 const SOUS_PAS = 8;
+
+/* ============================================================================
+   BOTS — des joueurs pilotés par le serveur, pas par un WebSocket.
+                                                                              ..
+   Un bot est un joueur ordinaire (mêmes champs, mêmes règles, mêmes dégâts)
+   dont la « connexion » ne fait rien (voir fausseConnexionBot ci-dessous) et
+   dont les commandes ne viennent pas du réseau mais de piloterBot(), appelé
+   à chaque tick. Le reste du fichier — tir, dégâts, mort, séries de kills —
+   ne sait même pas qu'un bot n'est pas un vrai joueur : c'est ce qui garantit
+   qu'un bot suit exactement les mêmes règles que tout le monde.
+
+   Trois difficultés, réglées ICI et nulle part ailleurs.
+   ============================================================================ */
+
+// Sécurité indépendante de MAX_JOUEURS_PAR_SALLE (server/index.js, 32) : les
+// bots ne doivent jamais, à eux seuls, remplir une salle destinée à de vrais
+// joueurs.
+const MAX_BOTS_PAR_SALLE = 16;
+
+const NOMS_BOTS = [
+  "Bot Nova", "Bot Titan", "Bot Griffe", "Bot Spectre",
+  "Bot Vortex", "Bot Faucon", "Bot Marteau", "Bot Ombre",
+  "Bot Comète", "Bot Sentinelle", "Bot Rouille", "Bot Éclipse",
+  "Bot Braise", "Bot Glacier", "Bot Foudre", "Bot Météore",
+];
+
+const SPRITES_BOTS = ["defaut", "vaisseau", "robot", "fantome"];
+
+// Portée à laquelle un bot accepte de tirer — plus courte que la portée de
+// vision (il voit venir un ennemi avant de pouvoir viablement le toucher).
+const PARAM_BOTS = {
+  facile: {
+    decisionMs: 700,        // fréquence à laquelle il retarget / redirige
+    erreurVisee: 0.34,      // rad — vise large, façon débutant
+    tirSeuil: 0.18,         // ne tire que quand le viseur bruité tombe juste
+    tirProbabilite: 0.5,    // hésite, même bien aligné
+    porteeVision: 480,
+    porteeTir: 380,
+    distanceEngagement: 220,
+    kite: false,
+    utiliseFlash: false,
+    utiliseZone: false,
+    utiliseUlti: false,
+    pvFuite: 0.2,
+  },
+  moyen: {
+    decisionMs: 380,
+    erreurVisee: 0.14,
+    tirSeuil: 0.11,
+    tirProbabilite: 0.85,
+    porteeVision: 700,
+    porteeTir: 560,
+    distanceEngagement: 320,
+    kite: true,
+    utiliseFlash: true,
+    utiliseZone: true,
+    utiliseUlti: false,
+    pvFuite: 0.35,
+  },
+  difficile: {
+    decisionMs: 170,
+    erreurVisee: 0.045,
+    tirSeuil: 0.05,
+    tirProbabilite: 1,
+    porteeVision: 950,
+    porteeTir: 760,
+    distanceEngagement: 380,
+    kite: true,
+    utiliseFlash: true,
+    utiliseZone: true,
+    utiliseUlti: true,
+    pvFuite: 0.4,
+  },
+};
+
+/** Une « connexion » de bot : la salle peut y écrire, personne ne lit jamais. */
+function fausseConnexionBot() {
+  return { envoyer() {}, envoyerTrame() {}, fermer() {} };
+}
+
+/** Différence d'angle entre a et b, ramenée dans [-π, π]. */
+function angleDiff(a, b) {
+  let d = a - b;
+  while (d > Math.PI) d -= 2 * Math.PI;
+  while (d < -Math.PI) d += 2 * Math.PI;
+  return d;
+}
+
+function clamperMonde(x, y) {
+  return {
+    x: Math.max(RAYON, Math.min(MONDE.l - RAYON, x)),
+    y: Math.max(RAYON, Math.min(MONDE.h - RAYON, y)),
+  };
+}
 
 export class Salle {
   constructor(nom, quandVide) {
@@ -142,6 +239,15 @@ export class Salle {
       paliers: 0, // paliers gagnés, pas encore dépensés
       choixOuvert: false, // un choix d'amélioration est affiché au joueur
 
+      // Série de kills (multikill) — voir mourir() et FENETRE_MULTIKILL.
+      serieKills: 0,
+      dernierKillTick: null,
+
+      // Bot — voir ajouterBot() plus bas. false pour un vrai joueur.
+      bot: false,
+      difficulte: null,
+      ia: null,
+
       co,
       fileCommandes: [],
       dernierSeq: 0,
@@ -191,9 +297,231 @@ export class Salle {
     // personne : on les laisse mourir de leur belle mort.
     if (this.gel && this.gel.parId === id) this.gel = null;
 
-    if (this.joueurs.size === 0) {
+    // Une salle ne vit que pour de VRAIS joueurs : si le dernier humain part,
+    // elle se vide même s'il reste des bots — sinon des bots continueraient
+    // à se battre seuls, pour toujours, dans une salle que personne ne voit.
+    if (this.nbJoueursReels() === 0) {
+      for (const j of [...this.joueurs.values()]) {
+        if (j.bot) this.joueurs.delete(j.id);
+      }
       this.arreterBoucle();
       this.quandVide?.(this);
+    }
+  }
+
+  /* ------------------------------------------------------------------ bots */
+
+  nbBots() {
+    let n = 0;
+    for (const j of this.joueurs.values()) if (j.bot) n++;
+    return n;
+  }
+
+  nbJoueursReels() {
+    return this.joueurs.size - this.nbBots();
+  }
+
+  nomBotLibre() {
+    const pris = new Set([...this.joueurs.values()].filter((j) => j.bot).map((j) => j.nom));
+    for (const nom of NOMS_BOTS) if (!pris.has(nom)) return nom;
+    return "Bot " + this.prochainId; // repli si les seize noms sont déjà pris
+  }
+
+  /**
+   * Ajoute un bot au niveau de difficulté demandé. `arrivee()` fait tout le
+   * travail commun à un vrai joueur (id, position de départ, message init —
+   * envoyé dans le vide, la fausse connexion ne fait rien) ; on ne fait
+   * qu'ajouter par-dessus ce qui distingue un bot.
+   */
+  ajouterBot(difficulteBrute) {
+    if (this.nbBots() >= MAX_BOTS_PAR_SALLE) return null;
+    // Sécurité miroir de MAX_JOUEURS_PAR_SALLE (server/index.js) : les bots ne
+    // doivent jamais pousser une salle au-delà de sa capacité pour de vrais
+    // joueurs.
+    if (this.joueurs.size >= 32) return null;
+
+    const difficulte = PARAM_BOTS[difficulteBrute] ? difficulteBrute : "moyen";
+    const sprite = SPRITES_BOTS[Math.floor(Math.random() * SPRITES_BOTS.length)];
+
+    const joueur = this.arrivee(fausseConnexionBot(), this.nomBotLibre(), sprite, null);
+    joueur.bot = true;
+    joueur.difficulte = difficulte;
+    joueur.ia = { destination: null, cibleId: null, prochaineDecisionTick: 0, seq: 0 };
+
+    return joueur;
+  }
+
+  /** Retire le bot arrivé le plus récemment — le plus simple à comprendre pour qui clique. */
+  retirerBot() {
+    let dernier = null;
+    for (const j of this.joueurs.values()) if (j.bot) dernier = j;
+    if (dernier) this.depart(dernier.id);
+    return dernier;
+  }
+
+  /**
+   * Calcule et pousse la commande du tick pour chaque bot, exactement comme le
+   * ferait message() pour un vrai joueur — avancerJoueurs() ne fait ensuite
+   * aucune différence entre les deux.
+   */
+  avancerBots() {
+    for (const j of this.joueurs.values()) {
+      if (j.bot) this.piloterBot(j);
+    }
+  }
+
+  piloterBot(j) {
+    const parametres = PARAM_BOTS[j.difficulte] || PARAM_BOTS.moyen;
+
+    // Pendant SA PROPRE pause temporelle : viser l'aiguille et tirer au bon
+    // moment est tout ce qu'un bot peut faire — comme un vrai joueur, il ne
+    // bouge plus. Seul un bot « difficile » sait faire ce calcul ; les autres
+    // laissent filer le tour et demi (l'ulti est perdue, comme un joueur qui
+    // hésite).
+    if (this.gel && this.gel.parId === j.id && !this.gel.rayon) {
+      this.viserRayonBot(j, parametres);
+      return;
+    }
+
+    if (this.gel) return; // le temps est figé par quelqu'un d'autre : on ne bouge pas non plus
+
+    if (this.tick >= j.ia.prochaineDecisionTick) {
+      // Un peu de gigue (± 30 %) pour que plusieurs bots ne redécident pas
+      // tous au même tick.
+      const pasTicks = Math.max(1, Math.round(parametres.decisionMs / TICK_MS));
+      j.ia.prochaineDecisionTick = this.tick + Math.round(pasTicks * (0.7 + Math.random() * 0.6));
+      this.deciderBot(j, parametres);
+    }
+
+    const cible = j.ia.cibleId != null ? this.joueurs.get(j.ia.cibleId) : null;
+    let angleCmd = j.angle;
+    let tirer = false;
+
+    if (cible && cible.pv > 0) {
+      const dx = cible.x - j.x;
+      const dy = cible.y - j.y;
+      const distance = Math.hypot(dx, dy);
+      const visible = distance <= parametres.porteeVision && ligneDeVue(j.x, j.y, cible.x, cible.y);
+
+      if (visible) {
+        const angleExact = Math.atan2(dy, dx);
+        // Le bruit est retiré à chaque tick : un bot ne vise jamais avec un
+        // décalage CONSTANT (trop lisible), il « tremble » comme une visée
+        // humaine, et ne tire que quand le tremblement retombe sous le seuil.
+        const bruit = (Math.random() * 2 - 1) * parametres.erreurVisee;
+        angleCmd = angleExact + bruit;
+        tirer =
+          distance <= parametres.porteeTir &&
+          Math.abs(bruit) <= parametres.tirSeuil &&
+          Math.random() < parametres.tirProbabilite;
+
+        if (parametres.utiliseFlash && j.flashRecharge <= 0 && j.pv / PV_MAX <= parametres.pvFuite) {
+          j.angle = angleExact + Math.PI; // le flash part dans j.angle : fuir, donc à l'opposé
+          this.declencherFlash(j);
+        } else if (
+          parametres.utiliseZone &&
+          j.zoneRecharge <= 0 &&
+          distance > 90 &&
+          Math.random() < 0.05
+        ) {
+          this.declencherZone(j, cible.x, cible.y);
+        } else if (
+          parametres.utiliseUlti &&
+          !this.gel &&
+          j.ulti >= ULTI_MAX &&
+          distance <= 500 &&
+          Math.random() < 0.1
+        ) {
+          this.declencherUlti(j);
+        }
+      }
+    } else {
+      j.ia.cibleId = null;
+    }
+
+    j.fileCommandes.push({
+      seq: ++j.ia.seq,
+      dt: DT,
+      c: j.ia.destination,
+      a: angleCmd,
+      f: tirer,
+    });
+  }
+
+  /** Choisit une cible (le joueur visible le plus proche) et une destination. */
+  deciderBot(j, parametres) {
+    let meilleure = null;
+    let meilleureDistance = Infinity;
+
+    for (const autre of this.joueurs.values()) {
+      if (autre.id === j.id || autre.pv <= 0) continue;
+      const distance = Math.hypot(autre.x - j.x, autre.y - j.y);
+      if (distance > parametres.porteeVision) continue;
+      if (!ligneDeVue(j.x, j.y, autre.x, autre.y)) continue;
+      if (distance < meilleureDistance) {
+        meilleure = autre;
+        meilleureDistance = distance;
+      }
+    }
+
+    j.ia.cibleId = meilleure ? meilleure.id : null;
+
+    if (!meilleure) {
+      // Personne en vue : on erre, sans jamais viser un point dans un mur —
+      // positionDeDepart() s'en charge déjà pour le vrai départ des joueurs.
+      if (!j.ia.destination || Math.hypot(j.ia.destination.x - j.x, j.ia.destination.y - j.y) < 40) {
+        j.ia.destination = positionDeDepart();
+      }
+      return;
+    }
+
+    const dx = meilleure.x - j.x;
+    const dy = meilleure.y - j.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const ux = dx / distance;
+    const uy = dy / distance;
+    const fuite = j.pv / PV_MAX <= parametres.pvFuite;
+
+    if (fuite) {
+      j.ia.destination = clamperMonde(j.x - ux * 240, j.y - uy * 240);
+    } else if (distance > parametres.distanceEngagement) {
+      j.ia.destination = clamperMonde(
+        meilleure.x - ux * parametres.distanceEngagement * 0.6,
+        meilleure.y - uy * parametres.distanceEngagement * 0.6
+      );
+    } else if (parametres.kite && distance < parametres.distanceEngagement * 0.5) {
+      // Kite : recule un peu pour rester à distance de tir plutôt que de se
+      // coller à la cible — réservé aux difficultés moyenne et difficile.
+      j.ia.destination = clamperMonde(j.x - ux * 150, j.y - uy * 150);
+    } else {
+      // Un petit décalage latéral façon « strafe » : rester immobile face à
+      // face serait le signe le plus voyant d'un bot.
+      const cote = Math.random() < 0.5 ? 1 : -1;
+      j.ia.destination = clamperMonde(j.x - uy * cote * 60, j.y + ux * cote * 60);
+    }
+  }
+
+  /** Pendant sa propre ulti : vise l'aiguille sur la cible la plus proche et tire au bon moment. */
+  viserRayonBot(j, parametres) {
+    if (!parametres.utiliseUlti) return; // seul un bot « difficile » tente ce calcul
+
+    let meilleure = null;
+    let meilleureDistance = Infinity;
+    for (const autre of this.joueurs.values()) {
+      if (autre.id === j.id || autre.pv <= 0) continue;
+      const distance = Math.hypot(autre.x - j.x, autre.y - j.y);
+      if (distance < meilleureDistance && ligneDeVue(j.x, j.y, autre.x, autre.y)) {
+        meilleure = autre;
+        meilleureDistance = distance;
+      }
+    }
+    if (!meilleure) return;
+
+    const angleAiguilleActuel = angleAiguille(this.gel, this.gel.t);
+    const angleCible = Math.atan2(meilleure.y - j.y, meilleure.x - j.x);
+
+    if (Math.abs(angleDiff(angleAiguilleActuel, angleCible)) < 0.1) {
+      this.tirerRayon(j);
     }
   }
 
@@ -242,6 +570,14 @@ export class Salle {
       if (Number.isFinite(x) && Number.isFinite(y)) this.declencherZone(joueur, x, y);
     } else if (msg.t === "amelioration") {
       this.appliquerAmelioration(joueur, msg.choix);
+    } else if (msg.t === "bot") {
+      // N'importe quel joueur du salon peut ajouter ou retirer des bots :
+      // c'est une décision de salle, pas un privilège — comme le nom du
+      // salon lui-même (voir server/index.js). Le serveur seul décide du
+      // plafond (MAX_BOTS_PAR_SALLE) et du comportement ; le client ne fait
+      // que demander.
+      if (msg.action === "ajouter") this.ajouterBot(String(msg.difficulte || "moyen"));
+      else if (msg.action === "retirer") this.retirerBot();
     } else if (msg.t === "ping") {
       joueur.co.envoyer(JSON.stringify({ t: "pong", t0: msg.t0 }));
     }
@@ -262,6 +598,7 @@ export class Salle {
 
   pas() {
     this.tick++;
+    this.avancerBots();
 
     if (this.gel) {
       // PAUSE TEMPORELLE : plus personne ne bouge, plus rien ne vole, les
@@ -670,6 +1007,30 @@ export class Salle {
           enAttente: tueur.paliers,
         });
       }
+
+      // Série de kills (Double/Triple/Quadra/Penta), façon Multikill de LoL :
+      // seul le temps écoulé depuis la DERNIÈRE élimination compte — mourir
+      // entre deux ne coupe rien (voir FENETRE_MULTIKILL dans shared.js).
+      const dansLaFenetre =
+        tueur.dernierKillTick !== null &&
+        (this.tick - tueur.dernierKillTick) * DT <= FENETRE_MULTIKILL;
+      tueur.serieKills = dansLaFenetre ? tueur.serieKills + 1 : 1;
+      tueur.dernierKillTick = this.tick;
+
+      // Rien au-delà de 5 (Penta Kill) : la série continue de compter en
+      // silence, comme un Penta répété — voir NOMS_SERIE dans shared.js.
+      const nomSerie = NOMS_SERIE[tueur.serieKills];
+      if (nomSerie) {
+        this.evenements.push({
+          t: "multikill",
+          sur: tueur.id,
+          nom: tueur.nom,
+          n: tueur.serieKills,
+          label: nomSerie,
+          x: tueur.x,
+          y: tueur.y,
+        });
+      }
     }
 
     this.evenements.push({
@@ -872,6 +1233,9 @@ export class Salle {
         // Seul le skin "steam" a besoin de l'URL — l'omettre pour tous les
         // autres garde le snapshot léger (envoyé 20 fois/s et par joueur).
         ...(j.sprite === "steam" && j.avatar ? { av: j.avatar } : {}),
+        // Marque un bot pour l'affichage (étiquette, tableau des scores) —
+        // omis pour un vrai joueur, comme le reste des champs par défaut.
+        ...(j.bot ? { ia: 1 } : {}),
         x: Math.round(j.x * 10) / 10,
         y: Math.round(j.y * 10) / 10,
         a: Math.round(j.angle * 100) / 100,
