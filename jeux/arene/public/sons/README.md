@@ -5,7 +5,7 @@ cherche chaque nom au démarrage, et chaque fichier trouvé remplace le son
 synthétique de secours. Un fichier absent n'est pas une erreur — le jeu
 continue avec sa version « arcade » générée en WebAudio.
 
-## Les treize sons attendus
+## Les dix-sept sons attendus
 
 Le tir de base est un jet de caca : `tir`, `impact` et `touche` sont pensés
 pour ça (un "prrt" au départ, un "squelch" à l'arrivée) — dépose tes propres
@@ -26,9 +26,17 @@ enregistrements pour aller plus loin que la synthèse WebAudio de secours.
 | `ulti-tir.ogg` | le rayon part | 100 – 250 ms |
 | `ulti-touche.ogg` | le rayon a touché | 400 – 800 ms |
 | `ulti-rate.ogg` | 1 tour et demi pour rien | 300 – 500 ms |
+| `flash.ogg` | bond instantané (touche E) | 80 – 150 ms |
+| `zone.ogg` | champ de ralentissement posé (touche Z) | 200 – 350 ms |
+| `double-kill.ogg` | 2 éliminations en moins de 10 s (voir `shared.js`) | 300 – 500 ms |
+| `triple-kill.ogg` | 3 éliminations dans la même série | 400 – 600 ms |
+| `quadra-kill.ogg` | 4 éliminations dans la même série | 500 – 800 ms |
+| `penta-kill.ogg` | 5 éliminations dans la même série — LE moment fort | 700 ms – 1,2 s |
 
 Si tu n'en enregistres que trois, prends `tir`, `mort` et `meteorite` : ce
-sont ceux qui donnent le plus de caractère au jeu.
+sont ceux qui donnent le plus de caractère au jeu. Les quatre sons de série
+partagent une règle : plus le chiffre est haut, plus le son doit être long,
+fort et « habité » — c'est ce qui vend la montée en puissance, à la LoL.
 
 ## Formats acceptés
 

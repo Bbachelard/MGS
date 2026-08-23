@@ -42,6 +42,7 @@ import {
   degatsDe,
   TICK_MS,
   MONDE,
+  FENETRE_MULTIKILL,
 } from "../public/shared.js";
 
 const RACINE = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -356,6 +357,42 @@ try {
   h.ws.close();
   k.ws.close();
   await attendre(150);
+
+  console.log("\nBots (réseau)");
+
+  const m = joueur("Solo", "bots-net");
+  await m.pret;
+  await attendre(250);
+
+  verifier("seul dans son salon au départ", m.dernier.joueurs.length === 1);
+
+  m.ws.send(JSON.stringify({ t: "bot", action: "ajouter", difficulte: "difficile" }));
+  await attendre(250);
+  verifier("un bot ajouté apparaît dans le snapshot", m.dernier.joueurs.length === 2);
+
+  const botLigne = m.dernier.joueurs.find((j) => j.i !== m.init.moi);
+  verifier("le bot porte le drapeau ia", botLigne?.ia === 1, JSON.stringify(botLigne));
+
+  m.ws.send(JSON.stringify({ t: "bot", action: "ajouter", difficulte: "nimportequoi" }));
+  await attendre(250);
+  verifier(
+    "une difficulté inconnue retombe sur un bot quand même (moyen par défaut)",
+    m.dernier.joueurs.length === 3
+  );
+
+  m.ws.send(JSON.stringify({ t: "bot", action: "retirer" }));
+  await attendre(250);
+  verifier("retirer un bot le fait disparaître du snapshot", m.dernier.joueurs.length === 2);
+
+  m.ws.close();
+  await attendre(300);
+
+  const santeBots = await (await fetch(`${BASE}/sante`)).json();
+  verifier(
+    "la salle avec un humain parti se vide aussi de ses bots",
+    !santeBots.salons.some((s) => s.nom === "bots-net"),
+    JSON.stringify(santeBots.salons)
+  );
 
   console.log("\nCombat — tir, dégâts et cadence");
 
@@ -861,6 +898,143 @@ try {
 
     verifier("un mur arrête le rayon", abri.morts === 0 && lanceur.kills === 0);
     verifier("et l'ulti est perdue", salle.gel === null);
+  }
+
+  console.log("\nBots (hors réseau)");
+
+  {
+    const salle = salleDeTest();
+    const humain = poser(salle, "Humain", 100, 100);
+
+    const b1 = salle.ajouterBot("facile");
+    const b2 = salle.ajouterBot("difficile");
+
+    verifier("un bot est bien un joueur de la salle", salle.joueurs.size === 3);
+    verifier("nbBots compte les bots, pas l'humain", salle.nbBots() === 2);
+    verifier("nbJoueursReels ignore les bots", salle.nbJoueursReels() === 1);
+    verifier("la difficulté est mémorisée", b1.difficulte === "facile" && b2.difficulte === "difficile");
+    verifier("un bot porte bot === true", b1.bot === true && b2.bot === true);
+    verifier("un vrai joueur porte bot === false", humain.bot === false);
+    verifier("noms de bots distincts", b1.nom !== b2.nom);
+
+    const inconnu = salle.ajouterBot("n'importe quoi");
+    verifier("une difficulté invalide retombe sur 'moyen'", inconnu.difficulte === "moyen");
+
+    for (let i = 0; i < 30; i++) salle.ajouterBot("moyen");
+    verifier("un plafond empêche d'ajouter des bots à l'infini", salle.nbBots() <= 16, "nbBots=" + salle.nbBots());
+
+    const avant = salle.nbBots();
+    const retire = salle.retirerBot();
+    verifier("retirerBot() enlève un bot", retire !== null && salle.nbBots() === avant - 1);
+
+    let videAppele = false;
+    salle.quandVide = () => { videAppele = true; };
+    salle.depart(humain.id);
+    verifier(
+      "le départ du dernier humain vide la salle même s'il reste des bots",
+      videAppele && salle.joueurs.size === 0,
+      "joueurs restants=" + salle.joueurs.size
+    );
+  }
+
+  {
+    // Un bot doit être CAPABLE de tuer : mannequin d'entraînement immobile,
+    // à portée de tir directe, sur les trois difficultés.
+    for (const dif of ["facile", "moyen", "difficile"]) {
+      const salle = salleDeTest();
+      const cible = poser(salle, "Cible", 500, 500);
+      const bot = salle.ajouterBot(dif);
+      bot.x = 650;
+      bot.y = 500;
+      bot.invuln = 0;
+
+      let n = 0;
+      while (cible.morts === 0 && n < 20 * 60) { // 60 s simulées au maximum
+        salle.pas();
+        n++;
+      }
+
+      verifier(
+        `un bot ${dif} finit par éliminer un mannequin immobile`,
+        cible.morts === 1,
+        `en ${(n * TICK_MS / 1000).toFixed(1)} s`
+      );
+    }
+  }
+
+  console.log("\nSéries de kills (multikill)");
+
+  {
+    const salle = salleDeTest();
+    // (550, 550), rayon 150 : vérifié à la main contre MURS (aucun des cinq
+    // points ni le trajet du missile ne touche un mur — voir shared.js).
+    const tireur = poser(salle, "A", 550, 550);
+
+    // Cinq victimes disposées en cercle, chacune assez loin pour que le
+    // missile ne dépasse jamais sa cible en un seul pas (voir avancerMissile).
+    const points = [0, 1, 2, 3, 4].map((i) => {
+      const a = (i / 5) * Math.PI * 2;
+      return { x: 550 + Math.cos(a) * 150, y: 550 + Math.sin(a) * 150, a };
+    });
+
+    const evenementsMultikill = [];
+    const vraiDiffuser = salle.diffuser.bind(salle);
+    salle.diffuser = () => {
+      for (const e of salle.evenements) if (e.t === "multikill") evenementsMultikill.push({ ...e });
+      vraiDiffuser();
+    };
+
+    let seq = 0;
+    for (const p of points) {
+      const victime = poser(salle, "V", p.x, p.y);
+      victime.pv = DEGATS_MISSILE; // un seul missile suffit
+      tireur.rechargeTir = 0;
+
+      let n = 0;
+      while (victime.morts === 0 && n < 40) {
+        // Comme un joueur qui maintient le tir : une commande par tick, tant
+        // que la victime n'est pas éliminée.
+        salle.message(tireur, JSON.stringify({ t: "cmd", seq: ++seq, dt: 0, c: null, a: p.a, f: true }));
+        salle.pas();
+        n++;
+      }
+      verifier(`la victime à ${Math.round((p.a * 180) / Math.PI)}° est éliminée`, victime.morts === 1);
+    }
+
+    verifier("cinq éliminations rapprochées comptent une série de 5", tireur.serieKills === 5);
+    verifier(
+      "les paliers 2, 3, 4 et 5 sont annoncés, dans l'ordre",
+      evenementsMultikill.map((e) => e.n).join(",") === "2,3,4,5",
+      JSON.stringify(evenementsMultikill.map((e) => e.n))
+    );
+    verifier(
+      "les noms correspondent à LoL/Call of Duty",
+      evenementsMultikill.map((e) => e.label).join(",") ===
+        "Double Kill,Triple Kill,Quadra Kill,Penta Kill"
+    );
+    verifier("aucun événement pour la toute première élimination (n=1)", !evenementsMultikill.some((e) => e.n === 1));
+
+    // Laisser passer la fenêtre : la série suivante doit repartir de 1, sans
+    // qu'il soit nécessaire de mourir entre-temps (c'est le point qui
+    // distingue le Multikill du Killing Spree — voir shared.js).
+    const ticksHorsFenetre = Math.ceil((FENETRE_MULTIKILL + 1) / (TICK_MS / 1000));
+    for (let i = 0; i < ticksHorsFenetre; i++) salle.pas();
+
+    const derniere = poser(salle, "Dernière", points[0].x, points[0].y);
+    derniere.pv = DEGATS_MISSILE;
+    tireur.rechargeTir = 0;
+
+    let n = 0;
+    while (derniere.morts === 0 && n < 40) {
+      salle.message(tireur, JSON.stringify({ t: "cmd", seq: ++seq, dt: 0, c: null, a: points[0].a, f: true }));
+      salle.pas();
+      n++;
+    }
+    verifier(
+      "hors de la fenêtre, la série repart à 1 (le kill précédent ne compte plus)",
+      tireur.serieKills === 1,
+      "serieKills=" + tireur.serieKills
+    );
   }
 
   console.log("\nDéconnexion");

@@ -206,6 +206,71 @@
     font-size: 12px; line-height: 1.8; pointer-events: none;
     text-shadow: 0 1px 3px rgba(0,0,0,.9);
   }
+
+  /* --- reprise de la souris après Échap (voir client.js, verrouillage du curseur) --- */
+  #repriseSouris {
+    position: fixed; inset: 0; z-index: 15; display: grid; place-items: center;
+    background: rgba(10,10,14,.5); cursor: pointer; text-align: center; padding: 20px;
+  }
+  #repriseSouris span {
+    background: rgba(29,29,36,.92); border: 1px solid var(--bord); border-radius: 10px;
+    padding: 14px 20px; font-size: 14px; font-weight: 600; color: var(--texte);
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+  #repriseSouris small { display: block; margin-top: 4px; font-weight: 500; color: var(--texte-doux); }
+
+  /* --- bannière de série de kills (Double/Triple/Quadra/Penta) --- */
+  #banniereSerie {
+    position: fixed; top: 22%; left: 50%; z-index: 8;
+    font-size: 30px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+    text-shadow: 0 2px 12px rgba(0,0,0,.6), 0 0 26px var(--couleurSerie, var(--accent));
+    color: #fff; pointer-events: none; white-space: nowrap;
+    transform: translate(-50%, -50%) scale(.4); opacity: 0;
+  }
+  #banniereSerie.jouer { animation: serieAnim 1.7s cubic-bezier(.2,1.4,.4,1) forwards; }
+  @keyframes serieAnim {
+    0%   { transform: translate(-50%, -50%) scale(.4); opacity: 0; }
+    14%  { transform: translate(-50%, -50%) scale(1.12); opacity: 1; }
+    22%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    78%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(.94); opacity: 0; }
+  }
+
+  /* --- bloc bots : écran d'accueil et panneau de réglages --- */
+  .blocBots { margin-top: 16px; text-align: left; }
+  .blocBots .titrePerso { margin: 0 0 8px; }
+  .ligneBots { display: flex; gap: 8px; align-items: center; }
+  .ligneBots select {
+    flex: 1; padding: 9px 10px; font-size: 13px; background: #121218; color: var(--texte);
+    border: 1px solid var(--bord); border-radius: 8px;
+  }
+  .compteurBots { display: flex; align-items: center; gap: 8px; }
+  .compteurBots button {
+    width: 30px; height: 30px; border-radius: 7px; cursor: pointer; font-size: 15px; font-weight: 700;
+    background: #16161d; color: var(--texte); border: 1px solid var(--bord); line-height: 1;
+  }
+  .compteurBots button:hover { border-color: var(--accent-clair); }
+  .compteurBots span { min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; font-size: 13px; }
+
+  .ligneReglage {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 9px 0; border-top: 1px solid #26262f; margin-top: 12px; font-size: 13px;
+  }
+  .ligneBotsPanneau { display: flex; gap: 8px; margin-top: 8px; }
+  .ligneBotsPanneau select { flex: 1; }
+  .ligneBotsPanneau button {
+    padding: 8px 10px; cursor: pointer; border-radius: 8px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--bord); background: #16161d; color: var(--texte);
+  }
+  .ligneBotsPanneau button:hover { border-color: var(--accent-clair); }
+  #compteBots { font-size: 12px; color: var(--texte-doux); margin-top: 6px; }
+
+  /* --- étiquette "bot" dans le tableau des scores --- */
+  #tableau td.nom .etiquetteBot {
+    display: inline-block; margin-left: 4px; font-size: 9px; font-weight: 700;
+    color: var(--texte-doux); border: 1px solid var(--bord); border-radius: 3px;
+    padding: 0 3px; vertical-align: middle;
+  }
 </style>
 </head>
 <body>
@@ -233,6 +298,12 @@
 </div>
 
 <div id="fil"></div>
+
+<div id="banniereSerie"></div>
+
+<div id="repriseSouris" hidden>
+  <span>Clique pour reprendre<small>la souris est libre — Échap l'a relâchée</small></span>
+</div>
 
 <div id="tableau" hidden>
   <table>
@@ -271,6 +342,22 @@
 
     <div class="titrePerso">Personnage</div>
     <div id="choixPerso"></div>
+
+    <div class="blocBots">
+      <div class="titrePerso">Bots à ajouter en entrant</div>
+      <div class="ligneBots">
+        <select id="difficulteBots">
+          <option value="facile">Facile</option>
+          <option value="moyen" selected>Moyen</option>
+          <option value="difficile">Difficile</option>
+        </select>
+        <div class="compteurBots">
+          <button type="button" id="botsMoins" aria-label="Moins de bots">−</button>
+          <span id="botsCompte">0</span>
+          <button type="button" id="botsPlus" aria-label="Plus de bots">+</button>
+        </div>
+      </div>
+    </div>
 
     <button id="jouer" type="button">Entrer dans l'arène</button>
 
@@ -331,6 +418,25 @@
     <div class="ligneSensibilite">
       <div class="entete"><span>Sensibilité de la souris</span><span id="sensibiliteValeur">1.0×</span></div>
       <input type="range" id="sensibilite" min="0.3" max="3" step="0.1" value="1" />
+    </div>
+
+    <div class="ligneReglage">
+      <span>Annonces de série de kills<br /><small style="color:var(--texte-doux)">bannière + son sur Double/Triple/Quadra/Penta Kill</small></span>
+      <input type="checkbox" id="annoncesSerie" checked />
+    </div>
+
+    <div class="ligneReglage" style="border-top:none; margin-top:6px; padding-top:0; display:block;">
+      <span>Bots dans ce salon</span>
+      <div class="ligneBotsPanneau">
+        <select id="difficulteBotsPanneau">
+          <option value="facile">Facile</option>
+          <option value="moyen" selected>Moyen</option>
+          <option value="difficile">Difficile</option>
+        </select>
+        <button type="button" id="ajouterBotPanneau">+ Ajouter</button>
+        <button type="button" id="retirerBotPanneau">− Retirer</button>
+      </div>
+      <div id="compteBots">0 bot dans ce salon</div>
     </div>
 
     <div class="actions">

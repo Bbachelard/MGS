@@ -295,6 +295,24 @@ export function positionDeRespawn(occupants = []) {
   return positionDeDepart();
 }
 
+// --- séries de kills (multikill façon LoL / Call of Duty) ----------------
+// Plusieurs éliminations à l'intérieur de cette fenêtre glissante comptent
+// comme une série — MOURIR ENTRE DEUX NE LA RÉINITIALISE PAS, seul le temps
+// écoulé depuis la dernière élimination compte. C'est le Multikill de League
+// of Legends, pas le « Killing Spree » (qui, lui, se coupe à la mort).
+//
+// Seuils et noms se modifient ICI, et nulle part ailleurs : la sonorité vit
+// dans public/sons.js (SONS_SERIE), l'animation dans public/client.js
+// (COULEURS_SERIE). Rien au-delà de 5 n'est nommé : la série continue de
+// compter en silence, comme un Penta Kill répété.
+export const FENETRE_MULTIKILL = 10; // s entre deux éliminations pour rester dans la série
+export const NOMS_SERIE = {
+  2: "Double Kill",
+  3: "Triple Kill",
+  4: "Quadra Kill",
+  5: "Penta Kill",
+};
+
 /**
  * Y a-t-il un mur entre deux points ?
  * Échantillonnage simple : 24 points le long du segment. C'est approximatif

@@ -59,6 +59,19 @@ const jauges    = document.getElementById("jauges");
 const arme      = document.getElementById("arme");
 const panneau   = document.getElementById("panneau");
 const restePalier = document.getElementById("restePalier");
+const banniereSerie = document.getElementById("banniereSerie");
+const repriseSouris = document.getElementById("repriseSouris");
+
+// --- bots ------------------------------------------------------------------
+const difficulteBots   = document.getElementById("difficulteBots");
+const botsCompteEl     = document.getElementById("botsCompte");
+const botsMoins        = document.getElementById("botsMoins");
+const botsPlus         = document.getElementById("botsPlus");
+const difficulteBotsPanneau = document.getElementById("difficulteBotsPanneau");
+const ajouterBotPanneau     = document.getElementById("ajouterBotPanneau");
+const retirerBotPanneau     = document.getElementById("retirerBotPanneau");
+const compteBotsEl          = document.getElementById("compteBots");
+const annoncesSerieCase     = document.getElementById("annoncesSerie");
 
 // --- réglages (panneau) ---------------------------------------------------
 const boutonReglages  = document.getElementById("boutonReglages");
@@ -96,8 +109,19 @@ let gel         = null;            // pause temporelle en cours (ou null)
 let moiServeur  = null;            // ma ligne dans le dernier snapshot
 let persoChoisi = "defaut";
 let dernierScore = 0;
+let dernierSnapshotJoueurs = []; // le dernier msg.joueurs reçu — sert au compte de bots (panneau ⚙)
 
 const RETARD = 100; // ms — de combien on affiche les autres dans le passé
+
+// Couleur et son de chaque palier de série de kills — le SEUIL et le LIBELLÉ,
+// eux, viennent du serveur (voir FENETRE_MULTIKILL et NOMS_SERIE dans
+// shared.js) : ici, seulement de quoi les habiller à l'écran et à l'oreille.
+const SERIES_KILL = {
+  2: { son: "double-kill", couleur: "#38bdf8" },
+  3: { son: "triple-kill", couleur: "#c084fc" },
+  4: { son: "quadra-kill", couleur: "#fb923c" },
+  5: { son: "penta-kill",  couleur: "#f472b6" },
+};
 
 // Le curseur affiché à l'écran n'est PAS le pointeur du système (il est
 // caché par le CSS, `cursor: none`) : c'est un viseur virtuel, déplacé par
@@ -162,8 +186,24 @@ function sauverSensibilite() {
   try { localStorage.setItem("arene-sensibilite", String(sensibilite)); } catch { /* navigation privée */ }
 }
 
+// La bannière et le son de série de kills se coupent indépendamment du son
+// général : certains joueurs aiment le jeu mais trouvent l'annonce criarde.
+function chargerAnnoncesSerie() {
+  try {
+    const brut = localStorage.getItem("arene-annonces-serie");
+    return brut === null ? true : brut === "1"; // activé par défaut
+  } catch {
+    return true;
+  }
+}
+
+function sauverAnnoncesSerie() {
+  try { localStorage.setItem("arene-annonces-serie", annoncesSerie ? "1" : "0"); } catch { /* navigation privée */ }
+}
+
 let touches     = chargerTouches();
 let sensibilite = chargerSensibilite();
+let annoncesSerie = chargerAnnoncesSerie();
 
 /** Le nom lisible d'une touche (`e.code`), pour l'afficher dans le HUD. */
 function labelTouche(code) {
@@ -261,6 +301,48 @@ addEventListener("mouseup", (e) => {
 // rien à faire là, pour ne pas interrompre une partie sur un clic maladroit.
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
+/* ==========================================================================
+   Verrouillage du curseur (Pointer Lock)
+
+   Avant ceci, le curseur SYSTÈME restait libre (juste invisible via
+   `cursor: none`) : rien n'empêchait de sortir de l'iframe, voire de
+   l'écran, pendant qu'on jouait. Le viseur virtuel, lui, reste bloqué aux
+   bords du canvas (voir mousemove plus haut) — les deux se désynchronisent
+   alors complètement, avec des sauts de visée dès qu'on rentre. Verrouiller
+   le curseur sur le canvas règle les deux à la fois : la souris SYSTÈME ne
+   peut plus sortir du jeu, et seul Échap (comportement du navigateur, pas du
+   code ci-dessous) la libère.
+
+   Les navigateurs sans Pointer Lock (rare) continuent de fonctionner
+   exactement comme avant : `canvas.requestPointerLock` est alors absent, et
+   chaque appel est protégé par `?.()`.
+   ========================================================================== */
+
+function verrouille() {
+  return document.pointerLockElement === canvas;
+}
+
+function majEtatVerrouillage() {
+  // Le bouton ⚙ suppose un vrai curseur cliquable : verrouillé, un clic
+  // dessus ne peut plus arriver (la souris système ne bouge plus). On le
+  // masque plutôt que de laisser un bouton mort à l'écran — Échap reste,
+  // dans tous les cas, le seul chemin documenté vers les réglages en jeu.
+  boutonReglages.hidden = verrouille();
+
+  // La reprise ne s'affiche qu'en pleine partie : ni sur l'écran d'accueil
+  // (pas encore de verrou à reprendre), ni par-dessus le panneau de
+  // réglages (déjà ouvert, déjà une façon de « reprendre la main »).
+  const doitAfficher = !verrouille() && accueil.hidden && reglages.hidden;
+  repriseSouris.hidden = !doitAfficher;
+}
+
+document.addEventListener("pointerlockchange", majEtatVerrouillage);
+document.addEventListener("pointerlockerror", majEtatVerrouillage);
+
+repriseSouris.addEventListener("click", () => {
+  canvas.requestPointerLock?.().catch(() => {});
+});
+
 // Tactile : un doigt vise, tire, ET déplace (pas de clavier sur mobile).
 canvas.addEventListener("touchstart", (e) => {
   const t = e.touches[0];
@@ -292,6 +374,46 @@ function demanderFlash() {
   // Même principe : le serveur vérifie seul la recharge et calcule
   // l'arrivée. Le client ne fait que demander.
   envoyer({ t: "flash" });
+}
+
+/* ==========================================================================
+   Bots — n'importe quel joueur peut en ajouter dans le salon où il se trouve
+   ou en retirer ; le serveur décide seul du plafond et du comportement
+   (voir server/salle.js). Le client ne fait que demander.
+   ========================================================================== */
+
+function ajouterBot(difficulte) {
+  envoyer({ t: "bot", action: "ajouter", difficulte });
+}
+
+function retirerBot() {
+  envoyer({ t: "bot", action: "retirer" });
+}
+
+// Compte les bots à ajouter dès l'entrée dans l'arène, choisi avant de
+// cliquer sur « Entrer dans l'arène ».
+let botsAEnvoyer = 0;
+const BOTS_MAX_ACCUEIL = 5;
+
+function majBotsCompteAccueil() {
+  botsCompteEl.textContent = String(botsAEnvoyer);
+}
+botsMoins.addEventListener("click", () => {
+  botsAEnvoyer = Math.max(0, botsAEnvoyer - 1);
+  majBotsCompteAccueil();
+});
+botsPlus.addEventListener("click", () => {
+  botsAEnvoyer = Math.min(BOTS_MAX_ACCUEIL, botsAEnvoyer + 1);
+  majBotsCompteAccueil();
+});
+
+// Panneau de réglages, en jeu : ajouter/retirer un bot à la volée.
+ajouterBotPanneau.addEventListener("click", () => ajouterBot(difficulteBotsPanneau.value));
+retirerBotPanneau.addEventListener("click", () => retirerBot());
+
+function majCompteBots() {
+  const n = dernierSnapshotJoueurs.filter((j) => j.ia).length;
+  compteBotsEl.textContent = n <= 1 ? `${n} bot dans ce salon` : `${n} bots dans ce salon`;
 }
 
 function demanderZone() {
@@ -369,13 +491,23 @@ function ouvrirReglages() {
   majBoutonsTouches();
   sensibiliteRange.value = sensibilite;
   sensibiliteValeur.textContent = sensibilite.toFixed(1) + "×";
+  annoncesSerieCase.checked = annoncesSerie;
+  majCompteBots();
   reglages.hidden = false;
+  majEtatVerrouillage();
 }
 
 function fermerLeReglages() {
   reglages.hidden = true;
   annulerEcoute();
   sensibiliteRange.blur();
+  // On était en jeu (pas sur l'écran d'accueil) : la souris redevient
+  // capturée, comme avant l'ouverture du panneau. Un clic bouton — donc un
+  // geste utilisateur — juste avant, c'est ce qui autorise le navigateur à
+  // reverrouiller le curseur ici. Si le navigateur refuse (cooldown juste
+  // après un Échap), la bannière de reprise prend le relais.
+  if (accueil.hidden) canvas.requestPointerLock?.().catch(() => {});
+  majEtatVerrouillage();
 }
 
 boutonReglages.addEventListener("click", ouvrirReglages);
@@ -390,12 +522,20 @@ reinitReglages.addEventListener("click", () => {
   majBoutonsTouches();
   sensibiliteRange.value = 1;
   sensibiliteValeur.textContent = "1.0×";
+  annoncesSerie = true;
+  sauverAnnoncesSerie();
+  annoncesSerieCase.checked = true;
 });
 
 sensibiliteRange.addEventListener("input", () => {
   sensibilite = Number(sensibiliteRange.value) || 1;
   sensibiliteValeur.textContent = sensibilite.toFixed(1) + "×";
   sauverSensibilite();
+});
+
+annoncesSerieCase.addEventListener("change", () => {
+  annoncesSerie = annoncesSerieCase.checked;
+  sauverAnnoncesSerie();
 });
 
 /* ==========================================================================
@@ -465,6 +605,11 @@ function connecter(nom) {
       hud.hidden = false;
       tableau.hidden = false;
       jauges.hidden = false;
+
+      // Les bots choisis avant d'entrer : une demande par bot, comme le
+      // ferait un clic répété sur « + Ajouter » du panneau de réglages.
+      for (let i = 0; i < botsAEnvoyer; i++) ajouterBot(difficulteBots.value);
+
       requestAnimationFrame(boucle);
 
     } else if (msg.t === "etat") {
@@ -476,6 +621,7 @@ function connecter(nom) {
       derniersBoucliers = msg.bo || [];
       meteorites = msg.mt || [];
       zones = msg.zo || [];
+      dernierSnapshotJoueurs = msg.joueurs;
       reconcilier(msg.joueurs);
       if (msg.ev) traiterEvenements(msg.ev);
 
@@ -483,6 +629,7 @@ function connecter(nom) {
       document.getElementById("tick").textContent = msg.tick;
       majJauges();
       majTableau(msg.joueurs);
+      if (!reglages.hidden) majCompteBots();
 
     } else if (msg.t === "pong") {
       ping = Date.now() - msg.t0;
@@ -641,6 +788,23 @@ function traiterEvenements(evenements) {
         ajouterAuFil(`⏸ ${e.nom} fige le temps`, "#9b83ff");
         break;
 
+      // Double/Triple/Quadra/Penta Kill — le serveur a déjà décidé du seuil
+      // et du libellé (voir FENETRE_MULTIKILL et NOMS_SERIE dans shared.js) :
+      // le client ne fait qu'annoncer. Visible par TOUT LE MONDE dans le fil
+      // (comme un vrai FPS compétitif), mais la grosse bannière + le son ne
+      // jouent que pour l'auteur de la série, et seulement si l'annonce n'a
+      // pas été coupée dans les réglages.
+      case "multikill": {
+        const infoSerie = SERIES_KILL[e.n];
+        ajouterAuFil(`🔥 ${e.nom} : ${e.label}`, infoSerie ? infoSerie.couleur : "#fbbf24");
+        if (annoncesSerie) {
+          const volume = e.sur === monId ? 1 : volumeSelonDistance(e.x, e.y) * 0.6;
+          sons.jouer(infoSerie ? infoSerie.son : "kill", volume);
+          if (e.sur === monId) afficherBanniereSerie(e.label, infoSerie?.couleur);
+        }
+        break;
+      }
+
       case "mort": {
         const jeMeurs = e.victime === monId;
         const jeTue = e.tueur === monId;
@@ -672,6 +836,24 @@ function ajouterAuFil(texte, couleur) {
 
   while (fil.childElementCount > 6) fil.lastElementChild.remove();
   setTimeout(() => ligne.remove(), 6000);
+}
+
+let banniereMinuteur = null;
+
+/** La grande bannière "DOUBLE KILL" etc., façon LoL/Overwatch — nous seul la voyons. */
+function afficherBanniereSerie(texte, couleur) {
+  banniereSerie.style.setProperty("--couleurSerie", couleur || "#7c5cff");
+  banniereSerie.textContent = texte;
+
+  // Redémarrer l'animation CSS si une bannière est déjà en train de jouer
+  // (série qui s'enchaîne vite) : retirer la classe, forcer un reflow, la
+  // remettre — sinon le navigateur ignore la ré-application immédiate.
+  banniereSerie.classList.remove("jouer");
+  void banniereSerie.offsetWidth;
+  banniereSerie.classList.add("jouer");
+
+  clearTimeout(banniereMinuteur);
+  banniereMinuteur = setTimeout(() => banniereSerie.classList.remove("jouer"), 1700);
 }
 
 /* ==========================================================================
@@ -756,7 +938,14 @@ function majTableau(joueurs) {
 
     ligne.querySelector(".pastille").style.background = j.c;
     // textContent, jamais innerHTML : le pseudo vient d'un autre joueur.
-    ligne.querySelector(".nom").textContent = j.n;
+    const celluleNom = ligne.querySelector(".nom");
+    celluleNom.textContent = j.n;
+    if (j.ia) {
+      const etiquette = document.createElement("span");
+      etiquette.className = "etiquetteBot";
+      etiquette.textContent = "BOT";
+      celluleNom.append(etiquette);
+    }
 
     corpsScore.append(ligne);
   }
@@ -942,6 +1131,12 @@ async function preparerPersos() {
 async function lancer() {
   const nom = (champNom.value || "").trim() || "Joueur" + Math.floor(Math.random() * 900 + 100);
   document.getElementById("jouer").disabled = true;
+
+  // Verrouiller le curseur DANS LE MÊME geste utilisateur que le clic — sinon
+  // certains navigateurs refusent la demande. C'est ce qui empêche la souris
+  // de sortir de l'écran du jeu : une fois verrouillée, seule la touche
+  // Échap (gérée nativement par le navigateur) peut la libérer.
+  canvas.requestPointerLock?.().catch(() => {});
 
   // Le navigateur n'autorise le son qu'après un geste de l'utilisateur : ce
   // clic est le bon moment, et le seul.

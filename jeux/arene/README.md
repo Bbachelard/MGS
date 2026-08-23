@@ -53,7 +53,7 @@ jeux/arene/                     ← ne part PAS dans apache/site/
 │   ├── perso/                  tes personnages (+ gabarit.png et son README)
 │   ├── decor/                  meteorite.png, à remplacer (voir son README)
 │   └── sons/                   tes enregistrements (voir son README)
-├── test/arene.test.js          111 contrôles, `npm test`
+├── test/arene.test.js          143 contrôles, `npm test`
 ├── apache/mgs-arene.conf       le ProxyPass à inclure dans le vhost
 └── docker/service-arene.yml    le bloc à coller dans docker-compose.yml
 
@@ -127,6 +127,15 @@ caché (`cursor: none`) — mais un viseur virtuel déplacé par les mouvements
 rend ce réglage réel : avec un curseur absolu, un simple facteur d'échelle
 sur la position ne changerait rien à l'angle de visée.
 
+**Le curseur système, lui, est verrouillé sur le jeu** (Pointer Lock API),
+depuis le clic sur « Entrer dans l'arène ». Avant ça, rien n'empêchait la
+souris réelle de sortir du canvas — voire de l'écran — pendant que le viseur
+virtuel restait bloqué aux bords : les deux se désynchronisaient, avec des
+sauts de visée au retour. Verrouillée, la souris système ne peut plus sortir
+du jeu, et **seule la touche `Échap`** (comportement du navigateur, pas du
+code du jeu) la libère — ce qui, très pratiquement, ouvre aussi le panneau de
+réglages (voir `client.js`, `keydown`). Fermer le panneau la reverrouille.
+
 Tout se règle en un seul endroit : le bloc `COMBAT` de `public/shared.js`. Le
 client reçoit ces valeurs dans le message `init` plutôt que de les redéclarer,
 donc rééquilibrer le jeu ne demande pas de toucher au HUD.
@@ -164,6 +173,28 @@ chaudes), la traînée s'allonge avec la cadence (teintes froides). On voit donc
 
 Les dégâts sont **figés au départ du missile** : améliorer son arme n'augmente
 pas les tirs déjà en vol.
+
+### Séries de kills (multikill)
+
+Plusieurs éliminations rapprochées comptent une série — **Double Kill**,
+**Triple Kill**, **Quadra Kill**, **Penta Kill** — annoncée par une bannière
+et une sonorité, comme dans League of Legends ou Overwatch. C'est le
+**Multikill**, pas le « Killing Spree » : seul le temps écoulé depuis la
+DERNIÈRE élimination compte (10 s par défaut), **mourir entre deux ne coupe
+pas la série**. Rien n'est nommé au-delà de 5 : la série continue de compter
+en silence, comme un Penta répété.
+
+Le fil des éliminations affiche la série à **tout le monde** (« 🔥 *Nom* :
+Triple Kill »), mais la grande bannière à l'écran et le son associé ne jouent
+que pour l'auteur du multikill, et seulement si l'annonce n'a pas été coupée
+dans le panneau ⚙ (case « Annonces de série de kills »).
+
+Tout se règle en un seul endroit : le bloc dédié de `public/shared.js`
+(`FENETRE_MULTIKILL`, la fenêtre en secondes, et `NOMS_SERIE`, les seuils et
+libellés). La sonorité de chaque palier vit dans `public/sons.js`
+(`double-kill`, `triple-kill`, `quadra-kill`, `penta-kill`) et se remplace
+exactement comme les quinze autres sons du jeu — dépose un fichier dans
+`public/sons/` du même nom (voir son README).
 
 ### Les boucliers
 
@@ -275,6 +306,45 @@ des placeholders assumés : écrase leurs fichiers, rien d'autre à changer.
 
 ---
 
+## Les bots
+
+N'importe quel joueur peut ajouter des bots dans le salon où il se trouve —
+avant d'entrer (écran d'accueil : difficulté + un compteur 0 à 5) ou en
+pleine partie (panneau ⚙, section « Bots dans ce salon »). Trois difficultés :
+
+| | Facile | Moyen | Difficile |
+|---|---|---|---|
+| Précision de visée | large, hésitante | correcte | quasi parfaite |
+| Réaction | lente (~0,7 s) | moyenne (~0,4 s) | rapide (~0,17 s) |
+| Flash pour fuir | jamais | oui, sous 35 % PV | oui, sous 40 % PV |
+| Zone de ralentissement | jamais | parfois | tactique |
+| Pause temporelle (ulti) | jamais | jamais | oui, timing calculé |
+
+Un bot est un joueur ordinaire aux yeux du reste du code : mêmes PV, mêmes
+dégâts, même arme qui progresse, mêmes séries de kills — le serveur ne fait
+aucune différence entre un bot et un humain une fois la commande du tick
+poussée dans sa file (`server/salle.js`, `piloterBot()`). C'est ce qui
+garantit qu'un bot suit exactement les mêmes règles que tout le monde, sans
+code de combat dupliqué.
+
+Détails d'implémentation :
+
+- **Cible** : le joueur visible le plus proche (`ligneDeVue()`, déjà utilisée
+  ailleurs dans `shared.js`), recalculée toutes les `decisionMs`.
+- **Visée** : un bruit aléatoire *différent à chaque tick* — jamais un
+  décalage constant, trop lisible — dont l'amplitude dépend de la difficulté;
+  le bot ne tire que quand ce bruit retombe sous le seuil.
+- **Plafond** : 16 bots par salon (`MAX_BOTS_PAR_SALLE`), indépendant du
+  plafond de 32 joueurs (`server/index.js`).
+- **Salle qui se vide** : une salle ne vit que pour de VRAIS joueurs — si le
+  dernier humain part, la salle se ferme même s'il reste des bots, plutôt que
+  de les laisser se battre seuls indéfiniment (`depart()` compte
+  `nbJoueursReels()`, pas `joueurs.size`).
+- **Nom et pseudo** : seize noms tirés d'une liste (`Bot Nova`, `Bot Titan`…),
+  jamais de doublon dans un même salon. Le snapshot marque chaque bot d'un
+  champ `ia: 1`, affiché comme une étiquette « BOT » dans le tableau des
+  scores et un 🤖 devant le pseudo en jeu.
+
 ## Lancer en local
 
 ```bash
@@ -285,7 +355,7 @@ node server/index.js        # http://localhost:8080
 Deux onglets sur cette adresse = deux joueurs qui se voient bouger.
 
 ```bash
-npm test                    # 111 contrôles, ~8 s, aucune dépendance
+npm test                    # 143 contrôles, ~8 s, aucune dépendance
 ```
 
 Les tests font deux choses. D'abord ils démarrent le vrai serveur et s'y
@@ -471,6 +541,7 @@ Le serveur nettoie quand même le pseudo (balises, guillemets, sauts de ligne,
 | `dt` accepté | 0 à 0,1 s |
 | File de commandes par joueur | 60, le surplus est jeté |
 | Joueurs par salle | 32 |
+| Bots par salle | 16, indépendant du plafond de 32 |
 | Salles simultanées | 20 |
 | Connexions totales | 200 |
 | Message WebSocket | 256 Ko, au-delà : fermeture |
