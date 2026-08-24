@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <polygon points="50,4 60,26 82,14 72,36 96,40 74,50 92,68 68,62 70,86 52,70 38,92 32,68 10,76 22,54 2,44 26,38 14,16 40,26"
+        fill="#f5e042" stroke="#1f1f1f" stroke-width="3" stroke-linejoin="round"/>
+  <text x="50" y="60" font-family="Arial, sans-serif" font-size="22" font-weight="bold"
+        text-anchor="middle" fill="#e0393e">BOOM</text>
+</svg>

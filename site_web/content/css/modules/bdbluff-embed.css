@@ -1,0 +1,173 @@
+/* ============================================================
+   BDBLUFF — la page qui héberge le jeu (game/bdbluff/)
+   ------------------------------------------------------------
+   Ce module n'est PAS tiré par un @import : game/bdbluff/index.php
+   le passe directement à mgs_head(), qui lui ajoute le « ?v= ».
+   Une seule page l'utilise, inutile de le charger partout.
+
+   Les variables (--accent, --card-bg, --border…) viennent de
+   modules/base.css, chargé par stylesheet.css. Les couleurs en dur
+   ci-dessous reprennent celles d'arene-embed.css pour rester
+   cohérent entre les deux jeux du site.
+   ============================================================ */
+
+.bdbluff-page {
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 28px 20px 48px;
+}
+
+/* --- En-tête --- */
+
+.bdbluff-fil {
+    margin: 0 0 6px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #9292a3;
+}
+
+.bdbluff-fil a {
+    color: #9292a3;
+    text-decoration: none;
+}
+
+.bdbluff-fil a:hover {
+    color: #fff;
+}
+
+.bdbluff-titre {
+    margin: 0 0 8px;
+    font-size: 28px;
+    color: #fff;
+}
+
+.bdbluff-resume {
+    margin: 0 0 22px;
+    max-width: 640px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #c9c9d4;
+}
+
+/* --- Le cadre du jeu ---
+   Contrairement à l'Arène (16/9 pur), l'écran de BDBluff a un panneau de
+   chat à côté du plateau : une hauteur généreuse sert mieux le jeu qu'un
+   ratio fixe, l'app à l'intérieur gère elle-même son responsive. */
+
+.bdbluff-cadre {
+    position: relative;
+    height: min(78vh, 760px);
+    min-height: 480px;
+    width: 100%;
+    overflow: hidden;
+
+    border: 1px solid rgba(124, 92, 255, 0.28);
+    border-radius: 12px;
+    background: #121218;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.bdbluff-iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+}
+
+/* --- Note sous le jeu --- */
+
+.bdbluff-note {
+    margin: 14px 0 0;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #9292a3;
+}
+
+.bdbluff-lien {
+    color: #9b83ff;
+    text-decoration: none;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.bdbluff-lien:hover {
+    text-decoration: underline;
+}
+
+/* --- Jeu pas encore déployé --- */
+
+.bdbluff-indispo {
+    padding: 28px;
+    border: 1px dashed #45455a;
+    border-radius: 12px;
+    background: #1d1d24;
+    color: #c9c9d4;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.bdbluff-indispo p {
+    margin: 0 0 10px;
+}
+
+.bdbluff-indispo p:last-child {
+    margin-bottom: 0;
+}
+
+.bdbluff-indispo code {
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(124, 92, 255, 0.14);
+    color: #b7a4ff;
+    font-size: 13px;
+}
+
+/* --- Bandeau d'informations --- */
+
+.bdbluff-infos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-top: 26px;
+}
+
+.bdbluff-info {
+    padding: 12px 14px;
+    border: 1px solid #363641;
+    border-radius: 9px;
+    background: #1d1d24;
+    text-align: center;
+}
+
+.bdbluff-info .info-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #9292a3;
+}
+
+.bdbluff-info .info-value {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+}
+
+/* --- Mobile --- */
+
+@media (max-width: 720px) {
+    .bdbluff-page {
+        padding: 20px 14px 36px;
+    }
+
+    .bdbluff-cadre {
+        height: 82vh;
+        min-height: 420px;
+        border-radius: 8px;
+    }
+}

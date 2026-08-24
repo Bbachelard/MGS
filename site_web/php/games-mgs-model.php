@@ -109,6 +109,27 @@ function mgs_group_games(): array
             'auteur'      => 'MGS',
         ],
 
+        /* ------------------------- BDBluff ------------------------- */
+        [
+            'slug'        => 'bdbluff',
+            'nom'         => 'BDBluff',
+            'type'        => 'web',
+            'url'         => '/game/bdbluff/',
+            'resume'      => "Une BD à plusieurs mains : un joueur ne connaît pas le thème.",
+            'description' => "3 à 6 joueurs dessinent chacun une case pour raconter une "
+                           . "histoire — sauf un, l'imposteur, qui doit improviser sa case "
+                           . "sans connaître le thème secret. À la révélation : chat ouvert "
+                           . "et vote pour le démasquer, avec une dernière chance s'il se "
+                           . "fait prendre. Stickers ou dessin libre, rien à installer.",
+            'image'       => null,
+            'plateformes' => ['Navigateur'],
+            'joueurs'     => '3 à 6, en ligne',
+            'version'     => 'v0.1',
+            'poids'       => '',
+            'statut'      => 'disponible',
+            'auteur'      => 'MGS',
+        ],
+
         /* ---------- EXEMPLE : téléchargement, pas encore sorti ---------- */
         [
             'slug'        => 'exemple-dungeon',
