@@ -153,11 +153,35 @@ WebSocket, comme le ferait un navigateur.
 Même recette que l'Arène :
 
 1. Coller le bloc de `docker/service-bdbluff.yml` dans le
-   `docker-compose.yml` du VPS, à côté du service `arene`.
+   `docker-compose.yml` du VPS, à côté du service `arene`, **avec un bloc
+   `networks: [web]`** (sans ça Apache ne résout pas le nom `bdbluff` —
+   même piège que pour l'Arène, cf. le commentaire "AJOUT" du service
+   `arene`).
 2. Monter `apache/mgs-bdbluff.conf` dans
-   `/etc/apache2/conf-enabled/mgs-bdbluff.conf` (voir les commentaires du
-   fichier — modules `proxy_wstunnel` déjà activés pour l'Arène, rien de
-   plus à faire côté Apache).
+   `/etc/apache2/conf-enabled/mgs-bdbluff.conf`, en l'ajoutant aux
+   `volumes:` du service `apache` du `docker-compose.yml` (voir les
+   commentaires du fichier — modules `proxy_wstunnel` déjà activés pour
+   l'Arène, rien de plus à faire côté Apache).
 3. Renseigner `MGS_BDBLUFF_URL` en tête de
-   `site_web/game/bdbluff/index.php`.
-4. `docker compose up -d bdbluff && docker compose restart apache`.
+   `site_web/game/bdbluff/index.php` (`/bd` suffit si le proxy est en
+   chemin, comme ci-dessus — pas besoin de sous-domaine).
+4. `docker compose up -d bdbluff apache` — `up -d`, pas `restart`, la
+   toute première fois : c'est ce qui crée `bdbluff` et fait relire à
+   Apache son nouveau `docker-compose.yml` (nouveau volume monté).
+
+**Attention au conteneur Apache : ne PAS le forcer à se recréer en
+routine.** Si le VPS a un reverse-proxy externe devant Apache (nginx géré
+par ISPConfig, par exemple — ce n'est pas ce dépôt qui le gère) qui
+référence le conteneur Apache **par son nom** (`proxy_pass
+http://apache:80`), ce reverse-proxy résout ce nom en adresse IP **une
+seule fois**, au démarrage, et la garde en cache. Recréer le conteneur
+Apache (`docker compose up -d --force-recreate`, ou tout changement de
+`docker-compose.yml` qui force une recréation) lui donne une **nouvelle**
+IP interne, que le reverse-proxy ignore tant qu'il n'a pas été relancé
+lui-même — symptôme : un 502 Bad Gateway sur tout le site, avec
+`connect() failed (111: Connection refused)` vers l'ancienne IP dans ses
+logs. Le déploiement de routine (`update-mgs.sh`) doit donc se contenter
+d'un `docker compose restart apache arene bdbluff` (qui ne change jamais
+l'IP d'un conteneur) ; un `up -d --force-recreate` ne doit être utilisé
+qu'à la main, pour appliquer un changement de `docker-compose.yml` — et
+dans ce cas, penser à relancer aussi le reverse-proxy externe juste après.
