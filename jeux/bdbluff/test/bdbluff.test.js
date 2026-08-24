@@ -116,6 +116,11 @@ function ajouterJoueurs(salon, noms) {
   return noms.map((nom) => salon.arrivee(fausseConnexion(), nom, ""));
 }
 
+/** Fait avancer tous les tours de mise en route à la main, jusqu'au dessin privé. */
+function passerMiseEnRoute(salon) {
+  while (salon.phase === PHASES.MISE_EN_ROUTE) salon._demarrerTourMiseEnRoute();
+}
+
 /* ==========================================================================
    1. Fonctions pures de shared.js
    ========================================================================== */
@@ -298,7 +303,7 @@ console.log("\nLancement de la partie");
   const hoteJoueur = joueurs.find((j) => j.id === salon.hoteId());
   salon._surLancer(hoteJoueur);
 
-  verifier("3 joueurs -> la manche démarre", salon.phase === PHASES.DESSIN);
+  verifier("3 joueurs -> la mise en route démarre (pas directement le dessin)", salon.phase === PHASES.MISE_EN_ROUTE);
   verifier("le bon nombre de cases est réparti", salon.proprietaires.length === salon.reglages.cases);
 
   const imposteur = joueurs.find((j) => j.id === salon.idImposteur);
@@ -307,9 +312,53 @@ console.log("\nLancement de la partie");
   const msgInnocent = dernierMessage(innocent.co, "debutManche");
   verifier("l'imposteur ne reçoit aucun thème", msgImposteur.theme === null);
   verifier("un innocent reçoit le vrai thème", typeof msgInnocent.theme === "string" && msgInnocent.theme.length > 0);
+
+  passerMiseEnRoute(salon);
+  verifier("après la mise en route, la phase de dessin démarre", salon.phase === PHASES.DESSIN);
+  const debutDessin = dernierMessage(imposteur.co, "debutDessin");
   verifier(
-    "chacun connaît la liste de ses propres cases",
-    msgImposteur.casesDeMoi.every((i) => salon.proprietaires[i] === imposteur.id)
+    "chacun connaît la liste de ses propres cases (message debutDessin)",
+    debutDessin.casesDeMoi.every((i) => salon.proprietaires[i] === imposteur.id)
+  );
+}
+
+console.log("\nMise en route (premier trait, à tour de rôle, sous les yeux de tous)");
+{
+  const salon = nouveauSalon();
+  const joueurs = ajouterJoueurs(salon, ["Ana", "Bo", "Cy"]);
+  const hoteJoueur = joueurs.find((j) => j.id === salon.hoteId());
+  salon._surLancer(hoteJoueur);
+
+  verifier("le tour commence à la case 0", salon._tourMiseEnRouteIndex === 0);
+  const proprietaireCase0 = salon.proprietaires[0];
+  const tourInitial = dernierMessage(joueurs[0].co, "tourMiseEnRoute");
+  verifier("tout le monde est informé de qui a la main", tourInitial.index === 0 && tourInitial.proprietaire === proprietaireCase0);
+
+  const acteur = joueurs.find((j) => j.id === proprietaireCase0);
+  const spectateur = joueurs.find((j) => j.id !== proprietaireCase0);
+  const traitValide = { couleur: "#1f1f1f", epaisseur: 4, points: [[5, 5], [15, 15]] };
+
+  salon._surCases(spectateur, { contenus: [{ index: 0, traits: [traitValide], stickers: [] }] });
+  verifier("un spectateur ne peut pas dessiner sur la case active", salon.contenusCases[0].traits.length === 0);
+
+  salon._surCases(acteur, { contenus: [{ index: 0, traits: [traitValide], stickers: [] }] });
+  verifier("l'acteur du tour peut dessiner sur SA case active", salon.contenusCases[0].traits.length === 1);
+  verifier(
+    "sa mise à jour est diffusée en direct à tout le monde",
+    dernierMessage(spectateur.co, "miseEnRouteMaj")?.index === 0
+  );
+
+  // Même l'imposteur a son tour, comme convenu — jamais de tour "sauté".
+  const idsOrdonnes = salon._idsOrdonnes();
+  const tousLesProprietaires = new Set(salon.proprietaires);
+  verifier("l'imposteur possède au moins une case (donc aura son tour)", tousLesProprietaires.has(salon.idImposteur));
+
+  // Avancer jusqu'à la fin du tour de mise en route.
+  for (let i = 0; i < salon.proprietaires.length; i++) salon._demarrerTourMiseEnRoute();
+  verifier("après la dernière case, on passe au dessin privé", salon.phase === PHASES.DESSIN);
+  verifier(
+    "le premier trait posé en mise en route est conservé pour le dessin",
+    salon.contenusCases[0].traits.length === 1
   );
 }
 
@@ -319,6 +368,7 @@ console.log("\nSoumission des cases pendant le dessin");
   const joueurs = ajouterJoueurs(salon, ["Ana", "Bo", "Cy"]);
   const hoteJoueur = joueurs.find((j) => j.id === salon.hoteId());
   salon._surLancer(hoteJoueur);
+  passerMiseEnRoute(salon);
 
   const auteur = joueurs.find((j) => casesDe(j.id, salon.proprietaires).length > 0);
   const monIndex = casesDe(auteur.id, salon.proprietaires)[0];
@@ -342,6 +392,7 @@ console.log("\nRévélation");
   const joueurs = ajouterJoueurs(salon, ["Ana", "Bo", "Cy"]);
   const hoteJoueur = joueurs.find((j) => j.id === salon.hoteId());
   salon._surLancer(hoteJoueur);
+  passerMiseEnRoute(salon);
   salon._finDessin();
 
   verifier("la phase passe à révélation", salon.phase === PHASES.REVELATION);
@@ -355,6 +406,7 @@ console.log("\nVote");
   const joueurs = ajouterJoueurs(salon, ["Ana", "Bo", "Cy"]);
   const hoteJoueur = joueurs.find((j) => j.id === salon.hoteId());
   salon._surLancer(hoteJoueur);
+  passerMiseEnRoute(salon);
   salon._finDessin();
   salon._debutVote();
 

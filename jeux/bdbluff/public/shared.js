@@ -23,6 +23,14 @@ export const TEMPS_PAR_CASE_MIN = 20; // secondes
 export const TEMPS_PAR_CASE_MAX = 90;
 export const TEMPS_PAR_CASE_DEFAUT = 45;
 
+// Tour de mise en route : chaque case, dans l'ordre, a droit à ce temps pour
+// un premier trait, sous les yeux de tout le monde, avant la vraie phase de
+// dessin privée. Un seul réglage pour toutes les cases (pas un temps qui
+// grandit case après case : plus simple à afficher et à comprendre).
+export const TEMPS_MISE_EN_ROUTE_MIN = 8; // secondes
+export const TEMPS_MISE_EN_ROUTE_MAX = 40;
+export const TEMPS_MISE_EN_ROUTE_DEFAUT = 15;
+
 export const MANCHES_MIN = 1;
 export const MANCHES_MAX = 5;
 export const MANCHES_DEFAUT = 3;
@@ -137,6 +145,7 @@ export const CATEGORIES_THEME = Object.freeze({
 
 export const PHASES = Object.freeze({
   LOBBY: "lobby",
+  MISE_EN_ROUTE: "mise_en_route",
   DESSIN: "dessin",
   REVELATION: "revelation",
   VOTE: "vote",
@@ -160,6 +169,10 @@ export function bornerCases(v) {
 
 export function bornerTempsParCase(v) {
   return bornerEntier(v, TEMPS_PAR_CASE_MIN, TEMPS_PAR_CASE_MAX, TEMPS_PAR_CASE_DEFAUT);
+}
+
+export function bornerTempsMiseEnRoute(v) {
+  return bornerEntier(v, TEMPS_MISE_EN_ROUTE_MIN, TEMPS_MISE_EN_ROUTE_MAX, TEMPS_MISE_EN_ROUTE_DEFAUT);
 }
 
 export function bornerManches(v) {
