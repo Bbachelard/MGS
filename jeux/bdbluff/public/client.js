@@ -43,6 +43,8 @@ let miseEnRouteIndexActif = -1;
 let chatReplie = false;
 let messagesNonLus = 0;
 
+let hardDeverrouille = false; // la catégorie Hard a déjà été débloquée pour ce salon
+
 const ECRANS = {
   accueil: "ecran-accueil",
   lobby: "ecran-lobby",
@@ -212,6 +214,9 @@ function surMessageServeur(evt) {
     case "erreur":
       surErreur(msg);
       break;
+    case "erreurReglages":
+      surErreurReglages(msg);
+      break;
     default:
       break;
   }
@@ -288,6 +293,12 @@ function peuplerLobby(msg) {
     el("reg-manches-val").textContent = msg.reglages.manches;
     el("cat-familial").checked = msg.reglages.categories.includes(CATEGORIES_THEME.FAMILIAL);
     el("cat-soiree").checked = msg.reglages.categories.includes(CATEGORIES_THEME.SOIREE);
+    el("cat-hard").checked = msg.reglages.categories.includes(CATEGORIES_THEME.HARD);
+    hardDeverrouille = msg.hardDeverrouille === true;
+    // Le champ mot de passe ne sert que pour LA demande de déverrouillage :
+    // une fois "hard" accepté par le serveur (dans msg.reglages.categories
+    // ou hardDeverrouille), plus besoin de le montrer.
+    el("ligne-mdp-hard").hidden = !el("cat-hard").checked || hardDeverrouille;
     el("bouton-lancer").disabled = msg.joueurs.length < JOUEURS_MIN;
   }
 }
@@ -302,7 +313,9 @@ const envoyerReglages = debounce(() => {
     categories: [
       ...(el("cat-familial").checked ? [CATEGORIES_THEME.FAMILIAL] : []),
       ...(el("cat-soiree").checked ? [CATEGORIES_THEME.SOIREE] : []),
+      ...(el("cat-hard").checked ? [CATEGORIES_THEME.HARD] : []),
     ],
+    motDePasseHard: el("mdp-hard").value,
   });
 }, 150);
 
@@ -443,6 +456,14 @@ function surErreur(msg) {
   el("erreur-accueil").textContent = msg.message || "Une erreur est survenue.";
 }
 
+function surErreurReglages(msg) {
+  el("erreur-mdp-hard").hidden = false;
+  el("erreur-mdp-hard").textContent = msg.message || "Réglage refusé.";
+  // Le prochain message "salon" fera de toute façon retomber la case Hard
+  // à décochée (le serveur n'a pas accepté la catégorie) : pas besoin de
+  // le faire ici, juste garder le mot de passe tapé pour une nouvelle tentative.
+}
+
 /* ==========================================================================
    Entrées
    ========================================================================== */
@@ -468,17 +489,22 @@ function brancherLobby() {
     });
   });
 
-  function brancherCategorie(id, autreId) {
+  const idsCategories = ["cat-familial", "cat-soiree", "cat-hard"];
+  function brancherCategorie(id) {
     el(id).addEventListener("change", (evt) => {
-      if (!evt.target.checked && !el(autreId).checked) {
+      const plusAucuneCochee = idsCategories.every((autre) => !el(autre).checked);
+      if (plusAucuneCochee) {
         evt.target.checked = true; // au moins une catégorie doit rester active
         return;
+      }
+      if (id === "cat-hard") {
+        el("ligne-mdp-hard").hidden = !el("cat-hard").checked || hardDeverrouille;
+        el("erreur-mdp-hard").hidden = true;
       }
       envoyerReglages();
     });
   }
-  brancherCategorie("cat-familial", "cat-soiree");
-  brancherCategorie("cat-soiree", "cat-familial");
+  idsCategories.forEach(brancherCategorie);
 
   el("bouton-lancer").addEventListener("click", () => envoyer({ t: "lancer" }));
 }

@@ -127,9 +127,28 @@ temps de vote et de devinette, barème de score (`POINTS_INNOCENT`,
 salon dans le message `salon` plutôt que de les redéclarer, donc changer
 une borne ne demande pas de toucher à l'interface.
 
-Les thèmes vivent dans `public/themes.js`, en deux catégories activables
+Les thèmes vivent dans `public/themes.js`, en trois catégories activables
 par l'hôte à la création du salon — un thème est une simple phrase, sans
-format particulier à respecter.
+format particulier à respecter. La catégorie `hard` (plus trash que
+`soiree`, mais jamais de contenu sexuel explicite) est **verrouillée par
+mot de passe** : voir "Catégorie Hard" ci-dessous.
+
+### Catégorie Hard (verrouillée)
+
+Le mot de passe est lu depuis la variable d'environnement
+`BDBLUFF_MDP_HARD` (`server/index.js`) — **jamais écrit dans le dépôt**.
+Sans elle (valeur vide), la catégorie reste refusée en permanence, quel
+que soit ce qu'un client envoie : fermé par défaut, pas ouvert par défaut.
+
+Le contrôle est **côté serveur** (`server/salon.js`, `_surReglages`) : un
+client ne peut pas l'activer en trafiquant les messages WebSocket, seul
+l'hôte peut la demander et seul le mot de passe serveur compte. Une fois
+le bon mot de passe accepté, le déverrouillage est mémorisé pour tout le
+salon (`_hardDeverrouille`) — inutile de le retaper à chaque réglage
+suivant.
+
+En local (dev) : `BDBLUFF_MDP_HARD=monmotdepasse npm start`. En
+production, voir le déploiement ci-dessous.
 
 Les stickers vivent dans `public/stickers/*.svg`, catalogués dans
 `STICKERS` (`shared.js`) — voir `public/stickers/README.md` pour en
@@ -165,7 +184,11 @@ Même recette que l'Arène :
 3. Renseigner `MGS_BDBLUFF_URL` en tête de
    `site_web/game/bdbluff/index.php` (`/bd` suffit si le proxy est en
    chemin, comme ci-dessus — pas besoin de sous-domaine).
-4. `docker compose up -d bdbluff apache` — `up -d`, pas `restart`, la
+4. (Optionnel) Choisir un mot de passe pour la catégorie Hard, dans
+   `~/apache/.env` (jamais commis) :
+   `echo 'BDBLUFF_MDP_HARD=un-mot-de-passe-a-vous' >> ~/apache/.env` — sans
+   cette étape, la catégorie reste simplement verrouillée en permanence.
+5. `docker compose up -d bdbluff apache` — `up -d`, pas `restart`, la
    toute première fois : c'est ce qui crée `bdbluff` et fait relire à
    Apache son nouveau `docker-compose.yml` (nouveau volume monté).
 

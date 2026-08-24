@@ -23,6 +23,11 @@ import { JOUEURS_MAX } from "../public/shared.js";
 const PORT = Number(process.env.PORT || 8080);
 const RACINE = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
 
+// Mot de passe de la catégorie de thèmes HARD — jamais commis dans le dépôt.
+// Vide par défaut : la catégorie reste verrouillée tant que l'opérateur du
+// VPS n'a pas défini BDBLUFF_MDP_HARD (voir jeux/bdbluff/README.md).
+const MOT_DE_PASSE_HARD = process.env.BDBLUFF_MDP_HARD || "";
+
 // Garde-fous. Le VPS est petit : mieux vaut refuser proprement que ramer.
 const MAX_SALONS = 100;
 const MAX_CONNEXIONS = 200;
@@ -178,7 +183,7 @@ serveur.on("upgrade", (requete, socket) => {
   const co = accepter(requete, socket);
   if (!co) return;
 
-  const salon = salonExistant || new Salon(nomSalon, (s) => salons.delete(s.nom));
+  const salon = salonExistant || new Salon(nomSalon, (s) => salons.delete(s.nom), MOT_DE_PASSE_HARD);
   if (!salonExistant) salons.set(nomSalon, salon);
 
   salon.arrivee(co, nettoyerPseudo(url.searchParams.get("nom")), jeton);

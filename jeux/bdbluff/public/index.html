@@ -35,7 +35,7 @@
   button:disabled { opacity: .45; cursor: default; }
   button.secondaire { background: #2a2a33; color: var(--texte); }
   button.secondaire:hover { background: #34343f; }
-  input[type="text"], input:not([type]) {
+  input[type="text"], input[type="password"], input:not([type]) {
     width: 100%; padding: 10px 12px; font-size: 15px;
     background: #0e0e13; color: var(--texte);
     border: 1px solid var(--bord); border-radius: 8px; outline: none;
@@ -313,7 +313,12 @@
         <div class="categories">
           <label><input type="checkbox" id="cat-familial" checked /> Familial</label>
           <label><input type="checkbox" id="cat-soiree" /> Soirée</label>
+          <label><input type="checkbox" id="cat-hard" /> Hard 🔒</label>
         </div>
+        <div class="reglage-ligne mdp-hard" id="ligne-mdp-hard" hidden>
+          <input type="password" id="mdp-hard" placeholder="Mot de passe de la catégorie Hard" autocomplete="off" />
+        </div>
+        <p class="erreur" id="erreur-mdp-hard" hidden></p>
         <button id="bouton-lancer" disabled>Lancer la partie</button>
       </div>
       <p class="note" id="lobby-attente-hote" hidden>En attente que l'hôte règle la partie et lance…</p>

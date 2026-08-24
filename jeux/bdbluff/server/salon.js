@@ -51,9 +51,20 @@ const DUREE_GRACE_VIDE_MS = 5 * 60 * 1000;
 const CATEGORIES_VALIDES = new Set(Object.values(CATEGORIES_THEME));
 
 export class Salon {
-  constructor(nom, onVide) {
+  /**
+   * @param {string} nom
+   * @param {(salon: Salon) => void} onVide
+   * @param {string} motDePasseHard mot de passe attendu pour la catégorie
+   *   HARD, lu depuis une variable d'environnement par server/index.js —
+   *   jamais commis dans le dépôt. Vide = catégorie HARD toujours refusée
+   *   (fermé par défaut plutôt qu'ouvert si l'opérateur du VPS a oublié de
+   *   le configurer).
+   */
+  constructor(nom, onVide, motDePasseHard = "") {
     this.nom = nom;
     this.onVide = onVide;
+    this._motDePasseHard = motDePasseHard;
+    this._hardDeverrouille = false;
 
     /** @type {Map<string, object>} id -> joueur */
     this.joueurs = new Map();
@@ -222,6 +233,7 @@ export class Salon {
       joueurs,
       hote: this.hoteId(),
       reglages: this.reglages,
+      hardDeverrouille: this._hardDeverrouille,
       phase: this.phase,
       manche: this.mancheCourante,
       totalManches: this.reglages.manches,
@@ -335,8 +347,22 @@ export class Salon {
     if (msg.manches !== undefined) this.reglages.manches = bornerManches(msg.manches);
 
     if (Array.isArray(msg.categories)) {
-      const valides = [...new Set(msg.categories.filter((c) => CATEGORIES_VALIDES.has(c)))];
-      if (valides.length > 0) this.reglages.categories = valides; // jamais vide : sinon plus de thème tirable
+      let demandees = [...new Set(msg.categories.filter((c) => CATEGORIES_VALIDES.has(c)))];
+
+      // La catégorie HARD est verrouillée : il faut le bon mot de passe une
+      // fois (déverrouillage mémorisé ensuite pour tout le salon — pas
+      // besoin de le retaper à chaque réglage suivant).
+      if (demandees.includes(CATEGORIES_THEME.HARD) && !this._hardDeverrouille) {
+        const motDePasse = typeof msg.motDePasseHard === "string" ? msg.motDePasseHard : "";
+        if (this._motDePasseHard && motDePasse === this._motDePasseHard) {
+          this._hardDeverrouille = true;
+        } else {
+          demandees = demandees.filter((c) => c !== CATEGORIES_THEME.HARD);
+          this._envoyer(joueur, { t: "erreurReglages", message: "Mot de passe incorrect pour la catégorie Hard." });
+        }
+      }
+
+      if (demandees.length > 0) this.reglages.categories = demandees; // jamais vide : sinon plus de thème tirable
     }
 
     this._diffuserSalon();

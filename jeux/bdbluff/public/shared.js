@@ -137,6 +137,7 @@ export const STICKER_IDS = new Set(STICKERS.map((s) => s.id));
 export const CATEGORIES_THEME = Object.freeze({
   FAMILIAL: "familial",
   SOIREE: "soiree",
+  HARD: "hard",
 });
 
 /* --------------------------------------------------------------------------

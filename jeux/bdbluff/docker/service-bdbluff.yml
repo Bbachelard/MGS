@@ -24,6 +24,13 @@
     environment:
       - PORT=8080
       - NODE_ENV=production
+      # Mot de passe de la catégorie de thèmes "Hard" (plus trash que
+      # "Soirée") — vide = catégorie verrouillée en permanence, jamais
+      # sélectionnable. Défini dans un fichier .env À CÔTÉ de ce
+      # docker-compose.yml (donc ~/apache/.env, JAMAIS commis dans le
+      # dépôt), docker compose le substitue automatiquement ici :
+      #     echo 'BDBLUFF_MDP_HARD=un-mot-de-passe-a-vous' >> ~/apache/.env
+      - BDBLUFF_MDP_HARD=${BDBLUFF_MDP_HARD:-}
 
     # `expose` et non `ports` : le jeu n'est joignable que depuis le réseau
     # Docker, donc uniquement à travers Apache.

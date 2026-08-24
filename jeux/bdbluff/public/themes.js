@@ -82,6 +82,44 @@ export const THEMES = Object.freeze({
     "Une soirée jeux de société qui finit en bagarre",
     "Un médium qui invoque le mauvais esprit",
   ]),
+
+  // Encore plus trash que "soiree" — humour glauque, gore, tabou. Verrouillée
+  // par mot de passe côté hôte (voir CATEGORIES_THEME.HARD dans shared.js et
+  // le README) : volontairement plus corsée, mais jamais de contenu sexuel
+  // explicite ni de sous-entendu zoophile — la ligne rouge reste la même
+  // quel que soit le verrou d'accès.
+  [CATEGORIES_THEME.HARD]: Object.freeze([
+    "Un enterrement de vie de garçon qui finit aux urgences",
+    "Un chirurgien qui a un trou de mémoire en pleine opération",
+    "Une secte qui recrute pendant un enterrement",
+    "Le pire trip sous champignons de l'histoire du camping",
+    "Un cadavre qu'il faut cacher avant l'arrivée des beaux-parents",
+    "Une overdose de tequila qui finit en mariage à Vegas",
+    "Un exorcisme qui tourne à la crise cardiaque",
+    "Le pire bad trip d'un stagiaire à son premier festival",
+    "Une autopsie interrompue par une envie pressante",
+    "Un braquage de pharmacie qui dérape en overdose collective",
+    "Le croque-mort qui perd le corps avant la cérémonie",
+    "Une greffe qui tourne mal à cause d'un stagiaire distrait",
+    "Le pire retour de soirée à trois heures du matin",
+    "Un enterrement qui se transforme en règlement de comptes familial",
+    "Une overdose de médicaments périmés trouvés chez mamie",
+    "Le tatouage raté qui finit à l'hôpital",
+    "Une intoxication alimentaire en plein mariage",
+    "Le pire cauchemar d'un dealer pris en flagrant délit",
+    "Une résurrection ratée qui tourne au film de zombies",
+    "Le corps retrouvé dans le coffre le lendemain d'une fête",
+    "Une overdose de laxatifs glissés dans le gâteau d'anniversaire",
+    "Le pire lendemain de veille après un enterrement de vie de jeune fille",
+    "Une crise de manque en pleine réunion de famille",
+    "Le cadavre qui refuse de rentrer dans le sac mortuaire",
+    "Une overdose collective pendant un rave clandestin",
+    "Le pire malaise pendant une autopsie filmée en direct",
+    "Une girafe qui prend de la drogue et se retrouve sur Mars",
+    "Le pire coma éthylique de l'histoire du camping",
+    "Une secte qui organise un sacrifice raté",
+    "Le pire souvenir de garde à vue un lendemain de fête",
+  ]),
 });
 
 /**

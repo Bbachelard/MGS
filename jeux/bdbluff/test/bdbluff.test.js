@@ -108,8 +108,8 @@ function dernierMessage(co, type) {
  * seront jamais laissés assez longtemps pour se déclencher), d'où l'appel à
  * `arreterBoucle()` en fin de bloc pour ne rien laisser traîner.
  */
-function nouveauSalon(nom = "test") {
-  return new Salon(nom, () => {});
+function nouveauSalon(nom = "test", motDePasseHard = "") {
+  return new Salon(nom, () => {}, motDePasseHard);
 }
 
 function ajouterJoueurs(salon, noms) {
@@ -279,6 +279,42 @@ console.log("\nRéglages (hôte uniquement)");
 
   salon._surReglages(hote, { categories: [] });
   verifier("vider les catégories est ignoré (au moins une doit rester active)", salon.reglages.categories.length > 0);
+}
+
+console.log("\nCatégorie Hard verrouillée par mot de passe");
+{
+  // Aucun mot de passe configuré sur ce salon (comme un VPS où la variable
+  // d'environnement n'a jamais été définie) : Hard doit rester injoignable
+  // quel que soit ce qu'on envoie.
+  const salonSansMdp = nouveauSalon("test", "");
+  const [hoteSansMdp] = ajouterJoueurs(salonSansMdp, ["Hote", "Autre"]);
+  salonSansMdp._surReglages(hoteSansMdp, { categories: [CATEGORIES_THEME.HARD], motDePasseHard: "nimportequoi" });
+  verifier(
+    "sans mot de passe configuré, Hard reste toujours refusé",
+    !salonSansMdp.reglages.categories.includes(CATEGORIES_THEME.HARD) && salonSansMdp._hardDeverrouille === false
+  );
+
+  const salon = nouveauSalon("test", "sesame");
+  const [hote] = ajouterJoueurs(salon, ["Hote", "Autre"]);
+
+  salon._surReglages(hote, { categories: [CATEGORIES_THEME.HARD], motDePasseHard: "mauvais" });
+  verifier("mauvais mot de passe -> Hard refusé", !salon.reglages.categories.includes(CATEGORIES_THEME.HARD));
+  verifier("mauvais mot de passe -> pas déverrouillé", salon._hardDeverrouille === false);
+  verifier("mauvais mot de passe -> l'hôte reçoit un message d'erreur", dernierMessage(hote.co, "erreurReglages") !== undefined);
+
+  salon._surReglages(hote, { categories: [CATEGORIES_THEME.HARD], motDePasseHard: "sesame" });
+  verifier("bon mot de passe -> Hard accepté", salon.reglages.categories.includes(CATEGORIES_THEME.HARD));
+  verifier("bon mot de passe -> déverrouillé pour le salon", salon._hardDeverrouille === true);
+
+  // Un réglage suivant qui renvoie Hard SANS le mot de passe (ex. l'hôte
+  // bouge un curseur, envoyerReglages() renvoie toutes les catégories
+  // cochées) ne doit pas faire perdre Hard : le déverrouillage est
+  // mémorisé pour tout le salon, pas redemandé à chaque message.
+  salon._surReglages(hote, { manches: 2, categories: [CATEGORIES_THEME.HARD], motDePasseHard: "" });
+  verifier(
+    "le déverrouillage reste acquis sans avoir à retaper le mot de passe",
+    salon.reglages.categories.includes(CATEGORIES_THEME.HARD) && salon.reglages.manches === 2
+  );
 }
 
 console.log("\nExclusion en lobby");
