@@ -7,7 +7,7 @@
 //  vers les bonnes fonctions d'affichage.
 // ============================================================================
 
-import { PHASES, JOUEURS_MIN, CATEGORIES_THEME } from "./shared.js";
+import { PHASES, JOUEURS_MIN, CATEGORIES_THEME, CASE_LARGEUR, CASE_HAUTEUR } from "./shared.js";
 import { initEditeurDessin, chargerCases, tousLesContenus } from "./dessin.js";
 import * as rendu from "./rendu.js";
 
@@ -23,7 +23,25 @@ let dernierPseudo = "";
 let ecranActuel = "accueil";
 let dernierSalonState = { hote: null, joueurs: [] };
 let joueursParId = new Map();
-let imagesStickersPlanche = null;
+
+// Chargé en parallèle du reste dès le démarrage ; `imagesStickersPromise` se
+// résout une seule fois, `imagesStickers` (sa valeur) sert aux gestionnaires
+// d'évènements synchrones (clic sur une vignette) une fois le chargement fini
+// — largement le cas avant qu'une vraie manche ne commence.
+const imagesStickersPromise = rendu.chargerImagesStickers();
+let imagesStickers = null;
+imagesStickersPromise.then((images) => {
+  imagesStickers = images;
+});
+
+let themeCourant = null; // null = je suis l'imposteur
+
+// Tour de mise en route en cours.
+let miseEnRoutePlanche = [];
+let miseEnRouteIndexActif = -1;
+
+let chatReplie = false;
+let messagesNonLus = 0;
 
 const ECRANS = {
   accueil: "ecran-accueil",
@@ -31,6 +49,16 @@ const ECRANS = {
   jeu: "ecran-jeu",
   "partie-finie": "ecran-partie-finie",
 };
+
+const TOUTES_ZONES = [
+  "zone-vignettes",
+  "zone-spectateur",
+  "zone-dessin",
+  "zone-planche",
+  "zone-vote",
+  "zone-devinette",
+  "zone-resultat-manche",
+];
 
 /* ==========================================================================
    Aides
@@ -59,14 +87,43 @@ function afficherEcran(nom) {
   }
 }
 
-function masquerToutesLesZones() {
-  ["zone-dessin", "zone-planche", "zone-vote", "zone-devinette", "zone-resultat-manche"].forEach((id) => {
-    el(id).hidden = true;
-  });
+/** @param {string[]} sauf zones à laisser telles quelles (ex. la planche pendant le vote) */
+function masquerToutesLesZones(sauf = []) {
+  for (const id of TOUTES_ZONES) {
+    if (!sauf.includes(id)) el(id).hidden = true;
+  }
 }
 
 function envoyer(objet) {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(objet));
+}
+
+function afficherAstuceTheme() {
+  const astuce = el("astuce-theme");
+  astuce.innerHTML = "";
+  if (themeCourant) {
+    astuce.append("Thème : ");
+    const fort = document.createElement("strong");
+    fort.textContent = themeCourant;
+    astuce.appendChild(fort);
+  } else {
+    astuce.textContent = "Tu es l'imposteur : personne ne doit s'en douter. Improvise !";
+  }
+}
+
+function dessinerSpectateur(contenu) {
+  const canvas = el("canvas-spectateur");
+  rendu.dessinerContenu(canvas.getContext("2d"), contenu || { traits: [], stickers: [] }, imagesStickers, {
+    largeur: CASE_LARGEUR,
+    hauteur: CASE_HAUTEUR,
+  });
+}
+
+function redessinerVignettes() {
+  rendu.afficherVignettes(el("vignettes-liste"), miseEnRoutePlanche, joueursParId, imagesStickers, miseEnRouteIndexActif, (index) => {
+    const item = miseEnRoutePlanche.find((c) => c.index === index);
+    if (item) rendu.ouvrirLoupe(item.contenu, imagesStickers, joueursParId.get(item.proprietaire)?.pseudo || "?");
+  });
 }
 
 /* ==========================================================================
@@ -116,6 +173,15 @@ function surMessageServeur(evt) {
     case "debutManche":
       surDebutManche(msg);
       break;
+    case "tourMiseEnRoute":
+      surTourMiseEnRoute(msg);
+      break;
+    case "miseEnRouteMaj":
+      surMiseEnRouteMaj(msg);
+      break;
+    case "debutDessin":
+      surDebutDessin(msg);
+      break;
     case "revelation":
       surRevelation(msg);
       break;
@@ -138,7 +204,7 @@ function surMessageServeur(evt) {
       surResultatPartie(msg);
       break;
     case "chat":
-      rendu.ajouterMessageChat(el("messages-chat"), msg);
+      surChat(msg);
       break;
     case "exclu":
       surExclu();
@@ -214,6 +280,8 @@ function peuplerLobby(msg) {
   if (estHote) {
     el("reg-cases").value = msg.reglages.cases;
     el("reg-cases-val").textContent = msg.reglages.cases;
+    el("reg-mise-en-route").value = msg.reglages.tempsMiseEnRoute;
+    el("reg-mise-en-route-val").textContent = msg.reglages.tempsMiseEnRoute;
     el("reg-temps").value = msg.reglages.tempsParCase;
     el("reg-temps-val").textContent = msg.reglages.tempsParCase;
     el("reg-manches").value = msg.reglages.manches;
@@ -228,6 +296,7 @@ const envoyerReglages = debounce(() => {
   envoyer({
     t: "reglages",
     cases: Number(el("reg-cases").value),
+    tempsMiseEnRoute: Number(el("reg-mise-en-route").value),
     tempsParCase: Number(el("reg-temps").value),
     manches: Number(el("reg-manches").value),
     categories: [
@@ -241,22 +310,46 @@ const envoyerCases = debounce(() => envoyer({ t: "cases", contenus: tousLesConte
 
 function surDebutManche(msg) {
   afficherEcran("jeu");
+  el("jeu-manche").textContent = `Manche ${msg.manche}/${msg.totalManches}`;
+  themeCourant = msg.theme;
+}
+
+function surTourMiseEnRoute(msg) {
+  afficherEcran("jeu");
+  miseEnRoutePlanche = msg.planche;
+  miseEnRouteIndexActif = msg.index;
+
+  masquerToutesLesZones();
+  el("zone-vignettes").hidden = false;
+  el("jeu-titre-phase").textContent = "Mise en route";
+  rendu.demarrerMinuteur(msg.finTour);
+  redessinerVignettes();
+
+  if (msg.proprietaire === monId) {
+    el("zone-dessin").hidden = false;
+    afficherAstuceTheme();
+    chargerCases([msg.index], []);
+  } else {
+    el("zone-spectateur").hidden = false;
+    const pseudo = joueursParId.get(msg.proprietaire)?.pseudo || "?";
+    el("spectateur-statut").textContent = `${pseudo} pose son premier trait — à toi de le regarder venir…`;
+    const item = miseEnRoutePlanche.find((c) => c.index === msg.index);
+    dessinerSpectateur(item?.contenu);
+  }
+}
+
+function surMiseEnRouteMaj(msg) {
+  const item = miseEnRoutePlanche.find((c) => c.index === msg.index);
+  if (item) item.contenu = msg.contenu;
+  if (msg.index === miseEnRouteIndexActif) dessinerSpectateur(msg.contenu);
+  redessinerVignettes();
+}
+
+function surDebutDessin(msg) {
   masquerToutesLesZones();
   el("zone-dessin").hidden = false;
   el("jeu-titre-phase").textContent = "Dessin";
-  el("jeu-manche").textContent = `Manche ${msg.manche}/${msg.totalManches}`;
-
-  const astuce = el("astuce-theme");
-  astuce.innerHTML = "";
-  if (msg.theme) {
-    astuce.append("Thème : ");
-    const fort = document.createElement("strong");
-    fort.textContent = msg.theme;
-    astuce.appendChild(fort);
-  } else {
-    astuce.textContent = "Tu es l'imposteur : personne ne doit s'en douter. Improvise !";
-  }
-
+  afficherAstuceTheme();
   rendu.demarrerMinuteur(msg.finPhase);
   chargerCases(msg.casesDeMoi, msg.contenusExistants || []);
 }
@@ -265,13 +358,15 @@ function surRevelation(msg) {
   masquerToutesLesZones();
   el("zone-planche").hidden = false;
   el("jeu-titre-phase").textContent = "Révélation";
-  const dessiner = () => rendu.afficherPlanche(el("grille-planche"), msg.planche, joueursParId, imagesStickersPlanche);
-  if (imagesStickersPlanche) dessiner();
-  else rendu.chargerImagesStickers().then((images) => { imagesStickersPlanche = images; dessiner(); });
+  rendu.afficherPlanche(el("grille-planche"), msg.planche, joueursParId, imagesStickers, (index) => {
+    const item = msg.planche.find((c) => c.index === index);
+    if (item) rendu.ouvrirLoupe(item.contenu, imagesStickers, joueursParId.get(item.proprietaire)?.pseudo || "?");
+  });
 }
 
 function surVote(msg) {
-  masquerToutesLesZones();
+  // La planche reste affichée : seule une petite fenêtre de vote flottante s'ajoute.
+  masquerToutesLesZones(["zone-planche"]);
   el("zone-vote").hidden = false;
   el("jeu-titre-phase").textContent = "Vote";
   rendu.demarrerMinuteur(msg.finPhase);
@@ -292,7 +387,7 @@ function surResultatVote(msg) {
 }
 
 function surDemandeDevinette(msg) {
-  masquerToutesLesZones();
+  masquerToutesLesZones(["zone-planche"]);
   el("zone-devinette").hidden = false;
   el("jeu-titre-phase").textContent = "Dernière chance";
   el("champ-devinette").value = "";
@@ -301,7 +396,7 @@ function surDemandeDevinette(msg) {
 }
 
 function surResultatManche(msg) {
-  masquerToutesLesZones();
+  masquerToutesLesZones(["zone-planche"]);
   el("zone-resultat-manche").hidden = false;
   el("jeu-titre-phase").textContent = "Résultats";
   rendu.arreterMinuteur();
@@ -325,6 +420,14 @@ function surResultatPartie(msg) {
   const estHote = dernierSalonState.hote === monId;
   el("bouton-rejouer").hidden = !estHote;
   el("attente-hote-fin").hidden = estHote;
+}
+
+function surChat(msg) {
+  rendu.ajouterMessageChat(el("messages-chat"), msg);
+  if (chatReplie) {
+    messagesNonLus++;
+    rendu.majBadgeChat(messagesNonLus);
+  }
 }
 
 function surExclu() {
@@ -358,7 +461,7 @@ function brancherAccueil() {
 }
 
 function brancherLobby() {
-  ["reg-cases", "reg-temps", "reg-manches"].forEach((id) => {
+  ["reg-cases", "reg-mise-en-route", "reg-temps", "reg-manches"].forEach((id) => {
     el(id).addEventListener("input", (evt) => {
       el(id + "-val").textContent = evt.target.value;
       envoyerReglages();
@@ -391,6 +494,33 @@ function brancherChat() {
   });
 }
 
+function brancherJeuEntete() {
+  el("bouton-plein-ecran").addEventListener("click", async () => {
+    try {
+      if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+      else await document.exitFullscreen();
+    } catch {
+      // Refusé (iframe sans permission, navigateur récalcitrant…) : tant pis, pas bloquant.
+    }
+  });
+
+  el("bouton-chat-toggle").addEventListener("click", () => {
+    chatReplie = !chatReplie;
+    el("ecran-jeu").classList.toggle("chat-replie", chatReplie);
+    if (!chatReplie) {
+      messagesNonLus = 0;
+      rendu.majBadgeChat(0);
+    }
+  });
+}
+
+function brancherLoupe() {
+  el("loupe-fermer").addEventListener("click", rendu.fermerLoupe);
+  el("loupe").addEventListener("click", (evt) => {
+    if (evt.target.id === "loupe") rendu.fermerLoupe();
+  });
+}
+
 function brancherDevinette() {
   el("bouton-devinette").addEventListener("click", () => {
     const texte = el("champ-devinette").value.trim();
@@ -412,6 +542,8 @@ async function demarrer() {
   brancherAccueil();
   brancherLobby();
   brancherChat();
+  brancherJeuEntete();
+  brancherLoupe();
   brancherDevinette();
   brancherRejouer();
   await initEditeurDessin({ surModification: envoyerCases });
