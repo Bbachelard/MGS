@@ -34,7 +34,7 @@ require_once __DIR__ . '/../../php/views/navbar.php';
    Laisser la chaîne vide affiche un encart d'attente au lieu d'une
    iframe cassée : pratique tant que le conteneur n'est pas en place.
 ------------------------------------------------------------------ */
-const MGS_BDBLUFF_URL = '';
+const MGS_BDBLUFF_URL = '/bd';
 
 /* Le salon par défaut si aucun n'est précisé dans l'URL du site. */
 const MGS_BDBLUFF_SALON_DEFAUT = 'principal';
