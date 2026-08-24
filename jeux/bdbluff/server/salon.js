@@ -21,6 +21,7 @@ import {
   JOUEURS_MAX,
   CASES_DEFAUT,
   TEMPS_PAR_CASE_DEFAUT,
+  TEMPS_MISE_EN_ROUTE_DEFAUT,
   MANCHES_DEFAUT,
   CATEGORIES_THEME,
   TEMPS_VOTE,
@@ -29,6 +30,7 @@ import {
   DUREE_PAUSE_RESULTATS,
   bornerCases,
   bornerTempsParCase,
+  bornerTempsMiseEnRoute,
   bornerManches,
   repartirCases,
   casesDe,
@@ -60,6 +62,7 @@ export class Salon {
     this.reglages = {
       cases: CASES_DEFAUT,
       tempsParCase: TEMPS_PAR_CASE_DEFAUT,
+      tempsMiseEnRoute: TEMPS_MISE_EN_ROUTE_DEFAUT,
       manches: MANCHES_DEFAUT,
       categories: [CATEGORIES_THEME.FAMILIAL],
     };
@@ -78,6 +81,7 @@ export class Salon {
     this.finPhase = 0;
     this._enAttenteDevinette = false;
     this._dernierResultatManche = null;
+    this._tourMiseEnRouteIndex = -1; // index de case en cours pendant PHASES.MISE_EN_ROUTE
 
     this._minuterie = null;
     this._minuterieVidage = null;
@@ -226,14 +230,35 @@ export class Salon {
 
   /** Renvoie à un joueur qui vient de se reconnecter l'état de la phase en cours. */
   _envoyerRattrapage(joueur) {
-    if (this.phase === PHASES.DESSIN) {
+    if (this.phase === PHASES.LOBBY) return; // _diffuserSalon() suffit, déjà envoyé
+
+    if (this.phase === PHASES.RESULTATS_PARTIE) {
+      this._envoyer(joueur, { t: "resultatPartie", scores: Object.fromEntries(this.scoreParJoueur) });
+      return;
+    }
+
+    // Commun à toutes les phases d'une manche : le thème (ou son absence),
+    // qui ne change pas une fois la manche lancée.
+    this._envoyer(joueur, {
+      t: "debutManche",
+      manche: this.mancheCourante,
+      totalManches: this.reglages.manches,
+      proprietaires: this.proprietaires,
+      theme: joueur.id === this.idImposteur ? null : this.theme,
+    });
+
+    if (this.phase === PHASES.MISE_EN_ROUTE) {
       this._envoyer(joueur, {
-        t: "debutManche",
-        manche: this.mancheCourante,
-        totalManches: this.reglages.manches,
-        proprietaires: this.proprietaires,
+        t: "tourMiseEnRoute",
+        index: this._tourMiseEnRouteIndex,
+        proprietaire: this.proprietaires[this._tourMiseEnRouteIndex],
+        finTour: this.finPhase,
+        planche: this._planche(),
+      });
+    } else if (this.phase === PHASES.DESSIN) {
+      this._envoyer(joueur, {
+        t: "debutDessin",
         finPhase: this.finPhase,
-        theme: joueur.id === this.idImposteur ? null : this.theme,
         casesDeMoi: casesDe(joueur.id, this.proprietaires),
         contenusExistants: casesDe(joueur.id, this.proprietaires).map((i) => ({ index: i, ...this.contenusCases[i] })),
       });
@@ -247,8 +272,6 @@ export class Salon {
       }
     } else if (this.phase === PHASES.RESULTATS_MANCHE && this._dernierResultatManche) {
       this._envoyer(joueur, this._dernierResultatManche);
-    } else if (this.phase === PHASES.RESULTATS_PARTIE) {
-      this._envoyer(joueur, { t: "resultatPartie", scores: Object.fromEntries(this.scoreParJoueur) });
     }
   }
 
@@ -308,6 +331,7 @@ export class Salon {
 
     if (msg.cases !== undefined) this.reglages.cases = bornerCases(msg.cases);
     if (msg.tempsParCase !== undefined) this.reglages.tempsParCase = bornerTempsParCase(msg.tempsParCase);
+    if (msg.tempsMiseEnRoute !== undefined) this.reglages.tempsMiseEnRoute = bornerTempsMiseEnRoute(msg.tempsMiseEnRoute);
     if (msg.manches !== undefined) this.reglages.manches = bornerManches(msg.manches);
 
     if (Array.isArray(msg.categories)) {
@@ -343,8 +367,25 @@ export class Salon {
   }
 
   _surCases(joueur, msg) {
-    if (this.phase !== PHASES.DESSIN) return;
     if (!Array.isArray(msg.contenus)) return;
+
+    // Tour de mise en route : UNE case active, son propriétaire seul peut y
+    // toucher, et — à l'inverse du dessin privé — chaque mise à jour est
+    // diffusée à tous en direct : c'est tout l'intérêt de ce tour, tout le
+    // monde regarde dessiner celui dont c'est le tour.
+    if (this.phase === PHASES.MISE_EN_ROUTE) {
+      const idx = this._tourMiseEnRouteIndex;
+      if (this.proprietaires[idx] !== joueur.id) return;
+      const item = msg.contenus.find((c) => c?.index === idx);
+      if (!item) return;
+      const contenu = { traits: item.traits, stickers: item.stickers };
+      if (!caseValide(contenu)) return;
+      this.contenusCases[idx] = contenu;
+      this._diffuserTous({ t: "miseEnRouteMaj", index: idx, contenu });
+      return;
+    }
+
+    if (this.phase !== PHASES.DESSIN) return;
 
     for (const item of msg.contenus) {
       const idx = item?.index;
@@ -421,19 +462,60 @@ export class Salon {
     this._enAttenteDevinette = false;
     this._dernierResultatManche = null;
 
-    this.phase = PHASES.DESSIN;
-    const duree = dureeDessinPhase(this.proprietaires, this.reglages.tempsParCase);
-    this.finPhase = Date.now() + duree * 1000;
-
     for (const j of this.joueurs.values()) {
       this._envoyer(j, {
         t: "debutManche",
         manche: this.mancheCourante,
         totalManches: this.reglages.manches,
         proprietaires: this.proprietaires,
-        finPhase: this.finPhase,
         theme: j.id === this.idImposteur ? null : this.theme,
+      });
+    }
+
+    this._tourMiseEnRouteIndex = -1;
+    this._demarrerTourMiseEnRoute();
+  }
+
+  /**
+   * Un tour = une case, dans l'ordre de la planche. Son propriétaire — y
+   * compris l'imposteur, à son tour comme les autres, pour ne jamais le
+   * trahir par un tour visiblement "sauté" — a `tempsMiseEnRoute` secondes
+   * pour un premier trait, sous les yeux de tous (voir _surCases). Une fois
+   * la dernière case passée, on enchaîne sur la vraie phase de dessin privée.
+   */
+  _demarrerTourMiseEnRoute() {
+    this._tourMiseEnRouteIndex++;
+    if (this._tourMiseEnRouteIndex >= this.proprietaires.length) {
+      this._demarrerDessin();
+      return;
+    }
+
+    this.phase = PHASES.MISE_EN_ROUTE;
+    const index = this._tourMiseEnRouteIndex;
+    this.finPhase = Date.now() + this.reglages.tempsMiseEnRoute * 1000;
+
+    this._diffuserTous({
+      t: "tourMiseEnRoute",
+      index,
+      proprietaire: this.proprietaires[index],
+      finTour: this.finPhase,
+      planche: this._planche(),
+    });
+
+    this._minuterie = this._planifier(() => this._demarrerTourMiseEnRoute(), this.reglages.tempsMiseEnRoute);
+  }
+
+  _demarrerDessin() {
+    this.phase = PHASES.DESSIN;
+    const duree = dureeDessinPhase(this.proprietaires, this.reglages.tempsParCase);
+    this.finPhase = Date.now() + duree * 1000;
+
+    for (const j of this.joueurs.values()) {
+      this._envoyer(j, {
+        t: "debutDessin",
+        finPhase: this.finPhase,
         casesDeMoi: casesDe(j.id, this.proprietaires),
+        contenusExistants: casesDe(j.id, this.proprietaires).map((i) => ({ index: i, ...this.contenusCases[i] })),
       });
     }
 

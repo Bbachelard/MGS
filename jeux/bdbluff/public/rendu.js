@@ -101,10 +101,11 @@ export function dessinerContenu(ctx, contenu, imagesStickers, { largeur, hauteur
  * @param {{index:number, proprietaire:string, contenu:object}[]} planche
  * @param {Map<string, {pseudo:string}>} joueursParId
  * @param {Map<string, HTMLImageElement>} imagesStickers
+ * @param {(index:number) => void} [onClic] agrandir la case cliquée
  */
-export function afficherPlanche(conteneur, planche, joueursParId, imagesStickers) {
+export function afficherPlanche(conteneur, planche, joueursParId, imagesStickers, onClic) {
   conteneur.innerHTML = "";
-  for (const { proprietaire, contenu } of planche) {
+  for (const { index, proprietaire, contenu } of planche) {
     const carte = document.createElement("div");
     carte.className = "case-planche";
 
@@ -118,9 +119,61 @@ export function afficherPlanche(conteneur, planche, joueursParId, imagesStickers
     qui.textContent = joueursParId.get(proprietaire)?.pseudo || "?";
     carte.appendChild(qui);
 
+    if (onClic) carte.addEventListener("click", () => onClic(index));
     conteneur.appendChild(carte);
     dessinerContenu(canvas.getContext("2d"), contenu, imagesStickers, { largeur: CASE_LARGEUR, hauteur: CASE_HAUTEUR });
   }
+}
+
+/* --------------------------------------------------------------------------
+   Vignettes de mise en route — le bandeau en haut de page, chacune
+   cliquable pour s'agrandir dans la loupe.
+   -------------------------------------------------------------------------- */
+
+/**
+ * @param {HTMLElement} conteneur
+ * @param {{index:number, proprietaire:string, contenu:object}[]} planche
+ * @param {Map<string, {pseudo:string}>} joueursParId
+ * @param {Map<string, HTMLImageElement>} imagesStickers
+ * @param {number} indexActif la case actuellement en train d'être dessinée
+ * @param {(index:number) => void} onOuvrir agrandir la vignette cliquée
+ */
+export function afficherVignettes(conteneur, planche, joueursParId, imagesStickers, indexActif, onOuvrir) {
+  conteneur.innerHTML = "";
+  for (const { index, proprietaire, contenu } of planche) {
+    const bouton = document.createElement("button");
+    bouton.type = "button";
+    bouton.className = "vignette" + (index === indexActif ? " active" : "");
+
+    const canvas = document.createElement("canvas");
+    canvas.width = CASE_LARGEUR;
+    canvas.height = CASE_HAUTEUR;
+    bouton.appendChild(canvas);
+
+    const etiquette = document.createElement("div");
+    etiquette.className = "etiquette";
+    etiquette.textContent = joueursParId.get(proprietaire)?.pseudo || "?";
+    bouton.appendChild(etiquette);
+
+    bouton.addEventListener("click", () => onOuvrir(index));
+    conteneur.appendChild(bouton);
+    dessinerContenu(canvas.getContext("2d"), contenu, imagesStickers, { largeur: CASE_LARGEUR, hauteur: CASE_HAUTEUR });
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Loupe — agrandir n'importe quelle case (mise en route, planche)
+   -------------------------------------------------------------------------- */
+
+export function ouvrirLoupe(contenu, imagesStickers, etiquette) {
+  const canvas = document.getElementById("loupe-canvas");
+  dessinerContenu(canvas.getContext("2d"), contenu, imagesStickers, { largeur: CASE_LARGEUR, hauteur: CASE_HAUTEUR });
+  document.getElementById("loupe-etiquette").textContent = etiquette || "";
+  document.getElementById("loupe").hidden = false;
+}
+
+export function fermerLoupe() {
+  document.getElementById("loupe").hidden = true;
 }
 
 /* --------------------------------------------------------------------------
@@ -149,6 +202,13 @@ export function ajouterMessageSysteme(conteneur, texte) {
 
 export function viderChat(conteneur) {
   conteneur.innerHTML = "";
+}
+
+/** Pastille de messages non lus sur le bouton qui replie/déplie le chat. */
+export function majBadgeChat(n) {
+  const badge = document.getElementById("badge-chat");
+  badge.textContent = String(n);
+  badge.hidden = n <= 0;
 }
 
 /* --------------------------------------------------------------------------

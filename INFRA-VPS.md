@@ -144,6 +144,10 @@ cas, penser à `sudo docker restart nginx` juste après.
    `jeux/bdbluff/README.md` pour le détail (protocole, tests, etc.).
 2. `jeux/<nom>/apache/mgs-<nom>.conf` : `ProxyPass /<prefixe>/` et
    `/<prefixe>/ws` vers `<nom>:8080`.
+2bis. **Ajouter aussi un bloc `location /<prefixe>/ws { ... }` dans
+   `~/nginx/conf.d/*.conf`** (hors dépôt Git, à faire à la main sur le
+   VPS) — sans lui, le WebSocket échoue même avec une config Apache
+   correcte. Voir l'incident 5 et le fichier complet plus bas.
 3. `jeux/<nom>/docker/service-<nom>.yml` : bloc à coller dans
    `docker-compose.yml`, avec `networks: [web]`.
 4. `site_web/game/<nom>/index.php` : page d'accueil du jeu, iframe vers
@@ -224,15 +228,82 @@ sudo docker exec bdbluff wget -qO- http://127.0.0.1:8080/sante   # direct
    servi en sous-chemin plutôt qu'à la racine d'un sous-domaine dédié.
    Toujours dériver ces URL de `location.pathname`.
 
+5. **WebSocket qui échoue même avec la bonne URL (`/bd/ws` correct,
+   toujours refusé)** : `~/nginx/conf.d/*.conf` (ISPConfig, voir
+   ci-dessous) a un bloc `location /jeu/ws { ... }` **dédié**, avec
+   `proxy_http_version 1.1;` et `proxy_set_header Upgrade
+   $http_upgrade;` / `proxy_set_header Connection "upgrade";` — sans ces
+   en-têtes réinjectés explicitement, nginx ne fait PAS passer l'upgrade
+   WebSocket, même si le `location /` générique proxifie très bien le
+   reste du trafic HTTP normal. **Chaque nouveau jeu avec un WebSocket a
+   besoin de son propre bloc `location /<prefixe>/ws { ... }`**, copié
+   sur celui de l'Arène/BDBluff ci-dessous, avec juste le chemin changé.
+   Après édition : `docker exec nginx nginx -t` (valider la syntaxe) puis
+   `docker exec nginx nginx -s reload` (recharge à chaud, pas de coupure
+   contrairement à un `docker restart`).
+
 ---
 
 ## Ce que je (Claude) n'ai jamais vu directement
 
-- La config nginx/ISPConfig elle-même (`~/nginx/conf.d/*.conf`) — je sais
-  qu'elle existe et proxifie vers `apache` par son nom, pas plus.
 - `config.php` / `smtp-config.php` (secrets, volontairement hors Git).
 - La configuration Cloudflare (DNS, règles de cache, etc.).
 
-Si un problème vient de l'une de ces trois zones, il faudra en coller le
-contenu (ou la partie pertinente) dans la conversation, comme pour le
-`docker-compose.yml` et les logs `nginx` cette fois-ci.
+Si un problème vient de l'une de ces deux zones, il faudra en coller le
+contenu (ou la partie pertinente) dans la conversation.
+
+## `~/nginx/conf.d/*.conf` (ISPConfig) — pas dans ce dépôt Git
+
+Fichier géré à la main sur le VPS (ISPConfig peut le régénérer/écraser à
+l'occasion — si un jour un jeu WebSocket redevient injoignable sans raison
+apparente après une manip dans l'interface ISPConfig, revérifier ce
+fichier en premier). Structure actuelle, pour référence :
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name my-gamers-stats.com www.my-gamers-stats.com;
+    return 301 https://my-gamers-stats.com$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name my-gamers-stats.com www.my-gamers-stats.com;
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # Un bloc par jeu WebSocket — voir l'incident 5 ci-dessus.
+    location /jeu/ws { proxy_pass http://apache:80; proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s; proxy_send_timeout 3600s; }
+
+    location /bd/ws { proxy_pass http://apache:80; proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s; proxy_send_timeout 3600s; }
+
+    # Tout le reste (le site PHP, et le trafic HTTP normal des jeux —
+    # seul le handshake WebSocket a besoin d'un bloc à part).
+    location / {
+        proxy_pass http://apache:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+    }
+}
+```
