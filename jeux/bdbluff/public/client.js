@@ -78,8 +78,13 @@ function connecterSalon(pseudo, salon) {
   dernierPseudo = pseudo;
   const jetonExistant = localStorage.getItem(cleJeton(salon)) || "";
   const protocole = location.protocol === "https:" ? "wss:" : "ws:";
+  // Chemin RELATIF à la page, pas à la racine du domaine : BDBluff est
+  // proxifié en /bd/ (contrairement à un sous-domaine dédié), donc "/ws"
+  // en dur pointerait à côté une fois derrière Apache. On garde tout
+  // jusqu'au dernier "/" de l'URL courante (ex. "/bd/") et on y ajoute "ws".
+  const base = location.pathname.replace(/[^/]*$/, "");
   const url =
-    `${protocole}//${location.host}/ws?salon=${encodeURIComponent(salon)}` +
+    `${protocole}//${location.host}${base}ws?salon=${encodeURIComponent(salon)}` +
     `&nom=${encodeURIComponent(pseudo)}&jeton=${encodeURIComponent(jetonExistant)}`;
 
   ws = new WebSocket(url);
