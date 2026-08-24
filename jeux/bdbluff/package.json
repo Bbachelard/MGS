@@ -1,0 +1,14 @@
+{
+  "name": "mgs-bdbluff",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "BDBluff — BD collaborative à l'imposteur. Node pur, aucune dépendance.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node test/bdbluff.test.js"
+  }
+}

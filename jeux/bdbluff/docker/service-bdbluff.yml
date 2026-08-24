@@ -1,0 +1,43 @@
+# ============================================================================
+#  Bloc à AJOUTER dans ~/apache/docker-compose.yml, sous `services:`,
+#  au même niveau d'indentation que les services `apache` et `arene`.
+#
+#  Pas de Dockerfile, pas de build, pas de npm install : le jeu n'a aucune
+#  dépendance, on monte le dossier dans l'image officielle de Node et on
+#  lance le script. `update-mgs.sh` recopie les fichiers et redémarre le
+#  conteneur — c'est tout le déploiement.
+# ============================================================================
+
+  bdbluff:
+    image: node:22-alpine
+    container_name: mgs-bdbluff
+    restart: unless-stopped
+
+    working_dir: /app
+    # :ro — le jeu n'écrit rien sur le disque. Toute la partie vit en
+    # mémoire (server/salon.js) ; rien n'a besoin d'être conservé entre
+    # deux redémarrages.
+    volumes:
+      - ./bdbluff:/app:ro
+    command: node server/index.js
+
+    environment:
+      - PORT=8080
+      - NODE_ENV=production
+
+    # `expose` et non `ports` : le jeu n'est joignable que depuis le réseau
+    # Docker, donc uniquement à travers Apache.
+    expose:
+      - "8080"
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/sante').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+    # Un salon tient en quelques kilooctets (pas d'images ni de sons en
+    # mémoire, contrairement à l'Arène) : la limite est large par prudence,
+    # pas parce que le jeu en a besoin.
+    mem_limit: 256m
